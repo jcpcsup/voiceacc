@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LedgerFlow Voice</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="ambient ambient-a"></div>
+      <div class="ambient ambient-b"></div>
+
+      <header class="top-bar">
+        <div class="top-search">
+          <span class="top-search-icon" data-icon="search"></span>
+          <input id="global-search-input" type="search" placeholder="Search transactions, accounts, categories, tags..." />
+        </div>
+        <div class="topbar-actions">
+          <button class="topbar-icon-button" id="topbar-mic-button" type="button" aria-label="Voice transaction">
+            <span data-icon="microphone"></span>
+          </button>
+          <button class="topbar-icon-button topbar-plus" id="topbar-add-button" type="button" aria-label="Add transaction">
+            <span>+</span>
+          </button>
+        </div>
+        <div class="global-search-results hidden" id="global-search-results"></div>
+      </header>
+
+      <main class="app-main">
+        <section class="screen screen-active" data-screen="overview">
+          <div class="hero-card">
+            <div class="hero-balance-row">
+              <div class="hero-copy">
+                <div class="hero-balance-meta">
+                  <span class="hero-balance-icon" data-icon="wallet"></span>
+                  <p class="eyebrow">Total Balance</p>
+                  <h1 id="total-balance">$0.00</h1>
+                </div>
+              </div>
+            </div>
+            <div class="hero-account-strip" id="hero-account-strip"></div>
+            <div class="hero-stats">
+              <article class="hero-stat period-card">
+                <div class="period-values period-values-singleline">
+                  <span class="period-icon" data-icon="day"></span>
+                  <div class="period-chip income-chip">
+                    <span class="inline-icon" data-icon="arrow-up"></span>
+                    <strong id="day-income">$0.00</strong>
+                  </div>
+                  <div class="period-chip expense-chip">
+                    <span class="inline-icon" data-icon="arrow-down"></span>
+                    <strong id="day-expense">$0.00</strong>
+                  </div>
+                </div>
+              </article>
+              <article class="hero-stat period-card">
+                <div class="period-values period-values-singleline">
+                  <span class="period-icon" data-icon="week"></span>
+                  <div class="period-chip income-chip">
+                    <span class="inline-icon" data-icon="arrow-up"></span>
+                    <strong id="week-income">$0.00</strong>
+                  </div>
+                  <div class="period-chip expense-chip">
+                    <span class="inline-icon" data-icon="arrow-down"></span>
+                    <strong id="week-expense">$0.00</strong>
+                  </div>
+                </div>
+              </article>
+              <article class="hero-stat period-card">
+                <div class="period-values period-values-singleline">
+                  <span class="period-icon" data-icon="month"></span>
+                  <div class="period-chip income-chip">
+                    <span class="inline-icon" data-icon="arrow-up"></span>
+                    <strong id="month-income">$0.00</strong>
+                  </div>
+                  <div class="period-chip expense-chip">
+                    <span class="inline-icon" data-icon="arrow-down"></span>
+                    <strong id="month-expense">$0.00</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <section class="content-section">
+            <div class="panel calendar-panel">
+              <div class="calendar-header">
+                <div>
+                  <p class="eyebrow">Monthly View</p>
+                  <h2>Calendar Flow</h2>
+                </div>
+                <div class="calendar-nav">
+                  <button class="icon-button" id="calendar-prev-button" type="button" aria-label="Previous month">
+                    <span data-icon="chevron-left"></span>
+                  </button>
+                  <strong id="calendar-month-label"></strong>
+                  <button class="icon-button" id="calendar-next-button" type="button" aria-label="Next month">
+                    <span data-icon="chevron-right"></span>
+                  </button>
+                </div>
+              </div>
+              <div class="calendar-weekdays">
+                <span>Sat</span>
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+              </div>
+              <div class="calendar-grid" id="overview-calendar"></div>
+            </div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Accounts</p>
+                <h2>My Accounts</h2>
+              </div>
+              <button class="ghost-button" type="button" data-open-account-modal>Add Account</button>
+            </div>
+            <div class="account-grid" id="overview-accounts"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="dictation-card">
+              <div class="dictation-icon" id="dictation-status-icon"></div>
+              <div class="dictation-body">
+                <p class="eyebrow">Voice Dictation</p>
+                <h2>Add by Dictation</h2>
+                <p class="supporting-text">
+                  Speak naturally, for example: “Spent 45 on groceries at Walmart yesterday from Cash”.
+                </p>
+                <label class="field-label" for="dictation-input">Statement</label>
+                <textarea
+                  id="dictation-input"
+                  rows="3"
+                  placeholder="Type or dictate an accounting statement..."
+                ></textarea>
+                <div class="dictation-actions">
+                  <button class="primary-button" type="button" id="listen-button">Start Listening</button>
+                  <button class="secondary-button" type="button" id="parse-button">Parse Statement</button>
+                </div>
+                <div class="example-chips" id="voice-examples"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="content-section two-column">
+            <div class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Budgets</p>
+                  <h2>Budget Snapshot</h2>
+                </div>
+                <button class="ghost-button" type="button" data-screen-target="more">Manage</button>
+              </div>
+              <div class="budget-stack" id="overview-budgets"></div>
+            </div>
+
+            <div class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Recent Activity</p>
+                  <h2>Recent Transactions</h2>
+                </div>
+                <button class="ghost-button" type="button" data-screen-target="transactions">See All</button>
+              </div>
+              <div class="transaction-list" id="overview-transactions"></div>
+            </div>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="transactions">
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Ledger</p>
+                <h2>Transactions</h2>
+              </div>
+              <button class="primary-button" type="button" id="add-transaction-button">Add Transaction</button>
+            </div>
+
+            <div class="search-panel">
+              <div class="field-group field-span-2">
+                <label class="field-label" for="search-input">Extended Search</label>
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Search payee, payer, project, tags, details, account, category..."
+                />
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-type">Type</label>
+                <select id="filter-type">
+                  <option value="all">All</option>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-account">Account</label>
+                <select id="filter-account"></select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-category">Category</label>
+                <select id="filter-category"></select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-tag">Tag</label>
+                <input id="filter-tag" type="text" placeholder="Any tag" />
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-start-date">From</label>
+                <input id="filter-start-date" type="date" />
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="filter-end-date">To</label>
+                <input id="filter-end-date" type="date" />
+              </div>
+            </div>
+
+            <div class="results-bar">
+              <p id="transaction-result-count">0 matching transactions</p>
+              <button class="ghost-button" type="button" id="clear-filters-button">Clear Filters</button>
+            </div>
+
+            <div class="transaction-list full-list" id="transaction-list"></div>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="accounts">
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Accounts</p>
+                <h2>Manage Accounts</h2>
+              </div>
+              <button class="primary-button" type="button" data-open-account-modal>New Account</button>
+            </div>
+            <div class="metric-grid" id="account-metrics"></div>
+            <div class="account-grid large-grid" id="account-list"></div>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="reports">
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Reporting</p>
+                <h2>Financial Reports</h2>
+              </div>
+            </div>
+
+            <div class="search-panel reports-panel">
+              <div class="field-group">
+                <label class="field-label" for="report-range">Date Range</label>
+                <select id="report-range">
+                  <option value="thisMonth">This Month</option>
+                  <option value="last30">Last 30 Days</option>
+                  <option value="thisQuarter">This Quarter</option>
+                  <option value="thisYear">This Year</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="report-account">Account</label>
+                <select id="report-account"></select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="report-type">Type</label>
+                <select id="report-type">
+                  <option value="all">All</option>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="metric-grid" id="report-metrics"></div>
+
+            <div class="report-grid">
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Trend</p>
+                    <h3>Cashflow Timeline</h3>
+                  </div>
+                </div>
+                <div class="chart-stack" id="timeline-chart"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Breakdown</p>
+                    <h3>Category Spend</h3>
+                  </div>
+                </div>
+                <div class="bar-list" id="category-report"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Allocation</p>
+                    <h3>Account Activity</h3>
+                  </div>
+                </div>
+                <div class="bar-list" id="account-report"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Control</p>
+                    <h3>Budget Performance</h3>
+                  </div>
+                </div>
+                <div class="budget-stack" id="report-budgets"></div>
+              </article>
+            </div>
+
+            <div class="report-grid">
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Insights</p>
+                    <h3>Projects and Tags</h3>
+                  </div>
+                </div>
+                <div class="mini-table" id="project-report"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Highlights</p>
+                    <h3>Key Notes</h3>
+                  </div>
+                </div>
+                <div class="insight-list" id="report-insights"></div>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="more">
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Workspace</p>
+                <h2>More Tools</h2>
+              </div>
+            </div>
+
+            <div class="report-grid">
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Categories</p>
+                    <h3>Budget Categories</h3>
+                  </div>
+                  <button class="ghost-button" type="button" id="add-category-button">Add Category</button>
+                </div>
+                <div class="category-list" id="category-list"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">CSV</p>
+                    <h3>Import and Export</h3>
+                  </div>
+                </div>
+                <div class="tool-stack">
+                  <button class="primary-button" type="button" id="export-transactions-button">
+                    Export Transactions CSV
+                  </button>
+                  <button class="secondary-button" type="button" id="export-accounts-button">
+                    Export Accounts CSV
+                  </button>
+                  <button class="secondary-button" type="button" id="export-categories-button">
+                    Export Categories CSV
+                  </button>
+                  <button class="ghost-button" type="button" id="open-import-button">Import CSV</button>
+                </div>
+                <p class="supporting-text">
+                  Import data into transactions, accounts, or categories using clean CSV headers.
+                </p>
+              </article>
+            </div>
+
+            <div class="report-grid">
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Manual Input</p>
+                    <h3>Capture Requirements</h3>
+                  </div>
+                </div>
+                <div class="chip-grid" id="capture-fields"></div>
+              </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Voice Guide</p>
+                    <h3>Dictation Examples</h3>
+                  </div>
+                </div>
+                <div class="example-list" id="more-examples"></div>
+              </article>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Primary navigation">
+        <button class="nav-item nav-item-active" type="button" data-screen-target="overview">
+          <span class="nav-icon" data-icon="overview"></span>
+          <span>Overview</span>
+        </button>
+        <button class="nav-item" type="button" data-screen-target="transactions">
+          <span class="nav-icon" data-icon="transactions"></span>
+          <span>Transactions</span>
+        </button>
+        <button class="nav-item" type="button" data-screen-target="accounts">
+          <span class="nav-icon" data-icon="accounts"></span>
+          <span>Accounts</span>
+        </button>
+        <button class="nav-item" type="button" data-screen-target="reports">
+          <span class="nav-icon" data-icon="reports"></span>
+          <span>Reports</span>
+        </button>
+        <button class="nav-item" type="button" data-screen-target="more">
+          <span class="nav-icon" data-icon="more"></span>
+          <span>More</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="modal hidden" id="transaction-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="transaction-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Capture</p>
+            <h2 id="transaction-modal-title">Add Transaction</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="transaction-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <form id="transaction-form">
+          <input id="transaction-id" type="hidden" />
+          <div class="inline-notice hidden" id="transaction-parser-notice"></div>
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="transaction-type">Type</label>
+              <select id="transaction-type" required>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+                <option value="transfer">Transfer</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-amount">Amount</label>
+              <input id="transaction-amount" type="number" min="0" step="0.01" required />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-date">Date</label>
+              <input id="transaction-date" type="date" required />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-account">Account</label>
+              <select id="transaction-account"></select>
+            </div>
+            <div class="field-group hidden" id="field-from-account">
+              <label class="field-label" for="transaction-from-account">From Account</label>
+              <select id="transaction-from-account"></select>
+            </div>
+            <div class="field-group hidden" id="field-to-account">
+              <label class="field-label" for="transaction-to-account">To Account</label>
+              <select id="transaction-to-account"></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-category">Category</label>
+              <select id="transaction-category"></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-subcategory">Subcategory</label>
+              <select id="transaction-subcategory"></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-counterparty">Payee / Payer</label>
+              <input id="transaction-counterparty" type="text" placeholder="Walmart, Client, Employer..." />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="transaction-project">Project</label>
+              <input id="transaction-project" type="text" placeholder="Home Renovation, Client A..." />
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="transaction-tags">Tags</label>
+              <input id="transaction-tags" type="text" placeholder="comma, separated, tags" />
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="transaction-details">Details</label>
+              <textarea id="transaction-details" rows="3" placeholder="Optional notes or raw dictated statement"></textarea>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="transaction-modal">Cancel</button>
+            <button class="primary-button" type="submit">Save Transaction</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="account-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="account-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Accounts</p>
+            <h2 id="account-modal-title">Add Account</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="account-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <form id="account-form">
+          <input id="account-id" type="hidden" />
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="account-name">Account Name</label>
+              <input id="account-name" type="text" required />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-type">Type</label>
+              <select id="account-type">
+                <option value="cash">Cash</option>
+                <option value="bank">Bank</option>
+                <option value="card">Card</option>
+                <option value="savings">Savings</option>
+                <option value="wallet">Wallet</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-currency-symbol">Currency Symbol</label>
+              <input id="account-currency-symbol" type="text" maxlength="4" placeholder="$, €, Rs, AED..." />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-opening-balance">Opening Balance</label>
+              <input id="account-opening-balance" type="number" step="0.01" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-color">Theme Color</label>
+              <input id="account-color" type="color" value="#19c6a7" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-icon">Icon</label>
+              <select id="account-icon">
+                <option value="wallet">Wallet</option>
+                <option value="bank">Bank</option>
+                <option value="safe">Safe</option>
+                <option value="card">Card</option>
+              </select>
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="account-notes">Notes</label>
+              <textarea id="account-notes" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="account-modal">Cancel</button>
+            <button class="primary-button" type="submit">Save Account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="category-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="category-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Categories</p>
+            <h2 id="category-modal-title">Add Category</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="category-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <form id="category-form">
+          <input id="category-id" type="hidden" />
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="category-name">Category Name</label>
+              <input id="category-name" type="text" required />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="category-type">Type</label>
+              <select id="category-type">
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="category-icon">Icon</label>
+              <select id="category-icon">
+                <option value="cart">Cart</option>
+                <option value="food">Food</option>
+                <option value="home">Home</option>
+                <option value="travel">Travel</option>
+                <option value="health">Health</option>
+                <option value="briefcase">Briefcase</option>
+                <option value="gift">Gift</option>
+                <option value="spark">Spark</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="category-color">Theme Color</label>
+              <input id="category-color" type="color" value="#19c6a7" />
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="category-subcategories">Subcategories</label>
+              <input
+                id="category-subcategories"
+                type="text"
+                placeholder="Groceries, Dining Out, Fuel, Utilities..."
+              />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="category-budget-limit">Budget Limit</label>
+              <input id="category-budget-limit" type="number" min="0" step="0.01" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="category-budget-period">Budget Period</label>
+              <select id="category-budget-period">
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="category-modal">Cancel</button>
+            <button class="primary-button" type="submit">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="import-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="import-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">CSV</p>
+            <h2>Import Data</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="import-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <form id="import-form">
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="import-target">Import To</label>
+              <select id="import-target">
+                <option value="transactions">Transactions</option>
+                <option value="accounts">Accounts</option>
+                <option value="categories">Categories</option>
+              </select>
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="import-file">CSV File</label>
+              <input id="import-file" type="file" accept=".csv,text/csv" required />
+            </div>
+          </div>
+          <p class="supporting-text">
+            Existing rows with matching IDs will be updated. New rows will be added automatically.
+          </p>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="import-modal">Cancel</button>
+            <button class="primary-button" type="submit">Import CSV</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="toast hidden" id="toast"></div>
+
+    <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
+      <div class="lock-card">
+        <div class="lock-icon" data-icon="safe"></div>
+        <h2>Unlock LedgerFlow Voice</h2>
+        <form id="lock-form">
+          <div class="field-group">
+            <label class="field-label" for="lock-password">Password</label>
+            <input id="lock-password" type="password" autocomplete="current-password" required />
+          </div>
+          <p class="lock-error hidden" id="lock-error">Incorrect password. Try again.</p>
+          <button class="primary-button lock-submit" type="submit">Login</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
