@@ -2,10 +2,6 @@
 
 A browser-based personal accounting app focused on voice dictation for capturing expenses, income, and transfers.
 
-## Open
-
-Open [index.html](C:\Users\Ali Reza\Documents\New project\index.html) in a modern browser.
-
 ## Included
 
 - Voice-first transaction capture with Web Speech API support
