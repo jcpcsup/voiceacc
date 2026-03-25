@@ -1,8 +1,13 @@
 (function () {
   "use strict";
 
-  const ASTRA_VAULT_SIGNAL = "document.getElementById";
   const STORAGE_KEY = "ledgerflow-voice-v1";
+  const TRANSACTION_TABLE = "transactions";
+  const supabaseConfig = window.LEDGERFLOW_CONFIG || {};
+  const supabaseEnabled = Boolean(supabaseConfig.supabaseUrl && supabaseConfig.supabaseAnonKey && window.supabase?.createClient);
+  const supabaseClient = supabaseEnabled
+    ? window.supabase.createClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey)
+    : null;
   const toastEl = document.getElementById("toast");
   const dictationExamples = [
     "Spent 45 on groceries at Walmart yesterday from Cash tags home,food",
@@ -220,8 +225,6 @@
   const state = loadState();
   const uiState = {
     screen: "overview",
-    requiresLogin: ASTRA_VAULT_SIGNAL.trim() !== "",
-    isAuthenticated: ASTRA_VAULT_SIGNAL.trim() === "",
     globalSearch: "",
     calendarCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     filters: {
@@ -241,6 +244,13 @@
     toastTimer: null,
     recognition: null,
     isListening: false,
+    currentUser: null,
+    authReady: false,
+    localMode: !supabaseEnabled,
+    authIntent: "signin",
+    syncStatus: "Local only",
+    syncTone: "neutral",
+    syncingTransactions: false,
   };
 
   wireStaticIcons();
@@ -248,7 +258,9 @@
   initializeSpeechRecognition();
   bindEvents();
   renderAll();
-  initializeLockScreen();
+  updateSyncStatus(uiState.localMode ? "Local only" : "Connecting...");
+  refreshAuthUi();
+  initializeSupabase();
 
   function bindEvents() {
     document.querySelectorAll("[data-screen-target]").forEach((button) => {
@@ -315,7 +327,10 @@
     });
     document.getElementById("global-search-input").addEventListener("focus", renderGlobalSearchResults);
     document.getElementById("global-search-input").addEventListener("keydown", handleGlobalSearchKeydown);
-    document.getElementById("lock-form").addEventListener("submit", handleLockSubmit);
+    document.getElementById("lock-form").addEventListener("submit", handleAuthSubmit);
+    document.getElementById("signup-button").addEventListener("click", handleSignupClick);
+    document.getElementById("local-mode-button").addEventListener("click", enableLocalMode);
+    document.getElementById("auth-action-button").addEventListener("click", handleAuthAction);
 
     document.addEventListener("click", handleDelegatedClick);
   }
@@ -327,39 +342,206 @@
     });
   }
 
-  function initializeLockScreen() {
+  async function initializeSupabase() {
+    if (!supabaseEnabled) {
+      uiState.authReady = true;
+      updateSyncStatus("Supabase not configured");
+      refreshAuthUi();
+      return;
+    }
+    const {
+      data: { session },
+      error,
+    } = await supabaseClient.auth.getSession();
+    if (error) {
+      console.error(error);
+      showAuthError("Unable to reach Supabase right now.");
+    }
+    await applySession(session, { silent: true });
+    supabaseClient.auth.onAuthStateChange((_event, sessionState) => {
+      applySession(sessionState, { silent: true });
+    });
+  }
+
+  function refreshAuthUi() {
     const lockScreen = document.getElementById("lock-screen");
-    if (!uiState.requiresLogin) {
+    const authButton = document.getElementById("auth-action-button");
+    const localModeButton = document.getElementById("local-mode-button");
+    const signupButton = document.getElementById("signup-button");
+    const lockCopy = document.getElementById("lock-copy");
+    const emailInput = document.getElementById("lock-email");
+    const passwordInput = document.getElementById("lock-password");
+
+    if (!supabaseEnabled) {
+      authButton.textContent = "Setup Needed";
+      lockCopy.textContent = "Add your Supabase URL and anon key in config.js to enable cloud sync.";
+      localModeButton.textContent = "Continue Locally";
+      localModeButton.classList.remove("hidden");
+      signupButton.classList.add("hidden");
+      emailInput.required = false;
+      passwordInput.required = false;
       lockScreen.classList.add("hidden");
       lockScreen.setAttribute("aria-hidden", "true");
       document.body.classList.remove("app-locked");
       return;
     }
-    lockScreen.classList.remove("hidden");
-    lockScreen.setAttribute("aria-hidden", "false");
-    document.body.classList.add("app-locked");
-    document.getElementById("lock-password").focus();
+
+    authButton.textContent = uiState.currentUser ? "Sign Out" : "Sign In";
+    lockCopy.textContent = uiState.localMode
+      ? "You can keep using local storage, or sign in to sync transactions across devices."
+      : "Use your Supabase account to keep transaction history available across devices.";
+    localModeButton.textContent = uiState.currentUser ? "Use Local Cache" : "Continue Locally";
+    localModeButton.classList.remove("hidden");
+    signupButton.classList.remove("hidden");
+    emailInput.required = true;
+    passwordInput.required = true;
+
+    const shouldLock = !uiState.currentUser && !uiState.localMode;
+    lockScreen.classList.toggle("hidden", !shouldLock);
+    lockScreen.setAttribute("aria-hidden", shouldLock ? "false" : "true");
+    document.body.classList.toggle("app-locked", shouldLock);
+    if (shouldLock) {
+      emailInput.focus();
+    }
   }
 
-  function handleLockSubmit(event) {
+  async function applySession(session, options = {}) {
+    const silent = Boolean(options.silent);
+    uiState.currentUser = session?.user || null;
+    uiState.authReady = true;
+    uiState.localMode = !uiState.currentUser && uiState.localMode;
+
+    if (uiState.currentUser) {
+      clearAuthError();
+      await syncTransactionsFromCloud({ silent });
+      updateSyncStatus(`Synced as ${uiState.currentUser.email || "user"}`, "success");
+    } else if (supabaseEnabled) {
+      updateSyncStatus(uiState.localMode ? "Local only" : "Sign in to sync");
+    }
+
+    refreshAuthUi();
+  }
+
+  async function handleAuthSubmit(event) {
     event.preventDefault();
-    if (!uiState.requiresLogin) {
+    if (!supabaseEnabled) {
+      enableLocalMode();
       return;
     }
-    const input = document.getElementById("lock-password");
+    const email = document.getElementById("lock-email").value.trim();
+    const password = document.getElementById("lock-password").value;
+    if (!email || !password) {
+      showAuthError("Enter your email and password.");
+      return;
+    }
+    clearAuthError();
+    setAuthButtonsDisabled(true);
+    updateSyncStatus("Signing in...");
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setAuthButtonsDisabled(false);
+    if (error) {
+      showAuthError(error.message || "Unable to sign in.");
+      updateSyncStatus("Sign in failed", "danger");
+      return;
+    }
+    uiState.localMode = false;
+    await applySession(data.session);
+    document.getElementById("lock-form").reset();
+    showToast("Signed in. Transactions are syncing.");
+  }
+
+  async function handleSignupClick() {
+    if (!supabaseEnabled) {
+      return;
+    }
+    const email = document.getElementById("lock-email").value.trim();
+    const password = document.getElementById("lock-password").value;
+    if (!email || !password) {
+      showAuthError("Enter your email and password first.");
+      return;
+    }
+    clearAuthError();
+    setAuthButtonsDisabled(true);
+    updateSyncStatus("Creating account...");
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+    });
+    setAuthButtonsDisabled(false);
+    if (error) {
+      showAuthError(error.message || "Unable to create account.");
+      updateSyncStatus("Signup failed", "danger");
+      return;
+    }
+    uiState.localMode = false;
+    if (data.session) {
+      await applySession(data.session);
+      document.getElementById("lock-form").reset();
+      showToast("Account created. Transactions are syncing.");
+      return;
+    }
+    showAuthError("Account created. Check your email to confirm, then sign in.");
+    updateSyncStatus("Confirm your email");
+  }
+
+  function enableLocalMode() {
+    uiState.localMode = true;
+    refreshAuthUi();
+    updateSyncStatus(supabaseEnabled ? "Local only" : "Supabase not configured");
+    showToast("Using local storage only.");
+  }
+
+  async function handleAuthAction() {
+    if (!supabaseEnabled) {
+      showToast("Add Supabase credentials in config.js to enable cloud sync.");
+      return;
+    }
+    if (uiState.currentUser) {
+      updateSyncStatus("Signing out...");
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        showAuthError(error.message || "Unable to sign out.");
+        updateSyncStatus("Sign out failed", "danger");
+        return;
+      }
+      uiState.currentUser = null;
+      uiState.localMode = false;
+      refreshAuthUi();
+      updateSyncStatus("Signed out");
+      showToast("Signed out.");
+      return;
+    }
+    uiState.localMode = false;
+    refreshAuthUi();
+  }
+
+  function setAuthButtonsDisabled(disabled) {
+    document.getElementById("login-submit-button").disabled = disabled;
+    document.getElementById("signup-button").disabled = disabled;
+    document.getElementById("local-mode-button").disabled = disabled;
+  }
+
+  function showAuthError(message) {
     const error = document.getElementById("lock-error");
-    if (input.value === ASTRA_VAULT_SIGNAL) {
-      uiState.isAuthenticated = true;
-      document.getElementById("lock-screen").classList.add("hidden");
-      document.getElementById("lock-screen").setAttribute("aria-hidden", "true");
-      document.body.classList.remove("app-locked");
-      error.classList.add("hidden");
-      input.value = "";
-      showToast("Logged in.");
-      return;
-    }
+    error.textContent = message;
     error.classList.remove("hidden");
-    input.select();
+  }
+
+  function clearAuthError() {
+    const error = document.getElementById("lock-error");
+    error.textContent = "";
+    error.classList.add("hidden");
+  }
+
+  function updateSyncStatus(message, tone) {
+    uiState.syncStatus = message;
+    uiState.syncTone = tone || "neutral";
+    const chip = document.getElementById("sync-status");
+    chip.textContent = message;
+    chip.dataset.tone = uiState.syncTone;
   }
 
   function handleTopBarMic() {
@@ -437,7 +619,7 @@
           Array.isArray(parsed.categories) && parsed.categories.length
             ? parsed.categories
             : structuredClone(defaultState.categories),
-        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+        transactions: Array.isArray(parsed.transactions) ? parsed.transactions.map(normalizeTransaction) : [],
       };
     } catch (error) {
       console.error(error);
@@ -447,6 +629,101 @@
 
   function persistState() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  async function syncTransactionsFromCloud(options = {}) {
+    if (!supabaseEnabled || !uiState.currentUser) {
+      return;
+    }
+    const silent = Boolean(options.silent);
+    const mergeLocal = options.mergeLocal !== false;
+    if (!silent) {
+      updateSyncStatus("Syncing transactions...");
+    }
+    uiState.syncingTransactions = true;
+    if (mergeLocal && state.transactions.length) {
+      const localPayload = state.transactions.map(mapLocalTransactionToRemote);
+      const { error: upsertError } = await supabaseClient.from(TRANSACTION_TABLE).upsert(localPayload, {
+        onConflict: "user_id,id",
+      });
+      if (upsertError) {
+        console.error(upsertError);
+      }
+    }
+    const { data, error } = await supabaseClient
+      .from(TRANSACTION_TABLE)
+      .select("*")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    uiState.syncingTransactions = false;
+    if (error) {
+      console.error(error);
+      showToast("Cloud sync failed. Keeping local transaction cache.");
+      updateSyncStatus("Sync failed", "danger");
+      return;
+    }
+
+    state.transactions = (data || []).map(mapRemoteTransactionToLocal);
+    persistState();
+    renderAll();
+    updateSyncStatus(`Synced as ${uiState.currentUser.email || "user"}`, "success");
+    if (!silent) {
+      showToast("Transactions synced from Supabase.");
+    }
+  }
+
+  async function saveTransactionRecord(transaction) {
+    const normalized = normalizeTransaction({
+      ...transaction,
+      accountName: resolveAccountName(transaction.accountId, transaction.accountName),
+      fromAccountName: resolveAccountName(transaction.fromAccountId, transaction.fromAccountName),
+      toAccountName: resolveAccountName(transaction.toAccountId, transaction.toAccountName),
+      categoryName: resolveCategoryName(transaction.categoryId, transaction.categoryName),
+    });
+    upsertById(state.transactions, normalized);
+    persistAndRefresh();
+
+    if (!supabaseEnabled || !uiState.currentUser) {
+      return { ok: true, mode: "local" };
+    }
+
+    updateSyncStatus("Saving transaction...");
+    const remotePayload = mapLocalTransactionToRemote(normalized);
+    const { error } = await supabaseClient.from(TRANSACTION_TABLE).upsert(remotePayload, {
+      onConflict: "user_id,id",
+    });
+
+    if (error) {
+      console.error(error);
+      showToast("Saved locally, but cloud sync failed.");
+      updateSyncStatus("Cloud save failed", "danger");
+      return { ok: false, mode: "cloud" };
+    }
+
+    updateSyncStatus(`Synced as ${uiState.currentUser.email || "user"}`, "success");
+    return { ok: true, mode: "cloud" };
+  }
+
+  async function deleteTransactionRecord(id) {
+    state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
+    persistAndRefresh();
+
+    if (!supabaseEnabled || !uiState.currentUser) {
+      return { ok: true, mode: "local" };
+    }
+
+    updateSyncStatus("Deleting transaction...");
+    const { error } = await supabaseClient.from(TRANSACTION_TABLE).delete().eq("id", id);
+    if (error) {
+      console.error(error);
+      showToast("Deleted locally, but cloud sync failed.");
+      updateSyncStatus("Cloud delete failed", "danger");
+      return { ok: false, mode: "cloud" };
+    }
+
+    updateSyncStatus(`Synced as ${uiState.currentUser.email || "user"}`, "success");
+    return { ok: true, mode: "cloud" };
   }
 
   function renderAll() {
@@ -832,7 +1109,7 @@
     document.getElementById("transaction-details").value = transaction.details || "";
   }
 
-  function handleTransactionSubmit(event) {
+  async function handleTransactionSubmit(event) {
     event.preventDefault();
     const type = document.getElementById("transaction-type").value;
     const amount = Number(document.getElementById("transaction-amount").value);
@@ -875,21 +1152,17 @@
       return;
     }
 
-    const existingIndex = state.transactions.findIndex((tx) => tx.id === payload.id);
-    if (existingIndex >= 0) {
-      state.transactions[existingIndex] = {
-        ...state.transactions[existingIndex],
-        ...payload,
-      };
-      showToast("Transaction updated.");
-    } else {
-      state.transactions.push({
-        ...payload,
-        createdAt: new Date().toISOString(),
-      });
-      showToast("Transaction saved.");
+    const existing = getTransaction(payload.id);
+    const nextTransaction = {
+      ...(existing || {}),
+      ...payload,
+      createdAt: existing?.createdAt || new Date().toISOString(),
+    };
+    const result = await saveTransactionRecord(nextTransaction);
+    showToast(existing ? "Transaction updated." : "Transaction saved.");
+    if (!result.ok && result.mode === "cloud") {
+      showToast("Transaction saved locally. Cloud sync needs attention.");
     }
-    persistAndRefresh();
     closeModal("transaction-modal");
   }
 
@@ -971,12 +1244,10 @@
       return;
     }
     if (target === "transactions") {
-      importTransactions(rows);
-    }
-    if (target === "accounts") {
+      await importTransactions(rows);
+    } else if (target === "accounts") {
       importAccounts(rows);
-    }
-    if (target === "categories") {
+    } else if (target === "categories") {
       importCategories(rows);
     }
     persistAndRefresh();
@@ -984,8 +1255,8 @@
     showToast(`Imported ${rows.length} ${target}.`);
   }
 
-  function importTransactions(rows) {
-    rows.forEach((row) => {
+  async function importTransactions(rows) {
+    for (const row of rows) {
       const payload = {
         id: row.id || uid("tx"),
         type: row.type || "expense",
@@ -1003,8 +1274,8 @@
         createdAt: row.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      upsertById(state.transactions, payload);
-    });
+      await saveTransactionRecord(payload);
+    }
   }
 
   function importAccounts(rows) {
@@ -1279,10 +1550,10 @@
   }
 
   function matchesTransactionFilters(transaction) {
-    const accountNames = [getAccount(transaction.accountId)?.name, getAccount(transaction.fromAccountId)?.name, getAccount(transaction.toAccountId)?.name]
+    const accountNames = [resolveAccountName(transaction.accountId, transaction.accountName), resolveAccountName(transaction.fromAccountId, transaction.fromAccountName), resolveAccountName(transaction.toAccountId, transaction.toAccountName)]
       .filter(Boolean)
       .join(" ");
-    const categoryName = getCategory(transaction.categoryId)?.name || "";
+    const categoryName = resolveCategoryName(transaction.categoryId, transaction.categoryName);
     const haystack = [
       transaction.details,
       transaction.counterparty,
@@ -1569,12 +1840,12 @@
     const map = new Map();
     transactions.forEach((transaction) => {
       if (transaction.type === "transfer") {
-        const from = getAccount(transaction.fromAccountId)?.name || "Unknown";
-        const to = getAccount(transaction.toAccountId)?.name || "Unknown";
+        const from = resolveAccountName(transaction.fromAccountId, transaction.fromAccountName) || "Unknown";
+        const to = resolveAccountName(transaction.toAccountId, transaction.toAccountName) || "Unknown";
         map.set(`${from} → ${to}`, (map.get(`${from} → ${to}`) || 0) + Number(transaction.amount || 0));
         return;
       }
-      const label = getAccount(transaction.accountId)?.name || "Unknown Account";
+      const label = resolveAccountName(transaction.accountId, transaction.accountName) || "Unknown Account";
       map.set(label, (map.get(label) || 0) + Number(transaction.amount || 0));
     });
     const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -1646,13 +1917,13 @@
       amount: transaction.amount,
       date: transaction.date,
       accountId: transaction.accountId || "",
-      accountName: getAccount(transaction.accountId)?.name || "",
+      accountName: resolveAccountName(transaction.accountId, transaction.accountName) || "",
       fromAccountId: transaction.fromAccountId || "",
-      fromAccountName: getAccount(transaction.fromAccountId)?.name || "",
+      fromAccountName: resolveAccountName(transaction.fromAccountId, transaction.fromAccountName) || "",
       toAccountId: transaction.toAccountId || "",
-      toAccountName: getAccount(transaction.toAccountId)?.name || "",
+      toAccountName: resolveAccountName(transaction.toAccountId, transaction.toAccountName) || "",
       categoryId: transaction.categoryId || "",
-      categoryName: getCategory(transaction.categoryId)?.name || "",
+      categoryName: resolveCategoryName(transaction.categoryId, transaction.categoryName) || "",
       subcategory: transaction.subcategory || "",
       tags: (transaction.tags || []).join(", "),
       payeeOrPayer: transaction.counterparty || "",
@@ -1868,13 +2139,15 @@
     renderTransactions();
   }
 
-  function deleteTransaction(id) {
+  async function deleteTransaction(id) {
     if (!window.confirm("Delete this transaction?")) {
       return;
     }
-    state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
-    persistAndRefresh();
+    const result = await deleteTransactionRecord(id);
     showToast("Transaction deleted.");
+    if (!result.ok && result.mode === "cloud") {
+      showToast("Transaction deleted locally. Cloud sync needs attention.");
+    }
   }
 
   function deleteAccount(id) {
@@ -1964,12 +2237,13 @@
 
   function renderTransactionItem(transaction) {
     const category = getCategory(transaction.categoryId);
+    const categoryName = resolveCategoryName(transaction.categoryId, transaction.categoryName);
     const transactionSymbol = getTransactionCurrencySymbol(transaction);
     const typeLabel = titleCase(transaction.type);
     const primaryAccount =
       transaction.type === "transfer"
-        ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
-        : getAccount(transaction.accountId)?.name || "Unknown Account";
+        ? `${resolveAccountName(transaction.fromAccountId, transaction.fromAccountName) || "Unknown"} -> ${resolveAccountName(transaction.toAccountId, transaction.toAccountName) || "Unknown"}`
+        : resolveAccountName(transaction.accountId, transaction.accountName) || "Unknown Account";
     const amountPrefix = transaction.type === "expense" ? "- " : transaction.type === "income" ? "+ " : "<-> ";
     const icon =
       transaction.type === "expense"
@@ -1983,11 +2257,11 @@
           <div class="transaction-main">
             <div class="transaction-badge">${icon}</div>
             <div class="transaction-details">
-              <strong>${escapeHtml(transaction.counterparty || category?.name || typeLabel)}</strong>
+              <strong>${escapeHtml(transaction.counterparty || categoryName || typeLabel)}</strong>
               <p class="transaction-meta">${escapeHtml(primaryAccount)} • ${escapeHtml(transaction.date)}</p>
               <p class="transaction-meta">${escapeHtml(transaction.project || transaction.details || typeLabel)}</p>
               <div class="transaction-tags">
-                ${category ? `<span class="tag-pill">${escapeHtml(category.name)}</span>` : ""}
+                ${categoryName ? `<span class="tag-pill">${escapeHtml(categoryName)}</span>` : ""}
                 ${transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : ""}
                 ${(transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("")}
               </div>
@@ -2037,11 +2311,11 @@
   function getGlobalSearchResults(query) {
     const results = [];
     state.transactions.forEach((transaction) => {
-      const categoryName = getCategory(transaction.categoryId)?.name || transaction.type;
+      const categoryName = resolveCategoryName(transaction.categoryId, transaction.categoryName) || transaction.type;
       const accountName =
         transaction.type === "transfer"
-          ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
-          : getAccount(transaction.accountId)?.name || "Unknown Account";
+          ? `${resolveAccountName(transaction.fromAccountId, transaction.fromAccountName) || "Unknown"} -> ${resolveAccountName(transaction.toAccountId, transaction.toAccountName) || "Unknown"}`
+          : resolveAccountName(transaction.accountId, transaction.accountName) || "Unknown Account";
       const haystack = [
         transaction.counterparty,
         transaction.project,
@@ -2356,6 +2630,94 @@
       });
       return entry;
     });
+  }
+
+  function normalizeTransaction(transaction) {
+    return {
+      id: transaction.id || uid("tx"),
+      type: transaction.type || "expense",
+      amount: Number(transaction.amount || 0),
+      date: normalizeDateInput(transaction.date) || todayIso(),
+      accountId: transaction.accountId || "",
+      accountName: transaction.accountName || "",
+      fromAccountId: transaction.fromAccountId || "",
+      fromAccountName: transaction.fromAccountName || "",
+      toAccountId: transaction.toAccountId || "",
+      toAccountName: transaction.toAccountName || "",
+      categoryId: transaction.categoryId || "",
+      categoryName: transaction.categoryName || "",
+      subcategory: transaction.subcategory || "",
+      counterparty: transaction.counterparty || "",
+      project: transaction.project || "",
+      tags: Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || ""),
+      details: transaction.details || "",
+      createdAt: transaction.createdAt || new Date().toISOString(),
+      updatedAt: transaction.updatedAt || new Date().toISOString(),
+    };
+  }
+
+  function mapLocalTransactionToRemote(transaction) {
+    const normalized = normalizeTransaction({
+      ...transaction,
+      accountName: resolveAccountName(transaction.accountId, transaction.accountName),
+      fromAccountName: resolveAccountName(transaction.fromAccountId, transaction.fromAccountName),
+      toAccountName: resolveAccountName(transaction.toAccountId, transaction.toAccountName),
+      categoryName: resolveCategoryName(transaction.categoryId, transaction.categoryName),
+    });
+    return {
+      user_id: uiState.currentUser.id,
+      id: normalized.id,
+      type: normalized.type,
+      amount: normalized.amount,
+      date: normalized.date,
+      account_id: normalized.accountId,
+      account_name: normalized.accountName,
+      from_account_id: normalized.fromAccountId,
+      from_account_name: normalized.fromAccountName,
+      to_account_id: normalized.toAccountId,
+      to_account_name: normalized.toAccountName,
+      category_id: normalized.categoryId,
+      category_name: normalized.categoryName,
+      subcategory: normalized.subcategory,
+      counterparty: normalized.counterparty,
+      project: normalized.project,
+      tags: normalized.tags,
+      details: normalized.details,
+      created_at: normalized.createdAt,
+      updated_at: normalized.updatedAt,
+    };
+  }
+
+  function mapRemoteTransactionToLocal(transaction) {
+    return normalizeTransaction({
+      id: transaction.id,
+      type: transaction.type,
+      amount: transaction.amount,
+      date: transaction.date,
+      accountId: transaction.account_id,
+      accountName: transaction.account_name,
+      fromAccountId: transaction.from_account_id,
+      fromAccountName: transaction.from_account_name,
+      toAccountId: transaction.to_account_id,
+      toAccountName: transaction.to_account_name,
+      categoryId: transaction.category_id,
+      categoryName: transaction.category_name,
+      subcategory: transaction.subcategory,
+      counterparty: transaction.counterparty,
+      project: transaction.project,
+      tags: transaction.tags,
+      details: transaction.details,
+      createdAt: transaction.created_at,
+      updatedAt: transaction.updated_at,
+    });
+  }
+
+  function resolveAccountName(id, fallback) {
+    return getAccount(id)?.name || fallback || "";
+  }
+
+  function resolveCategoryName(id, fallback) {
+    return getCategory(id)?.name || fallback || "";
   }
 
   function getAccount(id) {

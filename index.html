@@ -17,6 +17,8 @@
           <input id="global-search-input" type="search" placeholder="Search transactions, accounts, categories, tags..." />
         </div>
         <div class="topbar-actions">
+          <div class="sync-chip" id="sync-status">Local only</div>
+          <button class="ghost-button auth-button" id="auth-action-button" type="button">Sign In</button>
           <button class="topbar-icon-button" id="topbar-mic-button" type="button" aria-label="Voice transaction">
             <span data-icon="microphone"></span>
           </button>
@@ -698,18 +700,30 @@
     <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
       <div class="lock-card">
         <div class="lock-icon" data-icon="safe"></div>
-        <h2>Unlock LedgerFlow Voice</h2>
+        <p class="eyebrow">Cloud Sync</p>
+        <h2>Sign in to sync transactions</h2>
+        <p class="supporting-text" id="lock-copy">
+          Use your Supabase account to keep transaction history available across devices.
+        </p>
         <form id="lock-form">
           <div class="field-group">
-            <label class="field-label" for="lock-password">Password</label>
-            <input id="lock-password" type="password" autocomplete="current-password" required />
+            <label class="field-label" for="lock-email">Email</label>
+            <input id="lock-email" type="email" autocomplete="email" />
           </div>
-          <p class="lock-error hidden" id="lock-error">Incorrect password. Try again.</p>
-          <button class="primary-button lock-submit" type="submit">Login</button>
+          <div class="field-group">
+            <label class="field-label" for="lock-password">Password</label>
+            <input id="lock-password" type="password" autocomplete="current-password" />
+          </div>
+          <p class="lock-error hidden" id="lock-error"></p>
+          <button class="primary-button lock-submit" type="submit" id="login-submit-button">Sign In</button>
+          <button class="secondary-button lock-submit" type="button" id="signup-button">Create Account</button>
+          <button class="ghost-button lock-submit" type="button" id="local-mode-button">Continue Locally</button>
         </form>
       </div>
     </div>
 
+    <script src="./config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>
 </html>
