@@ -936,6 +936,7 @@
     const year = uiState.calendarCursor.getFullYear();
     const month = uiState.calendarCursor.getMonth();
     const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(uiState.calendarCursor);
+    const baseSymbol = getPrimaryCurrencySymbol();
     document.getElementById("calendar-month-label").textContent = monthLabel;
 
     const firstDay = new Date(year, month, 1);
@@ -961,9 +962,9 @@
           ${
             hasActivity
               ? `<div class="calendar-cell-flow">
-                  ${income ? `<span class="calendar-pill icon-income">${iconRegistry["arrow-up"]}<span>${formatCurrency(income)}</span></span>` : ""}
-                  ${expense ? `<span class="calendar-pill icon-expense">${iconRegistry["arrow-down"]}<span>${formatCurrency(expense)}</span></span>` : ""}
-                  ${transfer ? `<span class="calendar-pill">${iconRegistry.swap}<span>${formatCurrency(transfer)}</span></span>` : ""}
+                  ${income ? `<span class="calendar-pill icon-income">${iconRegistry["arrow-up"]}<span>${formatCompactMoney(income, baseSymbol)}</span></span>` : ""}
+                  ${expense ? `<span class="calendar-pill icon-expense">${iconRegistry["arrow-down"]}<span>${formatCompactMoney(expense, baseSymbol)}</span></span>` : ""}
+                  ${transfer ? `<span class="calendar-pill">${iconRegistry.swap}<span>${formatCompactMoney(transfer, baseSymbol)}</span></span>` : ""}
                 </div>`
               : `<span class="calendar-empty">No activity</span>`
           }
@@ -2838,6 +2839,15 @@
 
   function formatCurrency(value) {
     return formatMoney(value, getPrimaryCurrencySymbol());
+  }
+
+  function formatCompactMoney(value, symbol) {
+    const amount = Number(value || 0);
+    const formatted = new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: amount >= 1000 ? 1 : 2,
+    }).format(Math.abs(amount));
+    return `${amount < 0 ? "-" : ""}${symbol || "$"} ${formatted}`;
   }
 
   function formatMoney(value, symbol) {

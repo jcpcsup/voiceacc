@@ -1320,8 +1320,11 @@ textarea:focus {
   position: fixed;
   inset: 0;
   display: grid;
-  place-items: center;
-  padding: 18px;
+  place-items: start center;
+  z-index: 30;
+  padding: 18px 18px 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modal.hidden,
@@ -1340,6 +1343,8 @@ textarea:focus {
   width: min(100%, 820px);
   max-height: calc(100vh - 36px);
   overflow: auto;
+  overscroll-behavior: contain;
+  margin: auto 0;
   padding: 24px;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -1644,19 +1649,22 @@ textarea:focus {
   }
 
   .calendar-cell {
-    min-height: 72px;
+    min-height: 84px;
     padding: 6px;
     border-radius: 14px;
     gap: 4px;
   }
 
   .calendar-cell-flow {
-    gap: 4px;
+    gap: 3px;
   }
 
   .calendar-pill {
-    padding: 3px 4px;
-    font-size: 0;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 2px 4px;
+    font-size: 0.56rem;
+    line-height: 1.1;
   }
 
   .calendar-pill svg {
@@ -1665,7 +1673,8 @@ textarea:focus {
   }
 
   .calendar-pill span {
-    display: none;
+    display: inline;
+    white-space: nowrap;
   }
 
   .calendar-empty {
@@ -1703,5 +1712,16 @@ textarea:focus {
 
   .nav-item {
     padding: 10px 6px;
+  }
+
+  .modal {
+    padding: 12px 12px 104px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: calc(100svh - 24px);
+    padding: 20px;
+    border-radius: 24px;
   }
 }
