@@ -116,34 +116,6 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.sync-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: rgba(13, 47, 61, 0.06);
-  color: var(--muted);
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.sync-chip[data-tone="success"] {
-  background: rgba(18, 200, 164, 0.12);
-  color: #118867;
-}
-
-.sync-chip[data-tone="danger"] {
-  background: rgba(239, 100, 97, 0.12);
-  color: #b3423e;
-}
-
-.auth-button {
-  min-height: 48px;
 }
 
 .topbar-icon-button {
@@ -804,6 +776,17 @@ body.app-locked .app-shell {
   gap: 12px;
 }
 
+.auth-status-card {
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.08), rgba(0, 166, 199, 0.08));
+  border: 1px solid rgba(18, 59, 70, 0.08);
+}
+
+.auth-status-card h3 {
+  margin: 4px 0 8px;
+}
+
 .dictation-card {
   display: grid;
   grid-template-columns: 88px 1fr;
@@ -1436,9 +1419,25 @@ textarea:focus {
   letter-spacing: -0.04em;
 }
 
-.lock-card .supporting-text {
-  margin: 0;
+.lock-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.lock-toggle-button {
+  padding: 11px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(18, 59, 70, 0.08);
+  background: rgba(238, 246, 244, 0.95);
   color: var(--muted);
+}
+
+.lock-toggle-active {
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.14), rgba(0, 166, 199, 0.14));
+  color: var(--accent-strong);
+  border-color: rgba(18, 200, 164, 0.18);
 }
 
 .lock-card form {
@@ -1453,6 +1452,14 @@ textarea:focus {
   border-radius: 14px;
   background: rgba(239, 100, 97, 0.12);
   color: #b3423e;
+}
+
+.lock-status {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(18, 200, 164, 0.12);
+  color: var(--accent-strong);
 }
 
 .lock-submit {

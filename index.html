@@ -17,8 +17,6 @@
           <input id="global-search-input" type="search" placeholder="Search transactions, accounts, categories, tags..." />
         </div>
         <div class="topbar-actions">
-          <div class="sync-chip" id="sync-status">Local only</div>
-          <button class="ghost-button auth-button" id="auth-action-button" type="button">Sign In</button>
           <button class="topbar-icon-button" id="topbar-mic-button" type="button" aria-label="Voice transaction">
             <span data-icon="microphone"></span>
           </button>
@@ -395,6 +393,26 @@
                   Import data into transactions, accounts, or categories using clean CSV headers.
                 </p>
               </article>
+
+              <article class="panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Cloud</p>
+                    <h3>Supabase Sync</h3>
+                  </div>
+                </div>
+                <div class="auth-status-card">
+                  <p class="eyebrow" id="auth-status-mode">Local Mode</p>
+                  <h3 id="auth-status-title">Supabase not configured</h3>
+                  <p class="supporting-text" id="auth-status-detail">
+                    Add your Supabase project URL and anon key in app.js to enable cloud auth and syncing.
+                  </p>
+                </div>
+                <div class="tool-stack">
+                  <button class="primary-button" type="button" id="sync-now-button">Sync Now</button>
+                  <button class="ghost-button" type="button" id="sign-out-button">Sign Out</button>
+                </div>
+              </article>
             </div>
 
             <div class="report-grid">
@@ -700,29 +718,33 @@
     <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
       <div class="lock-card">
         <div class="lock-icon" data-icon="safe"></div>
-        <p class="eyebrow">Cloud Sync</p>
-        <h2>Sign in to sync transactions</h2>
-        <p class="supporting-text" id="lock-copy">
-          Use your Supabase account to keep transaction history available across devices.
-        </p>
+        <p class="eyebrow" id="lock-mode-label">Local Access</p>
+        <h2 id="lock-title">Unlock LedgerFlow Voice</h2>
+        <p class="supporting-text hidden" id="lock-hint"></p>
+        <div class="lock-toggle hidden" id="auth-mode-toggle">
+          <button class="lock-toggle-button lock-toggle-active" type="button" data-auth-mode="signin">Sign In</button>
+          <button class="lock-toggle-button" type="button" data-auth-mode="signup">Sign Up</button>
+        </div>
         <form id="lock-form">
-          <div class="field-group">
+          <div class="field-group hidden" id="lock-email-group">
             <label class="field-label" for="lock-email">Email</label>
-            <input id="lock-email" type="email" autocomplete="email" />
+            <input id="lock-email" type="email" autocomplete="email" placeholder="you@example.com" />
           </div>
           <div class="field-group">
             <label class="field-label" for="lock-password">Password</label>
-            <input id="lock-password" type="password" autocomplete="current-password" />
+            <input id="lock-password" type="password" autocomplete="current-password" required />
           </div>
-          <p class="lock-error hidden" id="lock-error"></p>
-          <button class="primary-button lock-submit" type="submit" id="login-submit-button">Sign In</button>
-          <button class="secondary-button lock-submit" type="button" id="signup-button">Create Account</button>
-          <button class="ghost-button lock-submit" type="button" id="local-mode-button">Continue Locally</button>
+          <div class="field-group hidden" id="lock-confirm-group">
+            <label class="field-label" for="lock-password-confirm">Confirm Password</label>
+            <input id="lock-password-confirm" type="password" autocomplete="new-password" />
+          </div>
+          <p class="lock-error hidden" id="lock-error">Incorrect password. Try again.</p>
+          <p class="lock-status hidden" id="lock-status"></p>
+          <button class="primary-button lock-submit" id="lock-submit-button" type="submit">Login</button>
         </form>
       </div>
     </div>
 
-    <script src="./config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>

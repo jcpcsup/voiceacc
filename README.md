@@ -2,6 +2,10 @@
 
 A browser-based personal accounting app focused on voice dictation for capturing expenses, income, and transfers.
 
+## Open
+
+Open [index.html](C:\Users\Ali Reza\Documents\New project\index.html) in a modern browser.
+
 ## Included
 
 - Voice-first transaction capture with Web Speech API support
@@ -11,28 +15,21 @@ A browser-based personal accounting app focused on voice dictation for capturing
 - Extended transaction search with filters
 - Reports for cashflow, categories, accounts, budgets, projects, and tags
 - CSV export and CSV import for transactions, accounts, and categories
+- Optional Supabase auth and cloud sync
 
 ## Notes
 
 - Data is stored locally in the browser with `localStorage`.
 - Voice dictation depends on browser speech recognition support and microphone permission.
-
-## Supabase Phase 1
-
-Phase 1 adds:
-
-- Supabase email/password auth
-- cloud sync for `transactions`
-- local fallback when Supabase is not configured
-
-Setup:
-
-1. Create a Supabase project.
-2. Run [supabase/phase1.sql](/root/acc/voiceacc/supabase/phase1.sql) in the SQL editor.
-3. Edit `config.js` using [config.example.js](/root/acc/voiceacc/config.example.js) as a reference, then add your project URL and anon key.
-4. Open the app and sign in or create an account from the lock screen.
-
-Scope:
-
-- `accounts` and `categories` still remain local in Phase 1.
-- transactions store account/category name snapshots so synced entries still render before Phase 2.
+- To enable Supabase:
+  1. Run [schema.sql](C:\Users\Ali Reza\Documents\New project\supabase\schema.sql) in your Supabase SQL editor.
+  2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in [app.js](C:\Users\Ali Reza\Documents\New project\app.js).
+  3. In Supabase Dashboard -> Authentication -> URL Configuration:
+     - set `Site URL` to your GitHub Pages app URL
+     - add the same GitHub Pages app URL to `Redirect URLs`
+  4. In Supabase Dashboard -> Authentication -> Providers -> Email:
+     - enable Email provider
+     - keep email/password sign-in enabled
+  5. Reload the app and sign in or sign up from the lock screen.
+- When Supabase is configured, the app uses email/password auth and stores the full ledger as a per-user JSON snapshot in the `ledger_state` table.
+- The app automatically uses the current page URL as the email confirmation redirect, which works well for GitHub Pages as long as that deployed URL is added to Supabase redirect settings.
