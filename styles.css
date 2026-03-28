@@ -631,9 +631,31 @@ body.app-locked .app-shell {
   color: var(--muted);
 }
 
+.calendar-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .calendar-pill svg {
   width: 12px;
   height: 12px;
+}
+
+.calendar-pill-mobile-text {
+  display: none;
+}
+
+.icon-income {
+  color: #1ca866;
+}
+
+.icon-expense {
+  color: #d35a5a;
+}
+
+.icon-transfer {
+  color: #2f86ff;
 }
 
 .calendar-empty {
@@ -1667,24 +1689,29 @@ textarea:focus {
     width: 100%;
     justify-content: flex-start;
     padding: 2px 3px;
-    gap: 3px;
+    gap: 0;
     font-size: 0.5rem;
     line-height: 1;
     letter-spacing: -0.02em;
+    background: transparent;
+    border-radius: 0;
   }
 
-  .calendar-pill svg {
-    width: 8px;
-    height: 8px;
-    flex: 0 0 auto;
+  .calendar-pill-icon,
+  .calendar-pill-text {
+    display: none;
   }
 
-  .calendar-pill span {
+  .calendar-pill-mobile-text {
     display: inline-block;
+    width: 100%;
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 0.52rem;
+    font-weight: 700;
+    line-height: 1.05;
   }
 
   .calendar-empty {

@@ -962,9 +962,33 @@
           ${
             hasActivity
               ? `<div class="calendar-cell-flow">
-                  ${income ? `<span class="calendar-pill icon-income">${iconRegistry["arrow-up"]}<span>${formatCompactMoney(income, baseSymbol)}</span></span>` : ""}
-                  ${expense ? `<span class="calendar-pill icon-expense">${iconRegistry["arrow-down"]}<span>${formatCompactMoney(expense, baseSymbol)}</span></span>` : ""}
-                  ${transfer ? `<span class="calendar-pill">${iconRegistry.swap}<span>${formatCompactMoney(transfer, baseSymbol)}</span></span>` : ""}
+                  ${
+                    income
+                      ? `<span class="calendar-pill icon-income">
+                          <span class="calendar-pill-icon">${iconRegistry["arrow-up"]}</span>
+                          <span class="calendar-pill-text">${formatCompactMoney(income, baseSymbol)}</span>
+                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(income)}</span>
+                        </span>`
+                      : ""
+                  }
+                  ${
+                    expense
+                      ? `<span class="calendar-pill icon-expense">
+                          <span class="calendar-pill-icon">${iconRegistry["arrow-down"]}</span>
+                          <span class="calendar-pill-text">${formatCompactMoney(expense, baseSymbol)}</span>
+                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(expense)}</span>
+                        </span>`
+                      : ""
+                  }
+                  ${
+                    transfer
+                      ? `<span class="calendar-pill icon-transfer">
+                          <span class="calendar-pill-icon">${iconRegistry.swap}</span>
+                          <span class="calendar-pill-text">${formatCompactMoney(transfer, baseSymbol)}</span>
+                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(transfer)}</span>
+                        </span>`
+                      : ""
+                  }
                 </div>`
               : `<span class="calendar-empty">No activity</span>`
           }
@@ -2848,6 +2872,14 @@
       maximumFractionDigits: amount >= 1000 ? 1 : 2,
     }).format(Math.abs(amount));
     return `${amount < 0 ? "-" : ""}${symbol || "$"} ${formatted}`;
+  }
+
+  function formatCompactPlainAmount(value) {
+    const amount = Number(value || 0);
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: amount >= 1000 ? 1 : 2,
+    }).format(Math.abs(amount));
   }
 
   function formatMoney(value, symbol) {
