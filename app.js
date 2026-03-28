@@ -5,7 +5,10 @@
   // Fill these values to enable Supabase auth and cloud sync.
   const SUPABASE_URL = "https://rcpilsxyrswwhjyaenxt.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjcGlsc3h5cnN3d2hqeWFlbnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMDc3MzEsImV4cCI6MjA4OTY4MzczMX0.kxQhwsH1InTmLCrKIhBw93pI2ALf_iVcTowqvR_zYco";
-  const SUPABASE_STATE_TABLE = "ledger_state";
+  const SUPABASE_ACCOUNTS_TABLE = "accounts";
+  const SUPABASE_CATEGORIES_TABLE = "categories";
+  const SUPABASE_TRANSACTIONS_TABLE = "transactions";
+  const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const STORAGE_KEY = "ledgerflow-voice-v1";
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
@@ -706,13 +709,35 @@
     uiState.syncStatus = "Syncing with Supabase...";
     renderCloudStatus();
 
-    const { data, error } = await cloudState.client
-      .from(SUPABASE_STATE_TABLE)
-      .select("payload, updated_at")
-      .eq("user_id", cloudState.session.user.id)
-      .maybeSingle();
+    try {
+      const remoteState = await loadNormalizedStateFromSupabase(cloudState.session.user.id);
+      const hasRemoteRows =
+        remoteState.accounts.length || remoteState.categories.length || remoteState.transactions.length;
 
-    if (error) {
+      if (hasRemoteRows) {
+        replaceState(remoteState);
+        persistState();
+        renderAll();
+        cloudState.lastSyncedAt = getLatestCloudTimestamp(remoteState) || "";
+        uiState.syncStatus = `Cloud data loaded${cloudState.lastSyncedAt ? ` on ${formatShortDateTime(cloudState.lastSyncedAt)}` : "."}`;
+        renderCloudStatus();
+        if (!quiet) {
+          showToast("Supabase data loaded.");
+        }
+        return;
+      }
+
+      const legacyState = await loadLegacySnapshotState(cloudState.session.user.id);
+      if (legacyState) {
+        replaceState(legacyState);
+        persistState();
+        renderAll();
+        await syncStateToSupabase(!quiet, "Migrated your legacy cloud data.");
+        return;
+      }
+
+      await syncStateToSupabase(!quiet, "Created your first Supabase backup.");
+    } catch (error) {
       console.error(error);
       const cachedState = loadLocalState(getUserCacheKey(cloudState.session.user.id));
       replaceState(cachedState);
@@ -720,23 +745,7 @@
       uiState.syncStatus = error.message || "Unable to load Supabase data.";
       renderCloudStatus();
       initializeLockScreen();
-      return;
     }
-
-    if (data?.payload) {
-      replaceState(data.payload);
-      persistState();
-      renderAll();
-      cloudState.lastSyncedAt = data.updated_at || "";
-      uiState.syncStatus = `Cloud data loaded${data.updated_at ? ` on ${formatShortDateTime(data.updated_at)}` : "."}`;
-      renderCloudStatus();
-      if (!quiet) {
-        showToast("Supabase data loaded.");
-      }
-      return;
-    }
-
-    await syncStateToSupabase(!quiet, "Created your first Supabase backup.");
   }
 
   async function syncStateToSupabase(showFeedback, successMessage = "Synced to Supabase.") {
@@ -756,19 +765,23 @@
     renderCloudStatus();
 
     try {
-      const payload = {
-        user_id: cloudState.session.user.id,
-        payload: buildSerializableState(),
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await cloudState.client.from(SUPABASE_STATE_TABLE).upsert(payload, {
-        onConflict: "user_id",
-      });
-      if (error) {
-        throw error;
-      }
-      cloudState.lastSyncedAt = payload.updated_at;
-      uiState.syncStatus = `Synced ${formatShortDateTime(payload.updated_at)}`;
+      const syncedAt = new Date().toISOString();
+      const userId = cloudState.session.user.id;
+      await syncSupabaseTable(
+        SUPABASE_ACCOUNTS_TABLE,
+        state.accounts.map((account) => serializeAccountForSupabase(account, userId, syncedAt))
+      );
+      await syncSupabaseTable(
+        SUPABASE_CATEGORIES_TABLE,
+        state.categories.map((category) => serializeCategoryForSupabase(category, userId, syncedAt))
+      );
+      await syncSupabaseTable(
+        SUPABASE_TRANSACTIONS_TABLE,
+        state.transactions.map((transaction) => serializeTransactionForSupabase(transaction, userId, syncedAt))
+      );
+
+      cloudState.lastSyncedAt = syncedAt;
+      uiState.syncStatus = `Synced ${formatShortDateTime(syncedAt)}`;
       renderCloudStatus();
       if (showFeedback) {
         showToast(successMessage);
@@ -787,6 +800,196 @@
         void syncStateToSupabase(false);
       }
     }
+  }
+
+  async function loadNormalizedStateFromSupabase(userId) {
+    const [accountsResult, categoriesResult, transactionsResult] = await Promise.all([
+      cloudState.client
+        .from(SUPABASE_ACCOUNTS_TABLE)
+        .select("*")
+        .eq("user_id", userId)
+        .order("name", { ascending: true }),
+      cloudState.client
+        .from(SUPABASE_CATEGORIES_TABLE)
+        .select("*")
+        .eq("user_id", userId)
+        .order("name", { ascending: true }),
+      cloudState.client
+        .from(SUPABASE_TRANSACTIONS_TABLE)
+        .select("*")
+        .eq("user_id", userId)
+        .order("transaction_date", { ascending: false })
+        .order("created_at", { ascending: false }),
+    ]);
+
+    const firstError = [accountsResult.error, categoriesResult.error, transactionsResult.error].find(Boolean);
+    if (firstError) {
+      throw firstError;
+    }
+
+    return normalizeState({
+      accounts: (accountsResult.data || []).map(deserializeSupabaseAccount),
+      categories: (categoriesResult.data || []).map(deserializeSupabaseCategory),
+      transactions: (transactionsResult.data || []).map(deserializeSupabaseTransaction),
+    });
+  }
+
+  async function loadLegacySnapshotState(userId) {
+    const { data, error } = await cloudState.client
+      .from(SUPABASE_LEGACY_STATE_TABLE)
+      .select("payload")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (String(error.code || "") === "PGRST205" || String(error.message || "").toLowerCase().includes("could not find")) {
+        return null;
+      }
+      throw error;
+    }
+
+    return data?.payload ? normalizeState(data.payload) : null;
+  }
+
+  async function syncSupabaseTable(tableName, rows) {
+    const userId = cloudState.session.user.id;
+    const { data: existingRows, error: existingError } = await cloudState.client
+      .from(tableName)
+      .select("id")
+      .eq("user_id", userId);
+
+    if (existingError) {
+      throw existingError;
+    }
+
+    if (rows.length) {
+      const { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
+        onConflict: "user_id,id",
+      });
+      if (upsertError) {
+        throw upsertError;
+      }
+    }
+
+    const localIds = new Set(rows.map((row) => row.id));
+    const staleIds = (existingRows || []).map((row) => row.id).filter((id) => !localIds.has(id));
+
+    if (staleIds.length) {
+      const { error: deleteError } = await cloudState.client.from(tableName).delete().eq("user_id", userId).in("id", staleIds);
+      if (deleteError) {
+        throw deleteError;
+      }
+    }
+  }
+
+  function serializeAccountForSupabase(account, userId, syncedAt) {
+    return {
+      user_id: userId,
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      currency_symbol: account.currencySymbol || "$",
+      opening_balance: Number(account.openingBalance || 0),
+      color: account.color || "#19c6a7",
+      icon: account.icon || "wallet",
+      notes: account.notes || "",
+      updated_at: syncedAt,
+    };
+  }
+
+  function serializeCategoryForSupabase(category, userId, syncedAt) {
+    return {
+      user_id: userId,
+      id: category.id,
+      name: category.name,
+      type: category.type,
+      icon: category.icon || "cart",
+      color: category.color || "#19c6a7",
+      subcategories: Array.isArray(category.subcategories) ? category.subcategories : [],
+      budget_limit: Number(category.budgetLimit || 0),
+      budget_period: category.budgetPeriod || "monthly",
+      updated_at: syncedAt,
+    };
+  }
+
+  function serializeTransactionForSupabase(transaction, userId, syncedAt) {
+    return {
+      user_id: userId,
+      id: transaction.id,
+      type: transaction.type,
+      amount: Number(transaction.amount || 0),
+      transaction_date: transaction.date || todayIso(),
+      account_id: transaction.accountId || null,
+      from_account_id: transaction.fromAccountId || null,
+      to_account_id: transaction.toAccountId || null,
+      category_id: transaction.categoryId || null,
+      subcategory: transaction.subcategory || "",
+      counterparty: transaction.counterparty || "",
+      project: transaction.project || "",
+      tags: Array.isArray(transaction.tags) ? transaction.tags : [],
+      details: transaction.details || "",
+      created_at: transaction.createdAt || syncedAt,
+      updated_at: transaction.updatedAt || syncedAt,
+    };
+  }
+
+  function deserializeSupabaseAccount(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      currencySymbol: row.currency_symbol || "$",
+      openingBalance: Number(row.opening_balance || 0),
+      color: row.color || "#19c6a7",
+      icon: row.icon || "wallet",
+      notes: row.notes || "",
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || "",
+    };
+  }
+
+  function deserializeSupabaseCategory(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      icon: row.icon || "cart",
+      color: row.color || "#19c6a7",
+      subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+      budgetLimit: Number(row.budget_limit || 0),
+      budgetPeriod: row.budget_period || "monthly",
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || "",
+    };
+  }
+
+  function deserializeSupabaseTransaction(row) {
+    return {
+      id: row.id,
+      type: row.type,
+      amount: Number(row.amount || 0),
+      date: row.transaction_date || todayIso(),
+      accountId: row.account_id || "",
+      fromAccountId: row.from_account_id || "",
+      toAccountId: row.to_account_id || "",
+      categoryId: row.category_id || "",
+      subcategory: row.subcategory || "",
+      counterparty: row.counterparty || "",
+      project: row.project || "",
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      details: row.details || "",
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || "",
+    };
+  }
+
+  function getLatestCloudTimestamp(remoteState) {
+    const timestamps = [
+      ...remoteState.accounts.map((item) => item.updatedAt || ""),
+      ...remoteState.categories.map((item) => item.updatedAt || ""),
+      ...remoteState.transactions.map((item) => item.updatedAt || ""),
+    ].filter(Boolean);
+    return timestamps.sort().at(-1) || "";
   }
 
   async function handleSignOut() {

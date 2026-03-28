@@ -19,7 +19,7 @@ Open [index.html](C:\Users\Ali Reza\Documents\New project\index.html) in a moder
 
 ## Notes
 
-- Data is stored locally in the browser with `localStorage`.
+- Data is cached locally in the browser with `localStorage`.
 - Voice dictation depends on browser speech recognition support and microphone permission.
 - To enable Supabase:
   1. Run [schema.sql](C:\Users\Ali Reza\Documents\New project\supabase\schema.sql) in your Supabase SQL editor.
@@ -31,5 +31,6 @@ Open [index.html](C:\Users\Ali Reza\Documents\New project\index.html) in a moder
      - enable Email provider
      - keep email/password sign-in enabled
   5. Reload the app and sign in or sign up from the lock screen.
-- When Supabase is configured, the app uses email/password auth and stores the full ledger as a per-user JSON snapshot in the `ledger_state` table.
+- When Supabase is configured, the app uses email/password auth and stores `accounts`, `categories`, and `transactions` in normalized Supabase tables.
+- `ledger_state` is kept only as a legacy migration source for older installs that already synced to the snapshot model.
 - The app automatically uses the current page URL as the email confirmation redirect, which works well for GitHub Pages as long as that deployed URL is added to Supabase redirect settings.
