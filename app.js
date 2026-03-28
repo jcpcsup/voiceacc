@@ -2135,6 +2135,120 @@
     return { incoming, outgoing };
   }
 
+  function getTrailingMonths(count = 12) {
+    const months = [];
+    const now = new Date();
+    for (let offset = count - 1; offset >= 0; offset -= 1) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      months.push({
+        key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
+        label: monthDate.toLocaleDateString("en-US", { month: "short" }),
+        year: monthDate.getFullYear(),
+        month: monthDate.getMonth(),
+      });
+    }
+    return months;
+  }
+
+  function getAccountMonthlyBalanceSeries(accountId) {
+    return getTrailingMonths(12).map((month) => ({
+      label: month.label,
+      value: getAccountBalanceAtDate(accountId, new Date(month.year, month.month + 1, 0)),
+    }));
+  }
+
+  function getAccountBalanceAtDate(accountId, date) {
+    const account = getAccount(accountId);
+    if (!account) {
+      return 0;
+    }
+    const cutoff = date.toISOString().slice(0, 10);
+    let balance = Number(account.openingBalance || 0);
+    state.transactions.forEach((transaction) => {
+      if (transaction.date > cutoff) {
+        return;
+      }
+      const amount = Number(transaction.amount || 0);
+      if (transaction.type === "expense" && transaction.accountId === accountId) {
+        balance -= amount;
+      }
+      if (transaction.type === "income" && transaction.accountId === accountId) {
+        balance += amount;
+      }
+      if (transaction.type === "transfer") {
+        if (transaction.fromAccountId === accountId) {
+          balance -= amount;
+        }
+        if (transaction.toAccountId === accountId) {
+          balance += amount;
+        }
+      }
+    });
+    return balance;
+  }
+
+  function getCategoryMonthlySeries(categoryId) {
+    const buckets = new Map(getTrailingMonths(12).map((month) => [month.key, { label: month.label, value: 0 }]));
+    state.transactions.forEach((transaction) => {
+      if (transaction.categoryId !== categoryId || !transaction.date) {
+        return;
+      }
+      const key = transaction.date.slice(0, 7);
+      if (!buckets.has(key)) {
+        return;
+      }
+      buckets.get(key).value += Number(transaction.amount || 0);
+    });
+    return [...buckets.values()];
+  }
+
+  function renderMiniTrendChart(series, color, label, valueLabel) {
+    const points = series.map((item) => Number(item.value || 0));
+    const hasActivity = points.some((value) => value !== 0);
+    const safeColor = color || "#19c6a7";
+    if (!hasActivity) {
+      return `
+        <div class="mini-trend-card">
+          <div class="mini-trend-copy">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(valueLabel)}</strong>
+          </div>
+          <div class="mini-trend-empty">No 12M history yet</div>
+        </div>
+      `;
+    }
+
+    const width = 220;
+    const height = 56;
+    const padding = 4;
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const range = max - min || 1;
+    const coords = points.map((value, index) => {
+      const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
+      const normalized = (value - min) / range;
+      const y = height - padding - normalized * (height - padding * 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point, index) => `${index === 0 ? "L" : "L"} ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
+    return `
+      <div class="mini-trend-card">
+        <div class="mini-trend-copy">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(valueLabel)}</strong>
+        </div>
+        <svg class="mini-trend-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+          <path d="${areaPath}" fill="${escapeHtml(withAlpha(safeColor, 0.18))}"></path>
+          <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(safeColor)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+        <div class="mini-trend-axis">
+          <span>${escapeHtml(series[0].label)}</span>
+          <span>${escapeHtml(series[series.length - 1].label)}</span>
+        </div>
+      </div>
+    `;
+  }
+
   function getBudgetStatus(transactionsInput) {
     const transactions = Array.isArray(transactionsInput) ? transactionsInput : state.transactions;
     return state.categories
@@ -2584,6 +2698,7 @@
     const balance = getAccountBalance(account.id);
     const flow = getAccountFlow(account.id);
     const accountSymbol = account.currencySymbol || "$";
+    const accountSeries = getAccountMonthlyBalanceSeries(account.id);
     return `
       <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
         <div class="flash-card-top">
@@ -2674,6 +2789,7 @@
   function renderCategoryItem(category) {
     const usage = getBudgetStatus().find((item) => item.category.id === category.id);
     const baseSymbol = getPrimaryCurrencySymbol();
+    const categorySeries = getCategoryMonthlySeries(category.id);
     return `
       <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
         <div class="category-main">
@@ -2686,6 +2802,7 @@
             <div class="category-subs">
               ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
             </div>
+            ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
           </div>
           <div class="item-actions compact-actions">
             ${
@@ -2774,6 +2891,7 @@
     const balance = getAccountBalance(account.id);
     const flow = getAccountFlow(account.id);
     const accountSymbol = account.currencySymbol || "$";
+    const accountSeries = getAccountMonthlyBalanceSeries(account.id);
     return `
       <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
         <div class="flash-card-top">
@@ -2782,6 +2900,7 @@
         </div>
         <h3>${escapeHtml(account.name)}</h3>
         <strong class="money account-balance">${formatMoney(balance, accountSymbol)}</strong>
+        ${renderMiniTrendChart(accountSeries, account.color || "#19c6a7", "12M Balance", formatMoney(accountSeries[accountSeries.length - 1]?.value || 0, accountSymbol))}
         <div class="account-card-footer">
           <div class="transaction-tags compact-tags">
             <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
@@ -2825,6 +2944,7 @@
   function renderCategoryItem(category) {
     const usage = getBudgetStatus().find((item) => item.category.id === category.id);
     const baseSymbol = getPrimaryCurrencySymbol();
+    const categorySeries = getCategoryMonthlySeries(category.id);
     return `
       <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
         <div class="category-main">
@@ -2837,6 +2957,7 @@
             <div class="category-subs">
               ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
             </div>
+            ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
           </div>
           <div class="category-side">
             <div class="category-meta-row">
@@ -3102,6 +3223,17 @@
       maximumFractionDigits: 2,
     }).format(Math.abs(amount));
     return `${amount < 0 ? "-" : ""}${symbol || "$"} ${formatted}`;
+  }
+
+  function withAlpha(hexColor, alpha) {
+    const hex = String(hexColor || "").replace("#", "").trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+      return `rgba(18, 200, 164, ${alpha})`;
+    }
+    const red = parseInt(hex.slice(0, 2), 16);
+    const green = parseInt(hex.slice(2, 4), 16);
+    const blue = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
   }
 
   function formatTransactionAmount(value, transaction) {

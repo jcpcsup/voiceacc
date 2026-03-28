@@ -720,6 +720,55 @@ body.app-locked .app-shell {
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
+.mini-trend-card {
+  margin-top: 12px;
+  padding: 10px 12px 8px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.08), rgba(0, 166, 199, 0.06));
+  border: 1px solid rgba(18, 59, 70, 0.08);
+}
+
+.mini-trend-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.mini-trend-copy span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mini-trend-copy strong {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.mini-trend-chart {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+.mini-trend-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+
+.mini-trend-empty {
+  padding: 10px 0 2px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 .account-card-footer {
   display: grid;
   gap: 12px;
@@ -1661,6 +1710,31 @@ textarea:focus {
 
   .period-chip strong {
     font-size: 0.88rem;
+  }
+
+  .mini-trend-card {
+    margin-top: 10px;
+    padding: 9px 10px 7px;
+  }
+
+  .mini-trend-copy {
+    gap: 8px;
+  }
+
+  .mini-trend-copy span {
+    font-size: 0.64rem;
+  }
+
+  .mini-trend-copy strong {
+    font-size: 0.72rem;
+  }
+
+  .mini-trend-chart {
+    height: 48px;
+  }
+
+  .mini-trend-axis {
+    font-size: 0.6rem;
   }
 
   .calendar-weekdays,
