@@ -2877,8 +2877,9 @@
   function formatCompactPlainAmount(value) {
     const amount = Number(value || 0);
     return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: amount >= 1000 ? 1 : 2,
+      useGrouping: false,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(Math.abs(amount));
   }
 
