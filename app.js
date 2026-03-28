@@ -1276,16 +1276,25 @@
     const expense = sumAmounts(transactions.filter((tx) => tx.type === "expense"));
     const transfer = sumAmounts(transactions.filter((tx) => tx.type === "transfer"));
     const largest = transactions.reduce((best, tx) => (!best || tx.amount > best.amount ? tx : best), null);
+    const incomeSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "income" ? transaction.amount : 0));
+    const expenseSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "expense" ? transaction.amount : 0));
+    const netSeries = buildMonthlySeries(
+      transactions,
+      (transaction) => (transaction.type === "income" ? transaction.amount : transaction.type === "expense" ? -Number(transaction.amount || 0) : 0)
+    );
+    const transferSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "transfer" ? transaction.amount : 0));
+    const volumeSeries = buildMonthlySeries(transactions, (transaction) => transaction.amount || 0);
 
     document.getElementById("report-metrics").innerHTML = [
-      metricCard("Income", formatMoney(income, baseSymbol), "Filtered income"),
-      metricCard("Expenses", formatMoney(expense, baseSymbol), "Filtered expense"),
-      metricCard("Net", formatMoney(income - expense, baseSymbol), "Income minus expense"),
-      metricCard("Transfers", formatMoney(transfer, baseSymbol), "Transfer volume"),
+      metricCard("Income", formatMoney(income, baseSymbol), "Filtered income", renderInlineSparkline(incomeSeries, "#1ca866")),
+      metricCard("Expenses", formatMoney(expense, baseSymbol), "Filtered expense", renderInlineSparkline(expenseSeries, "#d35a5a")),
+      metricCard("Net", formatMoney(income - expense, baseSymbol), "Income minus expense", renderInlineSparkline(netSeries, "#00a6c7")),
+      metricCard("Transfers", formatMoney(transfer, baseSymbol), "Transfer volume", renderInlineSparkline(transferSeries, "#2f86ff")),
       metricCard(
         "Largest Entry",
         largest ? formatTransactionAmount(largest.amount, largest) : formatMoney(0, baseSymbol),
-        largest ? largest.details || largest.counterparty || largest.type : "No transactions"
+        largest ? largest.details || largest.counterparty || largest.type : "No transactions",
+        renderInlineSparkline(volumeSeries, "#ffb84d")
       ),
     ].join("");
 
@@ -2217,7 +2226,6 @@
         </div>
       `;
     }
-
     const width = 220;
     const height = 56;
     const padding = 4;
@@ -2230,7 +2238,7 @@
       const y = height - padding - normalized * (height - padding * 2);
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     });
-    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point, index) => `${index === 0 ? "L" : "L"} ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
+    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point) => `L ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
     return `
       <div class="mini-trend-card">
         <div class="mini-trend-copy">
@@ -2245,6 +2253,108 @@
           <span>${escapeHtml(series[0].label)}</span>
           <span>${escapeHtml(series[series.length - 1].label)}</span>
         </div>
+      </div>
+    `;
+  }
+
+  function buildMonthlySeries(transactions, resolver, count = 12) {
+    const buckets = new Map(getTrailingMonths(count).map((month) => [month.key, { label: month.label, value: 0 }]));
+    transactions.forEach((transaction) => {
+      if (!transaction.date) {
+        return;
+      }
+      const key = transaction.date.slice(0, 7);
+      if (!buckets.has(key)) {
+        return;
+      }
+      buckets.get(key).value += Number(resolver(transaction) || 0);
+    });
+    return [...buckets.values()];
+  }
+
+  function renderInlineSparkline(series, color) {
+    const points = series.map((item) => Number(item.value || 0));
+    if (!points.some((value) => value !== 0)) {
+      return `<div class="inline-sparkline inline-sparkline-empty"></div>`;
+    }
+    const width = 120;
+    const height = 28;
+    const padding = 3;
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const range = max - min || 1;
+    const coords = points.map((value, index) => {
+      const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
+      const normalized = (value - min) / range;
+      const y = height - padding - normalized * (height - padding * 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    return `
+      <svg class="inline-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+        <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(color || "#19c6a7")}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      </svg>
+    `;
+  }
+
+  function renderTimelineOverviewChart(transactions) {
+    const incomeSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "income" ? transaction.amount : 0), 6);
+    const expenseSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "expense" ? transaction.amount : 0), 6);
+    const incomePoints = incomeSeries.map((item) => Number(item.value || 0));
+    const expensePoints = expenseSeries.map((item) => Number(item.value || 0));
+    if (![...incomePoints, ...expensePoints].some((value) => value !== 0)) {
+      return "";
+    }
+    const width = 280;
+    const height = 96;
+    const padding = 8;
+    const max = Math.max(...incomePoints, ...expensePoints, 1);
+    const buildCoords = (points) =>
+      points.map((value, index) => {
+        const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
+        const y = height - padding - (value / max) * (height - padding * 2);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      });
+    const incomeCoords = buildCoords(incomePoints);
+    const expenseCoords = buildCoords(expensePoints);
+    const axisLabels = incomeSeries.map((item) => `<span>${escapeHtml(item.label)}</span>`).join("");
+    return `
+      <div class="timeline-overview">
+        <svg class="timeline-overview-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+          <polyline points="${incomeCoords.join(" ")}" fill="none" stroke="#1ca866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <polyline points="${expenseCoords.join(" ")}" fill="none" stroke="#d35a5a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+        <div class="timeline-overview-legend">
+          <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>Income trend</span></span>
+          <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>Expense trend</span></span>
+        </div>
+        <div class="timeline-overview-axis">${axisLabels}</div>
+      </div>
+    `;
+  }
+
+  function renderInsightSummary(metrics) {
+    const active = metrics.filter((item) => item.value > 0);
+    if (!active.length) {
+      return "";
+    }
+    const max = Math.max(...active.map((item) => item.value), 1);
+    return `
+      <div class="insight-summary">
+        ${active
+          .map(
+            (item) => `
+              <div class="insight-summary-row">
+                <div class="bar-meta">
+                  <strong>${escapeHtml(item.label)}</strong>
+                  <span>${escapeHtml(item.display)}</span>
+                </div>
+                <div class="bar-fill insight-bar">
+                  <span style="width:${(item.value / max) * 100}%; background:${escapeHtml(item.color)}"></span>
+                </div>
+              </div>
+            `
+          )
+          .join("")}
       </div>
     `;
   }
@@ -2308,7 +2418,7 @@
       return renderEmpty("Add transactions to unlock cashflow timelines.");
     }
     const maxValue = Math.max(...rows.map(([, value]) => Math.max(value.income, value.expense)), 1);
-    return rows
+    return `${renderTimelineOverviewChart(transactions)}${rows
       .map(([month, value]) => {
         const net = value.income - value.expense;
         return `
@@ -2324,7 +2434,7 @@
           </div>
         `;
       })
-      .join("");
+      .join("")}`;
   }
 
   function renderCategoryBreakdown(transactions) {
@@ -2333,15 +2443,37 @@
       .filter((transaction) => transaction.type === "expense")
       .forEach((transaction) => {
         const category = getCategory(transaction.categoryId);
-        const key = category ? category.name : "Uncategorized";
-        map.set(key, (map.get(key) || 0) + Number(transaction.amount || 0));
+        const key = category?.id || "uncategorized";
+        const current = map.get(key) || {
+          label: category ? category.name : "Uncategorized",
+          value: 0,
+          color: category?.color || "#d35a5a",
+        };
+        current.value += Number(transaction.amount || 0);
+        map.set(key, current);
       });
-    const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 6);
     if (!rows.length) {
       return renderEmpty("No expense data for this report selection.");
     }
-    const max = Math.max(...rows.map((row) => row[1]), 1);
-    return rows.map(([label, value]) => renderBarItem(label, value, max)).join("");
+    const max = Math.max(...rows.map((row) => row[1].value), 1);
+    return rows
+      .map(([categoryId, row]) =>
+        renderBarItem(
+          row.label,
+          row.value,
+          max,
+          renderInlineSparkline(
+            buildMonthlySeries(
+              transactions.filter((transaction) => transaction.type === "expense" && (transaction.categoryId || "uncategorized") === categoryId),
+              (transaction) => transaction.amount || 0
+            ),
+            row.color
+          ),
+          row.color
+        )
+      )
+      .join("");
   }
 
   function renderAccountBreakdown(transactions) {
@@ -2350,40 +2482,97 @@
       if (transaction.type === "transfer") {
         const from = getAccount(transaction.fromAccountId)?.name || "Unknown";
         const to = getAccount(transaction.toAccountId)?.name || "Unknown";
-        map.set(`${from} → ${to}`, (map.get(`${from} → ${to}`) || 0) + Number(transaction.amount || 0));
+        const key = `transfer:${transaction.fromAccountId || from}:${transaction.toAccountId || to}`;
+        const current = map.get(key) || { label: `${from} → ${to}`, value: 0, color: "#2f86ff" };
+        current.value += Number(transaction.amount || 0);
+        map.set(key, current);
         return;
       }
-      const label = getAccount(transaction.accountId)?.name || "Unknown Account";
-      map.set(label, (map.get(label) || 0) + Number(transaction.amount || 0));
+      const account = getAccount(transaction.accountId);
+      const key = transaction.accountId || "unknown-account";
+      const current = map.get(key) || {
+        label: account?.name || "Unknown Account",
+        value: 0,
+        color: account?.color || "#00a6c7",
+      };
+      current.value += Number(transaction.amount || 0);
+      map.set(key, current);
     });
-    const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 6);
     if (!rows.length) {
       return renderEmpty("No account activity available for the selected filters.");
     }
-    const max = Math.max(...rows.map((row) => row[1]), 1);
-    return rows.map(([label, value]) => renderBarItem(label, value, max)).join("");
+    const max = Math.max(...rows.map((row) => row[1].value), 1);
+    return rows
+      .map(([key, row]) =>
+        renderBarItem(
+          row.label,
+          row.value,
+          max,
+          renderInlineSparkline(
+            buildMonthlySeries(
+              transactions.filter((transaction) => {
+                if (key.startsWith("transfer:")) {
+                  const transferKey = `transfer:${transaction.fromAccountId || (getAccount(transaction.fromAccountId)?.name || "Unknown")}:${transaction.toAccountId || (getAccount(transaction.toAccountId)?.name || "Unknown")}`;
+                  return transaction.type === "transfer" && transferKey === key;
+                }
+                return transaction.type !== "transfer" && (transaction.accountId || "unknown-account") === key;
+              }),
+              (transaction) => transaction.amount || 0
+            ),
+            row.color
+          ),
+          row.color
+        )
+      )
+      .join("");
   }
 
   function renderProjectTable(transactions) {
     const map = new Map();
     transactions.forEach((transaction) => {
       (transaction.tags || []).forEach((tag) => {
-        map.set(`#${tag}`, (map.get(`#${tag}`) || 0) + Number(transaction.amount || 0));
+        const key = `tag:${tag}`;
+        const current = map.get(key) || { label: `#${tag}`, value: 0, color: "#00a6c7" };
+        current.value += Number(transaction.amount || 0);
+        map.set(key, current);
       });
       if (transaction.project) {
-        map.set(transaction.project, (map.get(transaction.project) || 0) + Number(transaction.amount || 0));
+        const key = `project:${transaction.project}`;
+        const current = map.get(key) || { label: transaction.project, value: 0, color: "#19c6a7" };
+        current.value += Number(transaction.amount || 0);
+        map.set(key, current);
       }
     });
-    const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8);
     if (!rows.length) {
       return renderEmpty("Use tags and projects to unlock deeper reporting.");
     }
+    const max = Math.max(...rows.map((row) => row[1].value), 1);
     return rows
       .map(
-        ([label, value]) => `
+        ([key, row]) => `
           <div class="mini-row">
-            <strong>${escapeHtml(label)}</strong>
-            <span>${formatCurrency(value)}</span>
+            <div class="bar-meta">
+              <strong>${escapeHtml(row.label)}</strong>
+              <span>${formatCurrency(row.value)}</span>
+            </div>
+            <div class="report-row-graph">
+              ${renderInlineSparkline(
+                buildMonthlySeries(
+                  transactions.filter((transaction) =>
+                    key.startsWith("tag:")
+                      ? (transaction.tags || []).includes(key.replace("tag:", ""))
+                      : transaction.project === key.replace("project:", "")
+                  ),
+                  (transaction) => transaction.amount || 0
+                ),
+                row.color
+              )}
+              <div class="bar-fill">
+                <span style="width:${(row.value / max) * 100}%; background:${escapeHtml(row.color)}"></span>
+              </div>
+            </div>
           </div>
         `
       )
@@ -2406,6 +2595,13 @@
     const topCounterparty = [...byPayee.entries()].sort((a, b) => b[1] - a[1])[0];
 
     return [
+      renderInsightSummary([
+        topExpense ? { label: "Largest Expense", value: Number(topExpense.amount || 0), display: formatCurrency(topExpense.amount), color: "#d35a5a" } : null,
+        latest ? { label: "Latest Entry", value: Number(latest.amount || 0), display: formatCurrency(latest.amount), color: "#00a6c7" } : null,
+        topCounterparty
+          ? { label: "Top Counterparty", value: Number(topCounterparty[1] || 0), display: formatCurrency(topCounterparty[1]), color: "#19c6a7" }
+          : null,
+      ].filter(Boolean)),
       topExpense
         ? insightCard(
             "Largest Expense",
@@ -3003,17 +3199,18 @@
     `;
   }
 
-  function metricCard(label, value, note) {
+  function metricCard(label, value, note, chart = "") {
     return `
       <article class="metric-card">
         <p class="eyebrow">${escapeHtml(label)}</p>
         <strong class="money">${escapeHtml(value)}</strong>
         <p>${escapeHtml(note)}</p>
+        ${chart}
       </article>
     `;
   }
 
-  function renderBarItem(label, value, max) {
+  function renderBarItem(label, value, max, chart = "", color = "") {
     const baseSymbol = getPrimaryCurrencySymbol();
     return `
       <div class="bar-item">
@@ -3021,7 +3218,10 @@
           <strong>${escapeHtml(label)}</strong>
           <span>${formatMoney(value, baseSymbol)}</span>
         </div>
-        <div class="bar-fill"><span style="width:${(value / max) * 100}%"></span></div>
+        <div class="report-row-graph">
+          ${chart}
+          <div class="bar-fill"><span style="width:${(value / max) * 100}%; ${color ? `background:${escapeHtml(color)};` : ""}"></span></div>
+        </div>
       </div>
     `;
   }
