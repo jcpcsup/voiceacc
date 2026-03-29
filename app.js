@@ -1089,8 +1089,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
               transactionSymbol
             )}</strong>
             <div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>
-            <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
-            <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
+            <div class="transaction-action-row">
+              <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
+              <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
+            </div>
           </div>
         </div>
       </article>

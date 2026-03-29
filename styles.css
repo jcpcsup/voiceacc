@@ -1270,6 +1270,13 @@ textarea:focus {
   width: 100%;
 }
 
+.transaction-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
 .transaction-mobile-actions {
   display: none;
   gap: 8px;
@@ -2395,6 +2402,7 @@ textarea:focus {
     font-size: 0.52rem;
     font-weight: 700;
     line-height: 1.05;
+    text-align: right;
   }
 
   .calendar-empty {
@@ -2455,8 +2463,22 @@ textarea:focus {
   }
 
   .transaction-top-meta {
-    gap: 6px;
+    display: grid;
+    gap: 4px;
     align-items: flex-start;
+  }
+
+  .transaction-tags-header {
+    order: 1;
+    margin-right: 0;
+  }
+
+  .transaction-date-inline {
+    order: 2;
+  }
+
+  .transaction-header-separator {
+    display: none;
   }
 
   .transaction-date-inline,
