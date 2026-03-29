@@ -994,14 +994,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const typeColor =
       transaction.type === "expense" ? "#ef6461" : transaction.type === "income" ? "#12c8a4" : "#00a6c7";
     const cardColor = category?.color || typeColor;
-    const headerPills = [
-      category
-        ? `<span class="tag-pill transaction-theme-pill">${escapeHtml(category.name)}</span>`
-        : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`,
-      transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : "",
-    ]
-      .filter(Boolean)
-      .join("");
+    const headerPills = `
+      <div class="transaction-category-box">
+        <span class="tag-pill transaction-theme-pill">${escapeHtml(category?.name || typeLabel)}</span>
+        ${
+          transaction.subcategory
+            ? `<span class="transaction-category-arrow" aria-hidden="true">➜</span><span class="meta-pill transaction-subcategory-pill">${escapeHtml(
+                transaction.subcategory
+              )}</span>`
+            : ""
+        }
+      </div>
+    `;
     const tagPills = (transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("");
     const accountPills =
       transaction.type === "transfer"

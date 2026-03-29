@@ -1170,6 +1170,29 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 12%, rgba(13, 47, 61, 0.08));
 }
 
+.transaction-category-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 24%, white);
+}
+
+.transaction-category-arrow {
+  color: var(--card-color, var(--accent));
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.transaction-subcategory-pill {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--card-color, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 14%, rgba(13, 47, 61, 0.08));
+}
+
 .transaction-pill-payee {
   background: #e6e2ff !important;
   color: #6657ca !important;
@@ -2471,6 +2494,11 @@ textarea:focus {
   .transaction-tags-header {
     order: 1;
     margin-right: 0;
+  }
+
+  .transaction-category-box {
+    gap: 6px;
+    padding: 5px 7px;
   }
 
   .transaction-date-inline {
