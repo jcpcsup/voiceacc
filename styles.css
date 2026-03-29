@@ -1155,6 +1155,13 @@ textarea:focus {
 
 .report-pie-panel {
   margin-top: 16px;
+  padding: 18px 20px;
+}
+
+.report-pie-panel .empty-state {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding: 20px 18px;
 }
 
 .field-group {
@@ -1859,6 +1866,10 @@ textarea:focus {
   .report-pie-panel {
     margin-top: 12px;
     padding: 16px 14px;
+  }
+
+  .report-pie-panel .empty-state {
+    padding: 18px 14px;
   }
 
   .report-pie-layout {
