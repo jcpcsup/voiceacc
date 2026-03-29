@@ -2464,7 +2464,7 @@ textarea:focus {
 
   .transaction-top-meta {
     display: grid;
-    gap: 4px;
+    gap: 6px;
     align-items: flex-start;
   }
 
@@ -2483,7 +2483,12 @@ textarea:focus {
 
   .transaction-date-inline,
   .transaction-header-separator {
-    font-size: 0.78rem;
+    font-size: 0.84rem;
+  }
+
+  .transaction-date-inline {
+    margin-top: 2px;
+    margin-bottom: 4px;
   }
 
   .transaction-amount {
