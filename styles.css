@@ -525,6 +525,10 @@ body.app-locked .app-shell {
   align-items: flex-start;
 }
 
+.search-panel-heading {
+  margin-bottom: 0;
+}
+
 .section-heading h2,
 .section-heading h3,
 .modal-header h2 {
@@ -546,6 +550,21 @@ body.app-locked .app-shell {
   border-radius: var(--radius-xl);
   background: var(--panel);
   box-shadow: 0 20px 40px rgba(24, 76, 85, 0.08);
+}
+
+.transaction-search-panel {
+  display: block;
+}
+
+.search-panel-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.panel-toggle-button {
+  min-width: 128px;
 }
 
 .two-column,
@@ -967,6 +986,12 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.danger-button {
+  background: linear-gradient(135deg, #e35b58 0%, #d24542 100%);
+  color: white;
+  box-shadow: 0 14px 28px rgba(211, 83, 80, 0.22);
+}
+
 .example-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1067,6 +1092,11 @@ textarea:focus {
   min-width: 0;
 }
 
+.transaction-top {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
 .transaction-rail {
   display: grid;
   gap: 10px;
@@ -1089,6 +1119,10 @@ textarea:focus {
   font-size: 1.45rem;
   white-space: nowrap;
   text-align: right;
+}
+
+.transaction-amount-inline {
+  display: none;
 }
 
 .transaction-amount-expense {
@@ -1124,6 +1158,7 @@ textarea:focus {
 .transaction-theme-pill {
   background: color-mix(in srgb, var(--card-color, var(--accent)) 14%, white);
   color: var(--card-color, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 12%, rgba(13, 47, 61, 0.08));
 }
 
 .transaction-header-line {
@@ -1144,11 +1179,22 @@ textarea:focus {
 }
 
 .transaction-card-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
+  align-content: start;
   gap: 10px;
   justify-content: flex-end;
   flex-wrap: nowrap;
+  justify-items: stretch;
+  min-width: 140px;
+}
+
+.transaction-card-actions .transaction-amount-desktop {
+  justify-self: end;
+}
+
+.transaction-card-actions .ghost-button,
+.transaction-card-actions .secondary-button {
+  width: 100%;
 }
 
 .transaction-mobile-actions {
@@ -1174,6 +1220,16 @@ textarea:focus {
   color: #d35350;
   border-color: rgba(211, 83, 80, 0.18);
   background: rgba(239, 100, 97, 0.08);
+}
+
+.transaction-details-note {
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 16%, rgba(13, 47, 61, 0.08));
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  font-size: 0.83rem;
+  line-height: 1.4;
 }
 
 .compact-tags {
@@ -1225,6 +1281,11 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.transaction-search-panel {
+  display: block;
+  gap: 0;
 }
 
 .search-panel + .metric-grid,
@@ -1793,6 +1854,10 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+.modal-card-compact {
+  width: min(100%, 460px);
+}
+
 .inline-notice {
   margin-bottom: 14px;
   padding: 14px 16px;
@@ -2031,8 +2096,11 @@ textarea:focus {
   }
 
   .dictation-card,
-  .search-panel,
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-panel-body {
     grid-template-columns: 1fr;
   }
 
@@ -2293,6 +2361,14 @@ textarea:focus {
   }
 
   .transaction-card-actions {
+    display: none;
+  }
+
+  .transaction-amount-inline {
+    display: block;
+  }
+
+  .transaction-amount-desktop {
     display: none;
   }
 

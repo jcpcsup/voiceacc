@@ -183,43 +183,54 @@
               <button class="primary-button" type="button" id="add-transaction-button">Add Transaction</button>
             </div>
 
-            <div class="search-panel">
-              <div class="field-group field-span-2">
-                <label class="field-label" for="search-input">Extended Search</label>
-                <input
-                  id="search-input"
-                  type="search"
-                  placeholder="Search payee, payer, project, tags, details, account, category..."
-                />
+            <div class="search-panel transaction-search-panel" id="transaction-search-panel">
+              <div class="section-heading compact search-panel-heading">
+                <div>
+                  <p class="eyebrow">Ledger</p>
+                  <h3>Extended Search</h3>
+                </div>
+                <button class="ghost-button panel-toggle-button" type="button" id="toggle-transaction-filters-button" aria-expanded="false">
+                  Show Filters
+                </button>
               </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-type">Type</label>
-                <select id="filter-type">
-                  <option value="all">All</option>
-                  <option value="expense">Expense</option>
-                  <option value="income">Income</option>
-                  <option value="transfer">Transfer</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-account">Account</label>
-                <select id="filter-account"></select>
-              </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-category">Category</label>
-                <select id="filter-category"></select>
-              </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-tag">Tag</label>
-                <input id="filter-tag" type="text" placeholder="Any tag" />
-              </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-start-date">From</label>
-                <input id="filter-start-date" type="date" />
-              </div>
-              <div class="field-group">
-                <label class="field-label" for="filter-end-date">To</label>
-                <input id="filter-end-date" type="date" />
+              <div class="search-panel-body hidden" id="transaction-search-body">
+                <div class="field-group field-span-2">
+                  <label class="field-label" for="search-input">Search</label>
+                  <input
+                    id="search-input"
+                    type="search"
+                    placeholder="Search payee, payer, project, tags, details, account, category..."
+                  />
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-type">Type</label>
+                  <select id="filter-type">
+                    <option value="all">All</option>
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                    <option value="transfer">Transfer</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-account">Account</label>
+                  <select id="filter-account"></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-category">Category</label>
+                  <select id="filter-category"></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-tag">Tag</label>
+                  <input id="filter-tag" type="text" placeholder="Any tag" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-start-date">From</label>
+                  <input id="filter-start-date" type="date" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-end-date">To</label>
+                  <input id="filter-end-date" type="date" />
+                </div>
               </div>
             </div>
 
@@ -722,6 +733,26 @@
             <button class="primary-button" type="submit">Import CSV</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="confirm-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="confirm-modal"></div>
+      <div class="modal-card modal-card-compact">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="confirm-modal-eyebrow">Confirm</p>
+            <h2 id="confirm-modal-title">Delete item?</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="confirm-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <p class="supporting-text" id="confirm-modal-message">This action cannot be undone.</p>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-close-modal="confirm-modal">Cancel</button>
+          <button class="primary-button danger-button" type="button" id="confirm-modal-submit">Delete</button>
+        </div>
       </div>
     </div>
 

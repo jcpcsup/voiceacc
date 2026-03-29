@@ -43,6 +43,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     categories: [],
     transactions: [],
   };
+  let pendingConfirmAction = null;
   let uiState;
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
@@ -84,6 +85,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     toastTimer: null,
     recognition: null,
     isListening: false,
+    transactionsFiltersExpanded: false,
   };
 
   const {
@@ -315,6 +317,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   initializeSpeechRecognition();
   bindEvents();
   renderAll();
+  syncTransactionFiltersPanel();
   initializeLockScreen();
   void initializeSupabase();
 
@@ -329,8 +332,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("topbar-mic-button").addEventListener("click", handleTopBarMic);
     document.getElementById("listen-button").addEventListener("click", toggleListening);
     document.getElementById("parse-button").addEventListener("click", handleParseStatement);
-    document.getElementById("clear-filters-button").addEventListener("click", clearFilters);
+    document.getElementById("clear-filters-button").addEventListener("click", () => {
+      clearFilters();
+      setTransactionFiltersExpanded(false);
+    });
     document.getElementById("add-category-button").addEventListener("click", () => openCategoryModal());
+    document.getElementById("toggle-transaction-filters-button").addEventListener("click", toggleTransactionFiltersPanel);
     document.getElementById("open-import-button").addEventListener("click", () => {
       syncImportTemplateUi();
       openModal("import-modal");
@@ -352,6 +359,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("category-type").addEventListener("change", syncCategoryBudgetState);
     document.getElementById("import-target").addEventListener("change", syncImportTemplateUi);
     document.getElementById("download-import-template-button").addEventListener("click", handleDownloadImportTemplate);
+    document.getElementById("confirm-modal-submit").addEventListener("click", handleConfirmModalSubmit);
+    document.querySelectorAll('[data-close-modal="confirm-modal"]').forEach((button) => {
+      button.addEventListener("click", resetConfirmModal);
+    });
 
     document.getElementById("transaction-form").addEventListener("submit", handleTransactionSubmit);
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
@@ -410,6 +421,50 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function handleDownloadImportTemplate() {
     exportImportTemplate(document.getElementById("import-target").value || "transactions");
+  }
+
+  function setTransactionFiltersExpanded(expanded) {
+    uiState.transactionsFiltersExpanded = Boolean(expanded);
+    syncTransactionFiltersPanel();
+  }
+
+  function toggleTransactionFiltersPanel() {
+    setTransactionFiltersExpanded(!uiState.transactionsFiltersExpanded);
+  }
+
+  function syncTransactionFiltersPanel() {
+    const body = document.getElementById("transaction-search-body");
+    const button = document.getElementById("toggle-transaction-filters-button");
+    const panel = document.getElementById("transaction-search-panel");
+    if (!body || !button || !panel) {
+      return;
+    }
+    body.classList.toggle("hidden", !uiState.transactionsFiltersExpanded);
+    panel.classList.toggle("is-expanded", uiState.transactionsFiltersExpanded);
+    button.textContent = uiState.transactionsFiltersExpanded ? "Hide Filters" : "Show Filters";
+    button.setAttribute("aria-expanded", uiState.transactionsFiltersExpanded ? "true" : "false");
+  }
+
+  function openConfirmModal({ eyebrow = "Confirm", title = "Continue?", message = "", submitLabel = "Confirm", onConfirm }) {
+    pendingConfirmAction = typeof onConfirm === "function" ? onConfirm : null;
+    document.getElementById("confirm-modal-eyebrow").textContent = eyebrow;
+    document.getElementById("confirm-modal-title").textContent = title;
+    document.getElementById("confirm-modal-message").textContent = message;
+    document.getElementById("confirm-modal-submit").textContent = submitLabel;
+    openModal("confirm-modal");
+  }
+
+  function resetConfirmModal() {
+    pendingConfirmAction = null;
+  }
+
+  function handleConfirmModalSubmit() {
+    const callback = pendingConfirmAction;
+    pendingConfirmAction = null;
+    closeModal("confirm-modal");
+    if (typeof callback === "function") {
+      callback();
+    }
   }
 
   function bindFilterInput(id, key) {
@@ -870,12 +925,17 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function deleteTransaction(id) {
-    if (!window.confirm("Delete this transaction?")) {
-      return;
-    }
-    state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
-    persistAndRefresh();
-    showToast("Transaction deleted.");
+    openConfirmModal({
+      eyebrow: "Delete",
+      title: "Delete this transaction?",
+      message: "This transaction will be removed from your ledger.",
+      submitLabel: "Delete",
+      onConfirm: () => {
+        state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
+        persistAndRefresh();
+        showToast("Transaction deleted.");
+      },
+    });
   }
 
   function deleteAccount(id) {
@@ -886,12 +946,17 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       showToast("This account is used by transactions. Edit the transactions first.");
       return;
     }
-    if (!window.confirm("Delete this account?")) {
-      return;
-    }
-    state.accounts = state.accounts.filter((account) => account.id !== id);
-    persistAndRefresh();
-    showToast("Account deleted.");
+    openConfirmModal({
+      eyebrow: "Delete",
+      title: "Delete this account?",
+      message: "This account will be removed permanently.",
+      submitLabel: "Delete",
+      onConfirm: () => {
+        state.accounts = state.accounts.filter((account) => account.id !== id);
+        persistAndRefresh();
+        showToast("Account deleted.");
+      },
+    });
   }
 
   function deleteCategory(id) {
@@ -900,12 +965,17 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       showToast("This category is already used by transactions.");
       return;
     }
-    if (!window.confirm("Delete this category?")) {
-      return;
-    }
-    state.categories = state.categories.filter((category) => category.id !== id);
-    persistAndRefresh();
-    showToast("Category deleted.");
+    openConfirmModal({
+      eyebrow: "Delete",
+      title: "Delete this category?",
+      message: "This category will be removed permanently.",
+      submitLabel: "Delete",
+      onConfirm: () => {
+        state.categories = state.categories.filter((category) => category.id !== id);
+        persistAndRefresh();
+        showToast("Category deleted.");
+      },
+    });
   }
 
   function persistAndRefresh() {
@@ -924,15 +994,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const typeColor =
       transaction.type === "expense" ? "#ef6461" : transaction.type === "income" ? "#12c8a4" : "#00a6c7";
     const cardColor = category?.color || typeColor;
-    const title =
-      transaction.counterparty ||
-      transaction.details ||
-      category?.name ||
-      (transaction.type === "transfer" ? "Transfer" : `${typeLabel} Transaction`);
     const accountLine =
       transaction.type === "transfer"
         ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
         : getAccount(transaction.accountId)?.name || "Unknown Account";
+    const title =
+      transaction.counterparty ||
+      category?.name ||
+      (transaction.type === "transfer" ? "Transfer" : `${typeLabel} Transaction`);
     const leadingIcon =
       category && iconRegistry[category.icon]
         ? iconRegistry[category.icon]
@@ -946,10 +1015,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`;
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
     const detailPills = [
+      `<span class="meta-pill neutral">${escapeHtml(accountLine)}</span>`,
       transaction.counterparty
-        ? `<span class="meta-pill neutral">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
+        ? `<span class="meta-pill transaction-theme-pill">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
         : "",
-      transaction.project ? `<span class="meta-pill neutral">${escapeHtml(transaction.project)}</span>` : "",
+      transaction.project ? `<span class="meta-pill transaction-theme-pill">${escapeHtml(transaction.project)}</span>` : "",
     ]
       .filter(Boolean)
       .join("");
@@ -971,21 +1041,30 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             <div class="transaction-details">
               <div class="transaction-header-line">
                 <strong class="transaction-title">${escapeHtml(title)}</strong>
-                <strong class="money transaction-amount transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+                <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
                   transaction.amount,
                   transactionSymbol
                 )}</strong>
               </div>
-              <p class="transaction-meta transaction-meta-line">${escapeHtml(accountLine)} | ${escapeHtml(transaction.date)}</p>
+              <p class="transaction-meta transaction-meta-line">${escapeHtml(transaction.date)}</p>
               <div class="transaction-tags transaction-tags-primary">
                 ${categoryPill}
                 ${transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : ""}
                 ${(transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("")}
               </div>
               ${detailPills ? `<div class="transaction-tags transaction-tags-secondary">${detailPills}</div>` : ""}
+              ${
+                transaction.details
+                  ? `<div class="transaction-details-note">${escapeHtml(transaction.details)}</div>`
+                  : ""
+              }
             </div>
           </div>
           <div class="item-actions transaction-card-actions">
+            <strong class="money transaction-amount transaction-amount-desktop transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+              transaction.amount,
+              transactionSymbol
+            )}</strong>
             <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
             <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
           </div>
