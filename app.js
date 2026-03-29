@@ -1075,6 +1075,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
     const budgetStatus = getBudgetStatus(transactions);
     document.getElementById("report-pie").innerHTML = renderReportPieChart(transactions);
+    document.getElementById("report-ranking").innerHTML = renderCategoryRanking(transactions);
     document.getElementById("timeline-chart").innerHTML = renderTimeline(transactions);
     document.getElementById("category-report").innerHTML = renderCategoryBreakdown(transactions);
     document.getElementById("account-report").innerHTML = renderAccountBreakdown(transactions);
@@ -1144,6 +1145,50 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             )
             .join("")}
         </div>
+      </div>
+    `;
+  }
+
+  function renderCategoryRanking(transactions) {
+    const reportType = uiState.reports.type || "all";
+    if (reportType === "transfer") {
+      return `
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Ranking</p>
+            <h3>Category Ranking</h3>
+          </div>
+          <span class="meta-pill neutral">Transfers only</span>
+        </div>
+        ${renderEmpty("Category ranking is unavailable for transfer-only reports.")}
+      `;
+    }
+
+    const targetType = reportType === "income" ? "income" : "expense";
+    const rows = getCategoryRankingRows(transactions, targetType);
+    if (!rows.length) {
+      return `
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Ranking</p>
+            <h3>Category Ranking</h3>
+          </div>
+          <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
+        </div>
+        ${renderEmpty(`No ${targetType} categories available for this report selection.`)}
+      `;
+    }
+
+    return `
+      <div class="section-heading compact">
+        <div>
+          <p class="eyebrow">Ranking</p>
+          <h3>Category Ranking</h3>
+        </div>
+        <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
+      </div>
+      <div class="ranking-list">
+        ${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}
       </div>
     `;
   }
@@ -2368,6 +2413,59 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     ].filter((segment) => segment.value > 0);
 
     return buildPieDataset(typeSegments, "Type Mix", "Selected report totals", symbol);
+  }
+
+  function getCategoryRankingRows(transactions, type) {
+    const map = new Map();
+    transactions
+      .filter((transaction) => transaction.type === type)
+      .forEach((transaction) => {
+        const category = getCategory(transaction.categoryId);
+        const key = category?.id || "uncategorized";
+        const current = map.get(key) || {
+          id: key,
+          label: category?.name || "Uncategorized",
+          color: category?.color || (type === "income" ? "#1ca866" : "#ffb84d"),
+          icon: category?.icon || (type === "income" ? "briefcase" : "cart"),
+          value: 0,
+          count: 0,
+        };
+        current.value += Number(transaction.amount || 0);
+        current.count += 1;
+        map.set(key, current);
+      });
+
+    const rows = [...map.values()].sort((a, b) => b.value - a.value).slice(0, 5);
+    const total = rows.reduce((sum, row) => sum + row.value, 0);
+    return rows.map((row) => ({
+      ...row,
+      percent: total ? ((row.value / total) * 100).toFixed(1) : "0.0",
+    }));
+  }
+
+  function renderCategoryRankingItem(row, rank) {
+    const baseSymbol = getPrimaryCurrencySymbol();
+    const barWidth = Math.max(12, Math.min(100, Number(row.percent)));
+    return `
+      <article class="ranking-item">
+        <div class="ranking-item-main">
+          <div class="ranking-icon" style="--rank-color:${escapeHtml(row.color)}">${iconRegistry[row.icon] || iconRegistry.cart}</div>
+          <div class="ranking-copy">
+            <div class="ranking-topline">
+              <strong>${rank} ${escapeHtml(row.label)}</strong>
+              <span>${escapeHtml(row.percent)}%</span>
+            </div>
+            <div class="ranking-bar">
+              <span style="width:${barWidth}%; background:${escapeHtml(row.color)}"></span>
+            </div>
+          </div>
+        </div>
+        <div class="ranking-meta">
+          <strong>${formatMoney(row.value, baseSymbol)}</strong>
+          <span>${row.count} ${row.count === 1 ? "bill" : "bills"}</span>
+        </div>
+      </article>
+    `;
   }
 
   function buildPieDataset(rows, title, subtitle, symbol) {

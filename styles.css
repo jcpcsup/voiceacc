@@ -1162,7 +1162,18 @@ textarea:focus {
   padding: 18px 20px;
 }
 
+.report-ranking-panel {
+  margin-top: 18px;
+  padding: 18px 20px;
+}
+
 .report-pie-panel .empty-state {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding: 20px 18px;
+}
+
+.report-ranking-panel .empty-state {
   margin-top: 12px;
   margin-bottom: 0;
   padding: 20px 18px;
@@ -1368,6 +1379,98 @@ textarea:focus {
   height: 12px;
   border-radius: 999px;
   flex: 0 0 auto;
+}
+
+.ranking-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(13, 47, 61, 0.07);
+}
+
+.ranking-item-main {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.ranking-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: var(--rank-color, var(--accent-strong));
+  background: color-mix(in srgb, var(--rank-color, #12c8a4) 16%, white);
+}
+
+.ranking-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.ranking-copy {
+  min-width: 0;
+}
+
+.ranking-topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ranking-topline strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-topline span {
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ranking-bar {
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(18, 59, 70, 0.08);
+  overflow: hidden;
+}
+
+.ranking-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.ranking-meta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ranking-meta strong {
+  font-size: 1.2rem;
+}
+
+.ranking-meta span {
+  color: var(--muted);
 }
 
 .timeline-overview-chart {
@@ -1872,7 +1975,16 @@ textarea:focus {
     padding: 16px 14px;
   }
 
+  .report-ranking-panel {
+    margin-top: 14px;
+    padding: 16px 14px;
+  }
+
   .report-pie-panel .empty-state {
+    padding: 18px 14px;
+  }
+
+  .report-ranking-panel .empty-state {
     padding: 18px 14px;
   }
 
@@ -1900,6 +2012,38 @@ textarea:focus {
 
   .report-pie-legend-meta {
     font-size: 0.82rem;
+  }
+
+  .ranking-item {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .ranking-item-main {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .ranking-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+  }
+
+  .ranking-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ranking-meta {
+    text-align: left;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+  }
+
+  .ranking-meta strong {
+    font-size: 1rem;
   }
 
   .field-span-2 {
