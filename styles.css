@@ -1171,15 +1171,15 @@ textarea:focus {
 }
 
 .transaction-pill-payee {
-  background: #6657ca;
-  color: #ffffff;
-  border: 1px solid #5a4bb6;
+  background: #e6e2ff !important;
+  color: #6657ca !important;
+  border: 1px solid #d4cdfc !important;
 }
 
 .transaction-pill-project {
-  background: #924900;
-  color: #ffffff;
-  border: 1px solid #7c3e00;
+  background: #f3e2d2 !important;
+  color: #924900 !important;
+  border: 1px solid #e5c9ab !important;
 }
 
 .transaction-header-line {
