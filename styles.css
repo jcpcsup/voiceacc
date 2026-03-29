@@ -1149,6 +1149,10 @@ textarea:focus {
   margin-top: 18px;
 }
 
+.report-pie-panel + .metric-grid {
+  margin-top: 18px;
+}
+
 .reports-panel {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
