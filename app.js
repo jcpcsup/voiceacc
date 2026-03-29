@@ -1528,32 +1528,97 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       showToast("The CSV file appears to be empty.");
       return;
     }
+    let importSummary = null;
     if (target === "transactions") {
-      importTransactions(rows);
+      importSummary = importTransactions(rows);
     }
     if (target === "accounts") {
-      importAccounts(rows);
+      importSummary = importAccounts(rows);
     }
     if (target === "categories") {
-      importCategories(rows);
+      importSummary = importCategories(rows);
     }
     persistAndRefresh();
     closeModal("import-modal");
-    showToast(`Imported ${rows.length} ${target}.`);
+    showToast(buildImportToast(rows.length, target, importSummary));
   }
 
   function importTransactions(rows) {
+    const summary = {
+      createdAccounts: 0,
+      createdCategories: 0,
+      appendedSubcategories: 0,
+    };
     rows.forEach((row) => {
+      const type = normalizeImportTransactionType(row.type);
+      const accountId = type === "transfer"
+        ? ""
+        : ensureImportedAccount(
+            {
+              id: row.accountId,
+              name: row.accountName,
+              type: row.accountType,
+              currencySymbol: row.accountCurrencySymbol || row.currencySymbol,
+              color: row.accountColor,
+              icon: row.accountIcon,
+            },
+            summary
+          );
+      const fromAccountId = type === "transfer"
+        ? ensureImportedAccount(
+            {
+              id: row.fromAccountId,
+              name: row.fromAccountName,
+              type: row.fromAccountType,
+              currencySymbol: row.fromAccountCurrencySymbol || row.currencySymbol,
+              color: row.fromAccountColor,
+              icon: row.fromAccountIcon,
+            },
+            summary
+          )
+        : "";
+      const toAccountId = type === "transfer"
+        ? ensureImportedAccount(
+            {
+              id: row.toAccountId,
+              name: row.toAccountName,
+              type: row.toAccountType,
+              currencySymbol: row.toAccountCurrencySymbol || row.currencySymbol,
+              color: row.toAccountColor,
+              icon: row.toAccountIcon,
+            },
+            summary
+          )
+        : "";
+      const categoryId = type === "transfer"
+        ? ""
+        : ensureImportedCategory(
+            {
+              id: row.categoryId,
+              name: row.categoryName,
+              type: row.categoryType || type,
+              icon: row.categoryIcon,
+              color: row.categoryColor,
+              budgetLimit: row.categoryBudgetLimit,
+              budgetPeriod: row.categoryBudgetPeriod,
+            },
+            summary
+          );
+      const subcategory = String(row.subcategory || "").trim();
+      if (categoryId && subcategory) {
+        appendImportedSubcategory(categoryId, subcategory, summary);
+      }
+
       const payload = {
         id: row.id || uid("tx"),
-        type: row.type || "expense",
+        type,
         amount: Number(row.amount || 0),
         date: normalizeDateInput(row.date) || todayIso(),
-        accountId: findAccountId(row.accountId, row.accountName),
-        fromAccountId: findAccountId(row.fromAccountId, row.fromAccountName),
-        toAccountId: findAccountId(row.toAccountId, row.toAccountName),
-        categoryId: findCategoryId(row.categoryId, row.categoryName),
-        subcategory: row.subcategory || "",
+        accountId,
+        fromAccountId,
+        toAccountId,
+        categoryId,
+        subcategory,
         counterparty: row.payeeOrPayer || row.counterparty || "",
         project: row.project || "",
         tags: splitTags(row.tags || ""),
@@ -1563,9 +1628,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       };
       upsertById(state.transactions, payload);
     });
+    return summary;
   }
 
   function importAccounts(rows) {
+    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
     rows.forEach((row) => {
       const payload = {
         id: row.id || uid("acc"),
@@ -1577,11 +1644,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         icon: row.icon || "wallet",
         notes: row.notes || "",
       };
+      if (!getAccount(payload.id)) {
+        summary.createdAccounts += 1;
+      }
       upsertById(state.accounts, payload);
     });
+    return summary;
   }
 
   function importCategories(rows) {
+    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
     rows.forEach((row) => {
       const payload = {
         id: row.id || slugify(row.name || "") || uid("cat"),
@@ -1593,8 +1665,29 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         budgetLimit: Number(row.budgetLimit || 0),
         budgetPeriod: row.budgetPeriod || "monthly",
       };
+      if (!getCategory(payload.id)) {
+        summary.createdCategories += 1;
+      }
       upsertById(state.categories, payload);
     });
+    return summary;
+  }
+
+  function buildImportToast(rowCount, target, summary) {
+    const extras = [];
+    if (summary?.createdAccounts) {
+      extras.push(`${summary.createdAccounts} ${summary.createdAccounts === 1 ? "account" : "accounts"}`);
+    }
+    if (summary?.createdCategories) {
+      extras.push(`${summary.createdCategories} ${summary.createdCategories === 1 ? "category" : "categories"}`);
+    }
+    if (summary?.appendedSubcategories) {
+      extras.push(`${summary.appendedSubcategories} ${summary.appendedSubcategories === 1 ? "subcategory" : "subcategories"}`);
+    }
+    if (!extras.length) {
+      return `Imported ${rowCount} ${target}.`;
+    }
+    return `Imported ${rowCount} ${target}. Auto-added ${extras.join(", ")}.`;
   }
 
   function upsertById(collection, payload) {
@@ -3250,6 +3343,33 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return "";
   }
 
+  function ensureImportedAccount(row, summary) {
+    const existingId = findAccountId(row.id, row.name);
+    if (existingId) {
+      return existingId;
+    }
+    const normalizedName = String(row.name || row.id || "").trim();
+    if (!normalizedName) {
+      return "";
+    }
+    const normalizedType = normalizeImportAccountType(row.type || inferImportedAccountType(normalizedName));
+    const payload = {
+      id: row.id || slugify(normalizedName) || uid("acc"),
+      name: normalizedName,
+      type: normalizedType,
+      currencySymbol: String(row.currencySymbol || "$").trim() || "$",
+      openingBalance: Number(row.openingBalance || 0),
+      color: row.color || getImportedAccountColor(normalizedType),
+      icon: row.icon || getImportedAccountIcon(normalizedType),
+      notes: row.notes || "Auto-created from transaction import",
+    };
+    upsertById(state.accounts, payload);
+    if (summary) {
+      summary.createdAccounts += 1;
+    }
+    return payload.id;
+  }
+
   function findCategoryId(id, name) {
     if (id && getCategory(id)) {
       return id;
@@ -3259,6 +3379,110 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       return match ? match.id : "";
     }
     return "";
+  }
+
+  function ensureImportedCategory(row, summary) {
+    const existingId = findCategoryId(row.id, row.name);
+    if (existingId) {
+      return existingId;
+    }
+    const normalizedName = String(row.name || row.id || "").trim();
+    if (!normalizedName) {
+      return "";
+    }
+    const normalizedType = normalizeImportCategoryType(row.type);
+    const payload = {
+      id: row.id || slugify(normalizedName) || uid("cat"),
+      name: normalizedName,
+      type: normalizedType,
+      icon: row.icon || getImportedCategoryIcon(normalizedType),
+      color: row.color || getImportedCategoryColor(normalizedType),
+      subcategories: [],
+      budgetLimit: Number(row.budgetLimit || 0),
+      budgetPeriod: row.budgetPeriod === "weekly" ? "weekly" : "monthly",
+    };
+    upsertById(state.categories, payload);
+    if (summary) {
+      summary.createdCategories += 1;
+    }
+    return payload.id;
+  }
+
+  function appendImportedSubcategory(categoryId, subcategory, summary) {
+    const category = getCategory(categoryId);
+    if (!category) {
+      return;
+    }
+    const nextValue = String(subcategory || "").trim();
+    if (!nextValue) {
+      return;
+    }
+    if (!Array.isArray(category.subcategories)) {
+      category.subcategories = [];
+    }
+    const exists = category.subcategories.some((item) => item.toLowerCase() === nextValue.toLowerCase());
+    if (exists) {
+      return;
+    }
+    category.subcategories.push(nextValue);
+    if (summary) {
+      summary.appendedSubcategories += 1;
+    }
+  }
+
+  function normalizeImportTransactionType(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "income" || normalized === "transfer") {
+      return normalized;
+    }
+    return "expense";
+  }
+
+  function normalizeImportAccountType(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (["cash", "bank", "savings", "card", "wallet"].includes(normalized)) {
+      return normalized;
+    }
+    return "cash";
+  }
+
+  function normalizeImportCategoryType(value) {
+    return String(value || "").trim().toLowerCase() === "income" ? "income" : "expense";
+  }
+
+  function inferImportedAccountType(name) {
+    const normalized = String(name || "").toLowerCase();
+    if (normalized.includes("bank")) {
+      return "bank";
+    }
+    if (normalized.includes("save")) {
+      return "savings";
+    }
+    if (normalized.includes("card")) {
+      return "card";
+    }
+    if (normalized.includes("wallet")) {
+      return "wallet";
+    }
+    return "cash";
+  }
+
+  function getImportedAccountIcon(type) {
+    const normalized = normalizeImportAccountType(type);
+    return normalized === "bank" ? "bank" : normalized === "savings" ? "safe" : normalized === "card" ? "card" : normalized === "wallet" ? "wallet" : "cash";
+  }
+
+  function getImportedAccountColor(type) {
+    const normalized = normalizeImportAccountType(type);
+    return normalized === "bank" ? "#7db8ff" : normalized === "savings" ? "#ffb84d" : normalized === "card" ? "#9f86ff" : normalized === "wallet" ? "#00a6c7" : "#19c6a7";
+  }
+
+  function getImportedCategoryIcon(type) {
+    return normalizeImportCategoryType(type) === "income" ? "briefcase" : "cart";
+  }
+
+  function getImportedCategoryColor(type) {
+    return normalizeImportCategoryType(type) === "income" ? "#19c6a7" : "#ffb84d";
   }
 
   function sumAmounts(transactions) {
