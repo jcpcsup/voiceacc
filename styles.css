@@ -1189,8 +1189,34 @@ textarea:focus {
   align-items: start;
 }
 
+.transaction-header-copy {
+  min-width: 0;
+}
+
+.transaction-header-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.transaction-top-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.transaction-date-inline,
+.transaction-header-separator {
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
 .transaction-tags-header {
   margin-right: 8px;
+  min-width: 0;
 }
 
 .transaction-meta-line {
@@ -2344,7 +2370,7 @@ textarea:focus {
   .calendar-pill {
     display: flex;
     width: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
     padding: 2px 3px;
     gap: 0;
     font-size: 0.5rem;
@@ -2424,6 +2450,20 @@ textarea:focus {
     align-items: start;
   }
 
+  .transaction-header-side {
+    justify-items: end;
+  }
+
+  .transaction-top-meta {
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .transaction-date-inline,
+  .transaction-header-separator {
+    font-size: 0.78rem;
+  }
+
   .transaction-amount {
     font-size: 1.14rem;
     justify-self: end;
@@ -2450,6 +2490,7 @@ textarea:focus {
   .transaction-account-strip-mobile {
     display: flex;
     justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .transaction-account-strip-desktop {

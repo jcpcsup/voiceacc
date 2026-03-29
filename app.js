@@ -994,7 +994,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const typeColor =
       transaction.type === "expense" ? "#ef6461" : transaction.type === "income" ? "#12c8a4" : "#00a6c7";
     const cardColor = category?.color || typeColor;
-    const categoryPills = [
+    const headerPills = [
       category
         ? `<span class="tag-pill transaction-theme-pill">${escapeHtml(category.name)}</span>`
         : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`,
@@ -1037,6 +1037,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         ? `<span class="meta-pill transaction-pill-payee">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
         : "",
       transaction.project ? `<span class="meta-pill transaction-pill-project">${escapeHtml(transaction.project)}</span>` : "",
+      tagPills,
     ]
       .filter(Boolean)
       .join("");
@@ -1057,17 +1058,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             </div>
             <div class="transaction-details">
               <div class="transaction-header-line">
-                <div class="transaction-tags transaction-tags-primary transaction-tags-header">
-                  ${categoryPills}
+                <div class="transaction-header-copy">
+                  <div class="transaction-top-meta">
+                    <span class="transaction-date-inline">${escapeHtml(transaction.date)}</span>
+                    <span class="transaction-header-separator">|</span>
+                    <div class="transaction-tags transaction-tags-primary transaction-tags-header">
+                      ${headerPills}
+                    </div>
+                  </div>
                 </div>
-                <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
-                  transaction.amount,
-                  transactionSymbol
-                )}</strong>
+                <div class="transaction-header-side">
+                  <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+                    transaction.amount,
+                    transactionSymbol
+                  )}</strong>
+                  <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
+                </div>
               </div>
-              <p class="transaction-meta transaction-meta-line">${escapeHtml(transaction.date)}</p>
-              ${tagPills ? `<div class="transaction-tags transaction-tags-primary">${tagPills}</div>` : ""}
-              <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
               ${detailPills ? `<div class="transaction-tags transaction-tags-secondary">${detailPills}</div>` : ""}
               ${
                 transaction.details
