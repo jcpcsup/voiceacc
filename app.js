@@ -1,6 +1,16 @@
 ﻿import { createDefaultState } from "./modules/default-state.js";
 import { iconRegistry } from "./modules/icons.js";
+import { createCalendarTools } from "./modules/calendar-tools.js";
+import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js";
+import { createCsvTools } from "./modules/csv-tools.js";
+import { createFormatterTools } from "./modules/formatters.js";
+import { createModalTools } from "./modules/modal-tools.js";
 import { captureFields, categoryKeywordMap, dictationExamples } from "./modules/reference-data.js";
+import { createReportsTools } from "./modules/reports-tools.js";
+import { createRenderSharedTools } from "./modules/render-shared.js";
+import { createSearchTools } from "./modules/search-tools.js";
+import { createStateTools } from "./modules/state-tools.js";
+import { createSupabaseTools } from "./modules/supabase-tools.js";
 import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js";
 
 (function () {
@@ -28,8 +38,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     pendingSync: false,
     lastSyncedAt: "",
   };
-  const state = loadLocalState();
-  const uiState = {
+  const state = {
+    accounts: [],
+    categories: [],
+    transactions: [],
+  };
+  let uiState;
+
+  const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
+    storageKey: STORAGE_KEY,
+    defaultState,
+    state,
+    getCurrentUserId: () => uiState?.currentUserId || "",
+  });
+  replaceState(loadLocalState());
+
+  uiState = {
     screen: "overview",
     authView: "signin",
     requiresLogin: true,
@@ -61,6 +85,227 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     recognition: null,
     isListening: false,
   };
+
+  const {
+    sumAmounts,
+    getPrimaryCurrencySymbol,
+    getTransactionCurrencySymbol,
+    formatMoney,
+    formatCurrency,
+    formatCompactMoney,
+    formatCalendarDisplayMoney,
+    formatCompactPlainAmount,
+    withAlpha,
+    formatTransactionAmount,
+    todayIso,
+    shiftIsoDate,
+    formatShortDateTime,
+  } = createFormatterTools({
+    state,
+    getAccount,
+  });
+
+  const {
+    renderMiniTrendChart,
+    renderBudgetCard,
+    metricCard,
+    renderBarItem,
+    insightCard,
+    renderEmpty,
+    showToast,
+  } = createRenderSharedTools({
+    toastEl,
+    uiState,
+    escapeHtml,
+    titleCase,
+    iconRegistry,
+    withAlpha,
+    getPrimaryCurrencySymbol,
+    formatMoney,
+  });
+
+  let getBudgetStatus = () => [];
+  let renderReports = () => {};
+
+  const {
+    getAccountBalance,
+    getAccountFlow,
+    getTrailingMonths,
+    getGlobalMetrics,
+    renderAccountCard,
+    renderCategoryGroup,
+    renderHeroAccountPill,
+  } = createAccountsCategoriesTools({
+    state,
+    iconRegistry,
+    getAccount,
+    getCategory,
+    getCategoryUsage: (categoryId) => getBudgetStatus().find((item) => item.category.id === categoryId),
+    getPrimaryCurrencySymbol,
+    formatMoney,
+    escapeHtml,
+    titleCase,
+    renderMiniTrendChart,
+    sumAmounts,
+    getDateRange,
+    todayIso,
+  });
+
+  const {
+    exportTransactionsCsv,
+    exportAccountsCsv,
+    exportCategoriesCsv,
+    findAccountId,
+    ensureImportedAccount,
+    findCategoryId,
+    ensureImportedCategory,
+    appendImportedSubcategory,
+    normalizeImportTransactionType,
+  } = createCsvTools({
+    state,
+    showToast,
+    getAccount,
+    getCategory,
+    uid,
+    slugify,
+  });
+
+  const { renderCalendarOverview, shiftCalendarMonth, applyDateFilter } = createCalendarTools({
+    state,
+    uiState,
+    iconRegistry,
+    getPrimaryCurrencySymbol,
+    sumAmounts,
+    formatCalendarDisplayMoney,
+    formatCompactPlainAmount,
+    switchScreen,
+    renderTransactions,
+  });
+
+  ({ renderReports, getBudgetStatus } = createReportsTools({
+    state,
+    uiState,
+    iconRegistry,
+    getDateRange,
+    getPrimaryCurrencySymbol,
+    getAccount,
+    getCategory,
+    getTrailingMonths,
+    sumAmounts,
+    formatMoney,
+    formatCurrency,
+    formatTransactionAmount,
+    escapeHtml,
+    titleCase,
+    renderEmpty,
+    renderBudgetCard,
+    insightCard,
+  }));
+
+  const {
+    syncTransactionTypeFields,
+    syncCategoryBudgetState,
+    openModal,
+    closeModal,
+    openTransactionModal,
+    openAccountModal,
+    openCategoryModal,
+    handleTransactionSubmit,
+    handleAccountSubmit,
+    handleCategorySubmit,
+    handleImportSubmit,
+    handleParseStatement,
+    initializeSpeechRecognition,
+    toggleListening,
+    refreshListeningUi,
+  } = createModalTools({
+    state,
+    uiState,
+    categoryKeywordMap,
+    iconRegistry,
+    renderSelectOptions,
+    renderSubcategoryOptions,
+    getTransaction,
+    getAccount,
+    getCategory,
+    findAccountId,
+    findCategoryId,
+    ensureImportedAccount,
+    ensureImportedCategory,
+    appendImportedSubcategory,
+    normalizeImportTransactionType,
+    slugify,
+    uid,
+    splitTags,
+    normalizeDateInput,
+    titleCase,
+    escapeRegExp,
+    todayIso,
+    shiftIsoDate,
+    showToast,
+    persistAndRefresh,
+  });
+
+  const {
+    getFilteredTransactions,
+    clearFilters,
+    renderGlobalSearchResults,
+    hideGlobalSearchResults,
+    openGlobalSearchResult,
+    applyGlobalQueryToTransactions,
+  } = createSearchTools({
+    state,
+    uiState,
+    iconRegistry,
+    getAccount,
+    getCategory,
+    getAccountBalance,
+    titleCase,
+    formatMoney,
+    formatCurrency,
+    formatTransactionAmount,
+    escapeHtml,
+    switchScreen,
+    openTransactionModal,
+    openAccountModal,
+    openCategoryModal,
+    renderTransactions,
+    renderEmpty,
+  });
+
+  const {
+    initializeSupabase,
+    handleSupabaseSession,
+    syncStateToSupabase,
+    handleSignOut,
+    renderCloudStatus,
+    getAppRedirectUrl,
+  } = createSupabaseTools({
+    constants: {
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+      SUPABASE_ACCOUNTS_TABLE,
+      SUPABASE_CATEGORIES_TABLE,
+      SUPABASE_TRANSACTIONS_TABLE,
+      SUPABASE_LEGACY_STATE_TABLE,
+      SUPABASE_CONFIGURED,
+      SUPABASE_AVAILABLE,
+    },
+    cloudState,
+    state,
+    uiState,
+    defaultState,
+    normalizeState,
+    loadLocalState,
+    getUserCacheKey,
+    persistState,
+    replaceState,
+    renderAll,
+    initializeLockScreen,
+    formatShortDateTime,
+    showToast,
+    todayIso,
+  });
 
   wireStaticIcons();
   seedStaticContent();
@@ -354,467 +599,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
   }
 
-  function loadLocalState(key = STORAGE_KEY) {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) {
-        return structuredClone(defaultState);
-      }
-      return normalizeState(JSON.parse(raw));
-    } catch (error) {
-      console.error(error);
-      return structuredClone(defaultState);
-    }
-  }
-
-  function normalizeState(parsed) {
-    const normalizedAccounts = Array.isArray(parsed.accounts) && parsed.accounts.length
-      ? parsed.accounts.map((account) => ({
-          currencySymbol: "$",
-          ...account,
-        }))
-      : structuredClone(defaultState.accounts);
-    return {
-      accounts: normalizedAccounts,
-      categories:
-        Array.isArray(parsed.categories) && parsed.categories.length
-          ? parsed.categories
-          : structuredClone(defaultState.categories),
-      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-    };
-  }
-
-  function replaceState(nextState) {
-    const normalized = normalizeState(nextState);
-    state.accounts = normalized.accounts;
-    state.categories = normalized.categories;
-    state.transactions = normalized.transactions;
-  }
-
-  function buildSerializableState() {
-    return {
-      accounts: state.accounts,
-      categories: state.categories,
-      transactions: state.transactions,
-    };
-  }
-
-  function getUserCacheKey(userId) {
-    return `${STORAGE_KEY}:${userId}`;
-  }
-
-  function persistState() {
-    const serialized = JSON.stringify(buildSerializableState());
-    window.localStorage.setItem(STORAGE_KEY, serialized);
-    if (uiState.currentUserId) {
-      window.localStorage.setItem(getUserCacheKey(uiState.currentUserId), serialized);
-    }
-  }
-
-  async function initializeSupabase() {
-    if (!SUPABASE_AVAILABLE) {
-      renderCloudStatus();
-      initializeLockScreen();
-      return;
-    }
-    try {
-      cloudState.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          flowType: "pkce",
-        },
-      });
-      const { data, error } = await cloudState.client.auth.getSession();
-      if (error) {
-        throw error;
-      }
-      const authSubscription = cloudState.client.auth.onAuthStateChange((_event, session) => {
-        window.setTimeout(() => {
-          void handleSupabaseSession(session, true);
-        }, 0);
-      });
-      cloudState.authSubscription = authSubscription.data.subscription;
-      await handleSupabaseSession(data.session, true);
-    } catch (error) {
-      console.error(error);
-      uiState.syncStatus = error.message || "Supabase initialization failed.";
-      renderCloudStatus();
-      initializeLockScreen();
-    }
-  }
-
-  async function handleSupabaseSession(session, quiet) {
-    const sameUser =
-      Boolean(session) &&
-      cloudState.session?.user?.id === session.user.id &&
-      uiState.isAuthenticated;
-    cloudState.session = session || null;
-    uiState.isAuthenticated = Boolean(session);
-    uiState.requiresLogin = !session;
-    uiState.currentUserId = session?.user?.id || "";
-    uiState.currentUserEmail = session?.user?.email || "";
-
-    if (sameUser && quiet) {
-      initializeLockScreen();
-      renderCloudStatus();
-      return;
-    }
-
-    if (!session) {
-      cloudState.lastSyncedAt = "";
-      replaceState(structuredClone(defaultState));
-      persistState();
-      renderAll();
-      initializeLockScreen();
-      uiState.syncStatus = "Sign in to load your Supabase ledger.";
-      renderCloudStatus();
-      return;
-    }
-
-    await hydrateStateFromSupabase(quiet);
-    initializeLockScreen();
-  }
-
-  async function hydrateStateFromSupabase(quiet) {
-    if (!cloudState.client || !cloudState.session) {
-      return;
-    }
-    uiState.syncStatus = "Syncing with Supabase...";
-    renderCloudStatus();
-
-    try {
-      const remoteState = await loadNormalizedStateFromSupabase(cloudState.session.user.id);
-      const hasRemoteRows =
-        remoteState.accounts.length || remoteState.categories.length || remoteState.transactions.length;
-
-      if (hasRemoteRows) {
-        replaceState(remoteState);
-        persistState();
-        renderAll();
-        cloudState.lastSyncedAt = getLatestCloudTimestamp(remoteState) || "";
-        uiState.syncStatus = `Cloud data loaded${cloudState.lastSyncedAt ? ` on ${formatShortDateTime(cloudState.lastSyncedAt)}` : "."}`;
-        renderCloudStatus();
-        if (!quiet) {
-          showToast("Supabase data loaded.");
-        }
-        return;
-      }
-
-      const legacyState = await loadLegacySnapshotState(cloudState.session.user.id);
-      if (legacyState) {
-        replaceState(legacyState);
-        persistState();
-        renderAll();
-        await syncStateToSupabase(!quiet, "Migrated your legacy cloud data.");
-        return;
-      }
-
-      await syncStateToSupabase(!quiet, "Created your first Supabase backup.");
-    } catch (error) {
-      console.error(error);
-      const cachedState = loadLocalState(getUserCacheKey(cloudState.session.user.id));
-      replaceState(cachedState);
-      renderAll();
-      uiState.syncStatus = error.message || "Unable to load Supabase data.";
-      renderCloudStatus();
-      initializeLockScreen();
-    }
-  }
-
-  async function syncStateToSupabase(showFeedback, successMessage = "Synced to Supabase.") {
-    if (!cloudState.client || !cloudState.session) {
-      if (showFeedback) {
-        showToast("Sign in to Supabase first.");
-      }
-      return;
-    }
-    if (cloudState.isSyncing) {
-      cloudState.pendingSync = true;
-      return;
-    }
-
-    cloudState.isSyncing = true;
-    uiState.syncStatus = "Syncing with Supabase...";
-    renderCloudStatus();
-
-    try {
-      const syncedAt = new Date().toISOString();
-      const userId = cloudState.session.user.id;
-      await syncSupabaseTable(
-        SUPABASE_ACCOUNTS_TABLE,
-        state.accounts.map((account) => serializeAccountForSupabase(account, userId, syncedAt))
-      );
-      await syncSupabaseTable(
-        SUPABASE_CATEGORIES_TABLE,
-        state.categories.map((category) => serializeCategoryForSupabase(category, userId, syncedAt))
-      );
-      await syncSupabaseTable(
-        SUPABASE_TRANSACTIONS_TABLE,
-        state.transactions.map((transaction) => serializeTransactionForSupabase(transaction, userId, syncedAt))
-      );
-
-      cloudState.lastSyncedAt = syncedAt;
-      uiState.syncStatus = `Synced ${formatShortDateTime(syncedAt)}`;
-      renderCloudStatus();
-      if (showFeedback) {
-        showToast(successMessage);
-      }
-    } catch (error) {
-      console.error(error);
-      uiState.syncStatus = error.message || "Supabase sync failed.";
-      renderCloudStatus();
-      if (showFeedback) {
-        showToast("Supabase sync failed.");
-      }
-    } finally {
-      cloudState.isSyncing = false;
-      if (cloudState.pendingSync) {
-        cloudState.pendingSync = false;
-        void syncStateToSupabase(false);
-      }
-    }
-  }
-
-  async function loadNormalizedStateFromSupabase(userId) {
-    const [accountsResult, categoriesResult, transactionsResult] = await Promise.all([
-      cloudState.client
-        .from(SUPABASE_ACCOUNTS_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("name", { ascending: true }),
-      cloudState.client
-        .from(SUPABASE_CATEGORIES_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("name", { ascending: true }),
-      cloudState.client
-        .from(SUPABASE_TRANSACTIONS_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("transaction_date", { ascending: false })
-        .order("created_at", { ascending: false }),
-    ]);
-
-    const firstError = [accountsResult.error, categoriesResult.error, transactionsResult.error].find(Boolean);
-    if (firstError) {
-      throw firstError;
-    }
-
-    return normalizeState({
-      accounts: (accountsResult.data || []).map(deserializeSupabaseAccount),
-      categories: (categoriesResult.data || []).map(deserializeSupabaseCategory),
-      transactions: (transactionsResult.data || []).map(deserializeSupabaseTransaction),
-    });
-  }
-
-  async function loadLegacySnapshotState(userId) {
-    const { data, error } = await cloudState.client
-      .from(SUPABASE_LEGACY_STATE_TABLE)
-      .select("payload")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      if (String(error.code || "") === "PGRST205" || String(error.message || "").toLowerCase().includes("could not find")) {
-        return null;
-      }
-      throw error;
-    }
-
-    return data?.payload ? normalizeState(data.payload) : null;
-  }
-
-  async function syncSupabaseTable(tableName, rows) {
-    const userId = cloudState.session.user.id;
-    const { data: existingRows, error: existingError } = await cloudState.client
-      .from(tableName)
-      .select("id")
-      .eq("user_id", userId);
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    if (rows.length) {
-      const { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
-        onConflict: "user_id,id",
-      });
-      if (upsertError) {
-        throw upsertError;
-      }
-    }
-
-    const localIds = new Set(rows.map((row) => row.id));
-    const staleIds = (existingRows || []).map((row) => row.id).filter((id) => !localIds.has(id));
-
-    if (staleIds.length) {
-      const { error: deleteError } = await cloudState.client.from(tableName).delete().eq("user_id", userId).in("id", staleIds);
-      if (deleteError) {
-        throw deleteError;
-      }
-    }
-  }
-
-  function serializeAccountForSupabase(account, userId, syncedAt) {
-    return {
-      user_id: userId,
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      currency_symbol: account.currencySymbol || "$",
-      opening_balance: Number(account.openingBalance || 0),
-      color: account.color || "#19c6a7",
-      icon: account.icon || "wallet",
-      notes: account.notes || "",
-      updated_at: syncedAt,
-    };
-  }
-
-  function serializeCategoryForSupabase(category, userId, syncedAt) {
-    return {
-      user_id: userId,
-      id: category.id,
-      name: category.name,
-      type: category.type,
-      icon: category.icon || "cart",
-      color: category.color || "#19c6a7",
-      subcategories: Array.isArray(category.subcategories) ? category.subcategories : [],
-      budget_limit: Number(category.budgetLimit || 0),
-      budget_period: category.budgetPeriod || "monthly",
-      updated_at: syncedAt,
-    };
-  }
-
-  function serializeTransactionForSupabase(transaction, userId, syncedAt) {
-    return {
-      user_id: userId,
-      id: transaction.id,
-      type: transaction.type,
-      amount: Number(transaction.amount || 0),
-      transaction_date: transaction.date || todayIso(),
-      account_id: transaction.accountId || null,
-      from_account_id: transaction.fromAccountId || null,
-      to_account_id: transaction.toAccountId || null,
-      category_id: transaction.categoryId || null,
-      subcategory: transaction.subcategory || "",
-      counterparty: transaction.counterparty || "",
-      project: transaction.project || "",
-      tags: Array.isArray(transaction.tags) ? transaction.tags : [],
-      details: transaction.details || "",
-      created_at: transaction.createdAt || syncedAt,
-      updated_at: transaction.updatedAt || syncedAt,
-    };
-  }
-
-  function deserializeSupabaseAccount(row) {
-    return {
-      id: row.id,
-      name: row.name,
-      type: row.type,
-      currencySymbol: row.currency_symbol || "$",
-      openingBalance: Number(row.opening_balance || 0),
-      color: row.color || "#19c6a7",
-      icon: row.icon || "wallet",
-      notes: row.notes || "",
-      createdAt: row.created_at || "",
-      updatedAt: row.updated_at || "",
-    };
-  }
-
-  function deserializeSupabaseCategory(row) {
-    return {
-      id: row.id,
-      name: row.name,
-      type: row.type,
-      icon: row.icon || "cart",
-      color: row.color || "#19c6a7",
-      subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
-      budgetLimit: Number(row.budget_limit || 0),
-      budgetPeriod: row.budget_period || "monthly",
-      createdAt: row.created_at || "",
-      updatedAt: row.updated_at || "",
-    };
-  }
-
-  function deserializeSupabaseTransaction(row) {
-    return {
-      id: row.id,
-      type: row.type,
-      amount: Number(row.amount || 0),
-      date: row.transaction_date || todayIso(),
-      accountId: row.account_id || "",
-      fromAccountId: row.from_account_id || "",
-      toAccountId: row.to_account_id || "",
-      categoryId: row.category_id || "",
-      subcategory: row.subcategory || "",
-      counterparty: row.counterparty || "",
-      project: row.project || "",
-      tags: Array.isArray(row.tags) ? row.tags : [],
-      details: row.details || "",
-      createdAt: row.created_at || "",
-      updatedAt: row.updated_at || "",
-    };
-  }
-
-  function getLatestCloudTimestamp(remoteState) {
-    const timestamps = [
-      ...remoteState.accounts.map((item) => item.updatedAt || ""),
-      ...remoteState.categories.map((item) => item.updatedAt || ""),
-      ...remoteState.transactions.map((item) => item.updatedAt || ""),
-    ].filter(Boolean);
-    return timestamps.sort().at(-1) || "";
-  }
-
-  async function handleSignOut() {
-    if (!cloudState.client || !cloudState.session) {
-      showToast("No Supabase session is active.");
-      return;
-    }
-    const { error } = await cloudState.client.auth.signOut();
-    if (error) {
-      console.error(error);
-      showToast(error.message || "Unable to sign out.");
-      return;
-    }
-    showToast("Signed out.");
-  }
-
-  function renderCloudStatus() {
-    const mode = document.getElementById("auth-status-mode");
-    const title = document.getElementById("auth-status-title");
-    const detail = document.getElementById("auth-status-detail");
-    const syncButton = document.getElementById("sync-now-button");
-    const signOutButton = document.getElementById("sign-out-button");
-
-    if (!SUPABASE_CONFIGURED) {
-      mode.textContent = "Supabase";
-      title.textContent = "Supabase not configured";
-      detail.textContent = "Supabase auth is required. Add your project URL and anon key in app.js to unlock the app.";
-      syncButton.disabled = true;
-      signOutButton.disabled = true;
-      return;
-    }
-
-    if (!SUPABASE_AVAILABLE) {
-      mode.textContent = "Supabase";
-      title.textContent = "Client unavailable";
-      detail.textContent = "The Supabase browser client could not load, so sign in is temporarily unavailable.";
-      syncButton.disabled = true;
-      signOutButton.disabled = true;
-      return;
-    }
-
-    mode.textContent = "Supabase Cloud";
-    title.textContent = uiState.isAuthenticated ? "Connected" : "Sign in required";
-    detail.textContent = uiState.isAuthenticated
-      ? `${uiState.currentUserEmail || "Authenticated user"}${uiState.syncStatus ? ` Â· ${uiState.syncStatus}` : ""}`
-      : uiState.syncStatus;
-    syncButton.disabled = !uiState.isAuthenticated || cloudState.isSyncing;
-    signOutButton.disabled = !uiState.isAuthenticated;
-  }
-
   function setAuthView(mode) {
     uiState.authView = mode === "signup" ? "signup" : "signin";
     clearLockInputs();
@@ -832,13 +616,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("lock-email").value = "";
     document.getElementById("lock-password").value = "";
     document.getElementById("lock-password-confirm").value = "";
-  }
-
-  function getAppRedirectUrl() {
-    const url = new URL(window.location.href);
-    url.hash = "";
-    url.search = "";
-    return url.toString();
   }
 
   function submitAuthStatus(message) {
@@ -864,15 +641,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderCalendarOverview();
     renderGlobalSearchResults();
     renderCloudStatus();
-  }
-
-  function formatShortDateTime(value) {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(value));
   }
 
   function renderOverview() {
@@ -908,78 +676,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("overview-transactions").innerHTML = recentTransactions.length
       ? recentTransactions.map(renderTransactionItem).join("")
       : renderEmpty("No transactions yet. Use dictation or manual entry to create one.");
-  }
-
-  function renderCalendarOverview() {
-    const year = uiState.calendarCursor.getFullYear();
-    const month = uiState.calendarCursor.getMonth();
-    const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(uiState.calendarCursor);
-    const baseSymbol = getPrimaryCurrencySymbol();
-    document.getElementById("calendar-month-label").textContent = monthLabel;
-
-    const firstDay = new Date(year, month, 1);
-    const leading = (firstDay.getDay() + 1) % 7;
-    const totalCells = 42;
-    const cells = [];
-
-    for (let index = 0; index < totalCells; index += 1) {
-      const dayNumber = index - leading + 1;
-      const cellDate = new Date(year, month, dayNumber);
-      const iso = cellDate.toISOString().slice(0, 10);
-      const inMonth = cellDate.getMonth() === month;
-      const dayTransactions = inMonth ? state.transactions.filter((transaction) => transaction.date === iso) : [];
-      const income = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "income"));
-      const expense = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "expense"));
-      const transfer = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "transfer"));
-      const hasActivity = income || expense || transfer;
-      cells.push(`
-        <button class="calendar-cell ${inMonth ? "" : "calendar-muted"}" type="button" ${
-          inMonth ? `data-action="open-calendar-day" data-date="${iso}"` : "disabled"
-        }>
-          <span class="calendar-day-number">${cellDate.getDate()}</span>
-          ${
-            hasActivity
-              ? `<div class="calendar-cell-flow">
-                  ${
-                    income
-                      ? `<span class="calendar-pill icon-income">
-                          <span class="calendar-pill-icon">${iconRegistry["arrow-up"]}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(income, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(income)}</span>
-                        </span>`
-                      : ""
-                  }
-                  ${
-                    expense
-                      ? `<span class="calendar-pill icon-expense">
-                          <span class="calendar-pill-icon">${iconRegistry["arrow-down"]}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(expense, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(expense)}</span>
-                        </span>`
-                      : ""
-                  }
-                  ${
-                    transfer
-                      ? `<span class="calendar-pill icon-transfer">
-                          <span class="calendar-pill-icon">${iconRegistry.swap}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(transfer, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(transfer)}</span>
-                        </span>`
-                      : ""
-                  }
-                </div>`
-              : `<span class="calendar-empty">No activity</span>`
-          }
-        </button>
-      `);
-    }
-
-    document.getElementById("overview-calendar").innerHTML = cells.join("");
-  }
-
-  function shiftCalendarMonth(direction) {
-    uiState.calendarCursor = new Date(uiState.calendarCursor.getFullYear(), uiState.calendarCursor.getMonth() + direction, 1);
-    renderCalendarOverview();
   }
 
   function renderTransactions() {
@@ -1042,155 +738,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     container.innerHTML = groupedMarkup.length
       ? groupedMarkup.join("")
       : renderEmpty("No categories available yet.");
-  }
-
-  function renderReports() {
-    const transactions = getReportTransactions();
-    const baseSymbol = getPrimaryCurrencySymbol();
-    const income = sumAmounts(transactions.filter((tx) => tx.type === "income"));
-    const expense = sumAmounts(transactions.filter((tx) => tx.type === "expense"));
-    const transfer = sumAmounts(transactions.filter((tx) => tx.type === "transfer"));
-    const largest = transactions.reduce((best, tx) => (!best || tx.amount > best.amount ? tx : best), null);
-    const incomeSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "income" ? transaction.amount : 0));
-    const expenseSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "expense" ? transaction.amount : 0));
-    const netSeries = buildMonthlySeries(
-      transactions,
-      (transaction) => (transaction.type === "income" ? transaction.amount : transaction.type === "expense" ? -Number(transaction.amount || 0) : 0)
-    );
-    const transferSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "transfer" ? transaction.amount : 0));
-    const volumeSeries = buildMonthlySeries(transactions, (transaction) => transaction.amount || 0);
-
-    document.getElementById("report-metrics").innerHTML = [
-      metricCard("Income", formatMoney(income, baseSymbol), "Filtered income", renderInlineSparkline(incomeSeries, "#1ca866")),
-      metricCard("Expenses", formatMoney(expense, baseSymbol), "Filtered expense", renderInlineSparkline(expenseSeries, "#d35a5a")),
-      metricCard("Net", formatMoney(income - expense, baseSymbol), "Income minus expense", renderInlineSparkline(netSeries, "#00a6c7")),
-      metricCard("Transfers", formatMoney(transfer, baseSymbol), "Transfer volume", renderInlineSparkline(transferSeries, "#2f86ff")),
-      metricCard(
-        "Largest Entry",
-        largest ? formatTransactionAmount(largest.amount, largest) : formatMoney(0, baseSymbol),
-        largest ? largest.details || largest.counterparty || largest.type : "No transactions",
-        renderInlineSparkline(volumeSeries, "#ffb84d")
-      ),
-    ].join("");
-
-    const budgetStatus = getBudgetStatus(transactions);
-    document.getElementById("report-pie").innerHTML = renderReportPieChart(transactions);
-    document.getElementById("report-ranking").innerHTML = renderCategoryRanking(transactions);
-    document.getElementById("timeline-chart").innerHTML = renderTimeline(transactions);
-    document.getElementById("category-report").innerHTML = renderCategoryBreakdown(transactions);
-    document.getElementById("account-report").innerHTML = renderAccountBreakdown(transactions);
-    document.getElementById("report-budgets").innerHTML = budgetStatus.length
-      ? budgetStatus.map(renderBudgetCard).join("")
-      : renderEmpty("No active budgets in the selected range.");
-    document.getElementById("project-report").innerHTML = renderProjectTable(transactions);
-    document.getElementById("report-insights").innerHTML = renderInsights(transactions);
-  }
-
-  function renderReportPieChart(transactions) {
-    const dataset = getReportPieDataset(transactions);
-    if (!dataset.segments.length || dataset.total <= 0) {
-      return `
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">Distribution</p>
-            <h3>Filtered Breakdown</h3>
-          </div>
-        </div>
-        ${renderEmpty("No filtered values available for a pie chart yet.")}
-      `;
-    }
-
-    let current = 0;
-    const gradientStops = dataset.segments
-      .map((segment) => {
-        const start = (current / dataset.total) * 100;
-        current += segment.value;
-        const end = (current / dataset.total) * 100;
-        return `${segment.color} ${start}% ${end}%`;
-      })
-      .join(", ");
-
-    return `
-      <div class="section-heading compact">
-        <div>
-          <p class="eyebrow">Distribution</p>
-          <h3>Filtered Breakdown</h3>
-        </div>
-        <span class="meta-pill neutral">${escapeHtml(dataset.subtitle)}</span>
-      </div>
-      <div class="report-pie-layout">
-        <div class="report-pie-visual-wrap">
-          <div class="report-pie-visual" style="background: conic-gradient(${gradientStops});">
-            <div class="report-pie-center">
-              <span>${escapeHtml(dataset.title)}</span>
-              <strong>${formatMoney(dataset.total, dataset.symbol)}</strong>
-            </div>
-          </div>
-        </div>
-        <div class="report-pie-legend">
-          ${dataset.segments
-            .map(
-              (segment) => `
-                <div class="report-pie-legend-item">
-                  <div class="report-pie-legend-main">
-                    <span class="report-pie-swatch" style="background:${escapeHtml(segment.color)}"></span>
-                    <strong>${escapeHtml(segment.label)}</strong>
-                  </div>
-                  <div class="report-pie-legend-meta">
-                    <span>${formatMoney(segment.value, dataset.symbol)}</span>
-                    <span>${segment.percent}%</span>
-                  </div>
-                </div>
-              `
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  function renderCategoryRanking(transactions) {
-    const reportType = uiState.reports.type || "all";
-    if (reportType === "transfer") {
-      return `
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">Ranking</p>
-            <h3>Category Ranking</h3>
-          </div>
-          <span class="meta-pill neutral">Transfers only</span>
-        </div>
-        ${renderEmpty("Category ranking is unavailable for transfer-only reports.")}
-      `;
-    }
-
-    const targetType = reportType === "income" ? "income" : "expense";
-    const rows = getCategoryRankingRows(transactions, targetType);
-    if (!rows.length) {
-      return `
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">Ranking</p>
-            <h3>Category Ranking</h3>
-          </div>
-          <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
-        </div>
-        ${renderEmpty(`No ${targetType} categories available for this report selection.`)}
-      `;
-    }
-
-    return `
-      <div class="section-heading compact">
-        <div>
-          <p class="eyebrow">Ranking</p>
-          <h3>Category Ranking</h3>
-        </div>
-        <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
-      </div>
-      <div class="ranking-list">
-        ${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}
-      </div>
-    `;
   }
 
   function renderSelectOptions() {
@@ -1263,22 +810,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
   }
 
-  function syncTransactionTypeFields() {
-    const type = document.getElementById("transaction-type").value;
-    const isTransfer = type === "transfer";
-    document.getElementById("field-from-account").classList.toggle("hidden", !isTransfer);
-    document.getElementById("field-to-account").classList.toggle("hidden", !isTransfer);
-    document.getElementById("transaction-account").closest(".field-group").classList.toggle("hidden", isTransfer);
-    document.getElementById("transaction-category").closest(".field-group").classList.toggle("hidden", isTransfer);
-    document.getElementById("transaction-subcategory").closest(".field-group").classList.toggle("hidden", isTransfer);
-  }
-
-  function syncCategoryBudgetState() {
-    const isIncome = document.getElementById("category-type").value === "income";
-    document.getElementById("category-budget-limit").disabled = isIncome;
-    document.getElementById("category-budget-period").disabled = isIncome;
-  }
-
   function switchScreen(screen) {
     uiState.screen = screen;
     document.querySelectorAll(".screen").forEach((section) => {
@@ -1286,717 +817,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     document.querySelectorAll(".nav-item").forEach((button) => {
       button.classList.toggle("nav-item-active", button.dataset.screenTarget === screen);
-    });
-  }
-
-  function openModal(id) {
-    const modal = document.getElementById(id);
-    modal.classList.remove("hidden");
-    modal.setAttribute("aria-hidden", "false");
-  }
-
-  function closeModal(id) {
-    const modal = document.getElementById(id);
-    modal.classList.add("hidden");
-    modal.setAttribute("aria-hidden", "true");
-  }
-
-  function openTransactionModal(transactionId, parserResult) {
-    const form = document.getElementById("transaction-form");
-    form.reset();
-    document.getElementById("transaction-date").value = todayIso();
-    document.getElementById("transaction-id").value = transactionId || "";
-    document.getElementById("transaction-modal-title").textContent = transactionId ? "Edit Transaction" : "Add Transaction";
-    document.getElementById("transaction-parser-notice").classList.add("hidden");
-    renderSelectOptions();
-    if (transactionId) {
-      const transaction = getTransaction(transactionId);
-      if (!transaction) {
-        return;
-      }
-      applyTransactionToForm(transaction);
-    }
-    if (parserResult) {
-      applyTransactionToForm(parserResult.transaction);
-      if (parserResult.missing.length) {
-        const notice = document.getElementById("transaction-parser-notice");
-        notice.textContent = `Captured from dictation. Please confirm: ${parserResult.missing.join(", ")}.`;
-        notice.classList.remove("hidden");
-      }
-    }
-    syncTransactionTypeFields();
-    openModal("transaction-modal");
-  }
-
-  function openAccountModal(accountId) {
-    const form = document.getElementById("account-form");
-    form.reset();
-    document.getElementById("account-id").value = accountId || "";
-    document.getElementById("account-modal-title").textContent = accountId ? "Edit Account" : "Add Account";
-    document.getElementById("account-color").value = "#19c6a7";
-    document.getElementById("account-currency-symbol").value = "$";
-    if (accountId) {
-      const account = getAccount(accountId);
-      if (!account) {
-        return;
-      }
-      document.getElementById("account-name").value = account.name;
-      document.getElementById("account-type").value = account.type;
-      document.getElementById("account-currency-symbol").value = account.currencySymbol || "$";
-      document.getElementById("account-opening-balance").value = account.openingBalance ?? 0;
-      document.getElementById("account-color").value = account.color || "#19c6a7";
-      document.getElementById("account-icon").value = account.icon || "wallet";
-      document.getElementById("account-notes").value = account.notes || "";
-    }
-    openModal("account-modal");
-  }
-
-  function openCategoryModal(categoryId) {
-    const form = document.getElementById("category-form");
-    form.reset();
-    document.getElementById("category-id").value = categoryId || "";
-    document.getElementById("category-modal-title").textContent = categoryId ? "Edit Category" : "Add Category";
-    document.getElementById("category-color").value = "#19c6a7";
-    if (categoryId) {
-      const category = getCategory(categoryId);
-      if (!category) {
-        return;
-      }
-      document.getElementById("category-name").value = category.name;
-      document.getElementById("category-type").value = category.type;
-      document.getElementById("category-icon").value = category.icon || "cart";
-      document.getElementById("category-color").value = category.color || "#19c6a7";
-      document.getElementById("category-subcategories").value = (category.subcategories || []).join(", ");
-      document.getElementById("category-budget-limit").value = category.budgetLimit || "";
-      document.getElementById("category-budget-period").value = category.budgetPeriod || "monthly";
-    }
-    syncCategoryBudgetState();
-    openModal("category-modal");
-  }
-
-  function applyTransactionToForm(transaction) {
-    document.getElementById("transaction-type").value = transaction.type || "expense";
-    document.getElementById("transaction-amount").value = transaction.amount ?? "";
-    document.getElementById("transaction-date").value = transaction.date || todayIso();
-    document.getElementById("transaction-account").value = transaction.accountId || "";
-    document.getElementById("transaction-from-account").value = transaction.fromAccountId || "";
-    document.getElementById("transaction-to-account").value = transaction.toAccountId || "";
-    document.getElementById("transaction-category").value = transaction.categoryId || "";
-    renderSubcategoryOptions();
-    document.getElementById("transaction-subcategory").value = transaction.subcategory || "";
-    document.getElementById("transaction-counterparty").value = transaction.counterparty || "";
-    document.getElementById("transaction-project").value = transaction.project || "";
-    document.getElementById("transaction-tags").value = (transaction.tags || []).join(", ");
-    document.getElementById("transaction-details").value = transaction.details || "";
-  }
-
-  function handleTransactionSubmit(event) {
-    event.preventDefault();
-    const type = document.getElementById("transaction-type").value;
-    const amount = Number(document.getElementById("transaction-amount").value);
-    const payload = {
-      id: document.getElementById("transaction-id").value || uid("tx"),
-      type,
-      amount,
-      date: document.getElementById("transaction-date").value,
-      accountId: type === "transfer" ? "" : document.getElementById("transaction-account").value,
-      fromAccountId: type === "transfer" ? document.getElementById("transaction-from-account").value : "",
-      toAccountId: type === "transfer" ? document.getElementById("transaction-to-account").value : "",
-      categoryId: type === "transfer" ? "" : document.getElementById("transaction-category").value,
-      subcategory: type === "transfer" ? "" : document.getElementById("transaction-subcategory").value,
-      counterparty: document.getElementById("transaction-counterparty").value.trim(),
-      project: document.getElementById("transaction-project").value.trim(),
-      tags: splitTags(document.getElementById("transaction-tags").value),
-      details: document.getElementById("transaction-details").value.trim(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (!amount || amount <= 0) {
-      showToast("Enter a valid amount.");
-      return;
-    }
-    if (!payload.date) {
-      showToast("Pick a transaction date.");
-      return;
-    }
-    if (type === "transfer") {
-      if (!payload.fromAccountId || !payload.toAccountId) {
-        showToast("Transfers need both source and destination accounts.");
-        return;
-      }
-      if (payload.fromAccountId === payload.toAccountId) {
-        showToast("Transfer accounts must be different.");
-        return;
-      }
-    } else if (!payload.accountId) {
-      showToast("Choose an account for this transaction.");
-      return;
-    }
-
-    const existingIndex = state.transactions.findIndex((tx) => tx.id === payload.id);
-    if (existingIndex >= 0) {
-      state.transactions[existingIndex] = {
-        ...state.transactions[existingIndex],
-        ...payload,
-      };
-      showToast("Transaction updated.");
-    } else {
-      state.transactions.push({
-        ...payload,
-        createdAt: new Date().toISOString(),
-      });
-      showToast("Transaction saved.");
-    }
-    persistAndRefresh();
-    closeModal("transaction-modal");
-  }
-
-  function handleAccountSubmit(event) {
-    event.preventDefault();
-    const payload = {
-      id: document.getElementById("account-id").value || uid("acc"),
-      name: document.getElementById("account-name").value.trim(),
-      type: document.getElementById("account-type").value,
-      currencySymbol: document.getElementById("account-currency-symbol").value.trim() || "$",
-      openingBalance: Number(document.getElementById("account-opening-balance").value || 0),
-      color: document.getElementById("account-color").value,
-      icon: document.getElementById("account-icon").value,
-      notes: document.getElementById("account-notes").value.trim(),
-    };
-    if (!payload.name) {
-      showToast("Account name is required.");
-      return;
-    }
-    const existingIndex = state.accounts.findIndex((account) => account.id === payload.id);
-    if (existingIndex >= 0) {
-      state.accounts[existingIndex] = payload;
-      showToast("Account updated.");
-    } else {
-      state.accounts.push(payload);
-      showToast("Account created.");
-    }
-    persistAndRefresh();
-    closeModal("account-modal");
-  }
-
-  function handleCategorySubmit(event) {
-    event.preventDefault();
-    const type = document.getElementById("category-type").value;
-    const rawName = document.getElementById("category-name").value.trim();
-    const categoryId = document.getElementById("category-id").value;
-    const payload = {
-      id: categoryId || slugify(rawName) || uid("cat"),
-      name: rawName,
-      type,
-      icon: document.getElementById("category-icon").value,
-      color: document.getElementById("category-color").value,
-      subcategories: document
-        .getElementById("category-subcategories")
-        .value.split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-      budgetLimit: type === "income" ? 0 : Number(document.getElementById("category-budget-limit").value || 0),
-      budgetPeriod: document.getElementById("category-budget-period").value,
-    };
-    if (!payload.name) {
-      showToast("Category name is required.");
-      return;
-    }
-    const existingIndex = state.categories.findIndex((category) => category.id === categoryId);
-    if (existingIndex >= 0) {
-      state.categories[existingIndex] = payload;
-      showToast("Category updated.");
-    } else {
-      state.categories.push(payload);
-      showToast("Category created.");
-    }
-    persistAndRefresh();
-    closeModal("category-modal");
-  }
-
-  async function handleImportSubmit(event) {
-    event.preventDefault();
-    const target = document.getElementById("import-target").value;
-    const file = document.getElementById("import-file").files[0];
-    if (!file) {
-      showToast("Select a CSV file first.");
-      return;
-    }
-    const text = await file.text();
-    const rows = parseCsv(text);
-    if (!rows.length) {
-      showToast("The CSV file appears to be empty.");
-      return;
-    }
-    let importSummary = null;
-    if (target === "transactions") {
-      importSummary = importTransactions(rows);
-    }
-    if (target === "accounts") {
-      importSummary = importAccounts(rows);
-    }
-    if (target === "categories") {
-      importSummary = importCategories(rows);
-    }
-    persistAndRefresh();
-    closeModal("import-modal");
-    showToast(buildImportToast(rows.length, target, importSummary));
-  }
-
-  function importTransactions(rows) {
-    const summary = {
-      createdAccounts: 0,
-      createdCategories: 0,
-      appendedSubcategories: 0,
-    };
-    rows.forEach((row) => {
-      const type = normalizeImportTransactionType(row.type);
-      const accountId = type === "transfer"
-        ? ""
-        : ensureImportedAccount(
-            {
-              id: row.accountId,
-              name: row.accountName,
-              type: row.accountType,
-              currencySymbol: row.accountCurrencySymbol || row.currencySymbol,
-              color: row.accountColor,
-              icon: row.accountIcon,
-            },
-            summary
-          );
-      const fromAccountId = type === "transfer"
-        ? ensureImportedAccount(
-            {
-              id: row.fromAccountId,
-              name: row.fromAccountName,
-              type: row.fromAccountType,
-              currencySymbol: row.fromAccountCurrencySymbol || row.currencySymbol,
-              color: row.fromAccountColor,
-              icon: row.fromAccountIcon,
-            },
-            summary
-          )
-        : "";
-      const toAccountId = type === "transfer"
-        ? ensureImportedAccount(
-            {
-              id: row.toAccountId,
-              name: row.toAccountName,
-              type: row.toAccountType,
-              currencySymbol: row.toAccountCurrencySymbol || row.currencySymbol,
-              color: row.toAccountColor,
-              icon: row.toAccountIcon,
-            },
-            summary
-          )
-        : "";
-      const categoryId = type === "transfer"
-        ? ""
-        : ensureImportedCategory(
-            {
-              id: row.categoryId,
-              name: row.categoryName,
-              type: row.categoryType || type,
-              icon: row.categoryIcon,
-              color: row.categoryColor,
-              budgetLimit: row.categoryBudgetLimit,
-              budgetPeriod: row.categoryBudgetPeriod,
-            },
-            summary
-          );
-      const subcategory = String(row.subcategory || "").trim();
-      if (categoryId && subcategory) {
-        appendImportedSubcategory(categoryId, subcategory, summary);
-      }
-
-      const payload = {
-        id: row.id || uid("tx"),
-        type,
-        amount: Number(row.amount || 0),
-        date: normalizeDateInput(row.date) || todayIso(),
-        accountId,
-        fromAccountId,
-        toAccountId,
-        categoryId,
-        subcategory,
-        counterparty: row.payeeOrPayer || row.counterparty || "",
-        project: row.project || "",
-        tags: splitTags(row.tags || ""),
-        details: row.details || "",
-        createdAt: row.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      upsertById(state.transactions, payload);
-    });
-    return summary;
-  }
-
-  function importAccounts(rows) {
-    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
-    rows.forEach((row) => {
-      const payload = {
-        id: row.id || uid("acc"),
-        name: row.name || "Imported Account",
-        type: row.type || "cash",
-        currencySymbol: row.currencySymbol || "$",
-        openingBalance: Number(row.openingBalance || 0),
-        color: row.color || "#19c6a7",
-        icon: row.icon || "wallet",
-        notes: row.notes || "",
-      };
-      if (!getAccount(payload.id)) {
-        summary.createdAccounts += 1;
-      }
-      upsertById(state.accounts, payload);
-    });
-    return summary;
-  }
-
-  function importCategories(rows) {
-    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
-    rows.forEach((row) => {
-      const payload = {
-        id: row.id || slugify(row.name || "") || uid("cat"),
-        name: row.name || "Imported Category",
-        type: row.type || "expense",
-        icon: row.icon || "cart",
-        color: row.color || "#19c6a7",
-        subcategories: splitTags(row.subcategories || ""),
-        budgetLimit: Number(row.budgetLimit || 0),
-        budgetPeriod: row.budgetPeriod || "monthly",
-      };
-      if (!getCategory(payload.id)) {
-        summary.createdCategories += 1;
-      }
-      upsertById(state.categories, payload);
-    });
-    return summary;
-  }
-
-  function buildImportToast(rowCount, target, summary) {
-    const extras = [];
-    if (summary?.createdAccounts) {
-      extras.push(`${summary.createdAccounts} ${summary.createdAccounts === 1 ? "account" : "accounts"}`);
-    }
-    if (summary?.createdCategories) {
-      extras.push(`${summary.createdCategories} ${summary.createdCategories === 1 ? "category" : "categories"}`);
-    }
-    if (summary?.appendedSubcategories) {
-      extras.push(`${summary.appendedSubcategories} ${summary.appendedSubcategories === 1 ? "subcategory" : "subcategories"}`);
-    }
-    if (!extras.length) {
-      return `Imported ${rowCount} ${target}.`;
-    }
-    return `Imported ${rowCount} ${target}. Auto-added ${extras.join(", ")}.`;
-  }
-
-  function upsertById(collection, payload) {
-    const index = collection.findIndex((item) => item.id === payload.id);
-    if (index >= 0) {
-      collection[index] = { ...collection[index], ...payload };
-    } else {
-      collection.push(payload);
-    }
-  }
-
-  function handleParseStatement() {
-    const statement = document.getElementById("dictation-input").value.trim();
-    if (!statement) {
-      showToast("Type or dictate a statement first.");
-      return;
-    }
-    const parserResult = parseStatement(statement);
-    openTransactionModal(null, parserResult);
-  }
-
-  function initializeSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      document.getElementById("listen-button").disabled = true;
-      document.getElementById("listen-button").textContent = "Voice Not Supported";
-      document.getElementById("dictation-input").placeholder =
-        "This browser does not support speech recognition. You can still type statements manually.";
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
-        .join(" ");
-      document.getElementById("dictation-input").value = transcript.trim();
-    };
-    recognition.onstart = () => {
-      uiState.isListening = true;
-      refreshListeningUi();
-    };
-    recognition.onend = () => {
-      uiState.isListening = false;
-      refreshListeningUi();
-    };
-    recognition.onerror = () => {
-      uiState.isListening = false;
-      refreshListeningUi();
-      showToast("Voice dictation ran into a browser permission issue.");
-    };
-    uiState.recognition = recognition;
-    refreshListeningUi();
-  }
-
-  function toggleListening() {
-    if (!uiState.recognition) {
-      return;
-    }
-    if (uiState.isListening) {
-      uiState.recognition.stop();
-    } else {
-      uiState.recognition.start();
-    }
-  }
-
-  function refreshListeningUi() {
-    document.getElementById("listen-button").textContent = uiState.isListening ? "Stop Listening" : "Start Listening";
-    document.getElementById("dictation-status-icon").innerHTML = iconRegistry.microphone;
-    document.getElementById("dictation-status-icon").style.background = uiState.isListening
-      ? "linear-gradient(135deg, rgba(239,100,97,0.16), rgba(255,184,77,0.16))"
-      : "linear-gradient(135deg, rgba(18,200,164,0.16), rgba(0,166,199,0.16))";
-    document.getElementById("dictation-status-icon").style.color = uiState.isListening ? "#ef6461" : "#12c8a4";
-  }
-
-  function parseStatement(statement) {
-    const normalized = statement.toLowerCase();
-    const transaction = {
-      id: "",
-      type: detectTransactionType(normalized),
-      amount: extractAmount(normalized),
-      date: extractDate(normalized) || todayIso(),
-      accountId: "",
-      fromAccountId: "",
-      toAccountId: "",
-      categoryId: "",
-      subcategory: "",
-      counterparty: extractCounterparty(normalized),
-      project: extractProject(normalized),
-      tags: extractTags(statement),
-      details: statement,
-    };
-
-    const accountHints = extractAccounts(normalized);
-    if (transaction.type === "transfer") {
-      transaction.fromAccountId = accountHints.from || "";
-      transaction.toAccountId = accountHints.to || "";
-    } else {
-      transaction.accountId = accountHints.primary || accountHints.from || accountHints.to || "";
-    }
-
-    const category = detectCategory(normalized, transaction.type);
-    if (category) {
-      transaction.categoryId = category.id;
-      transaction.subcategory = detectSubcategory(normalized, category) || "";
-    }
-
-    const missing = [];
-    if (!transaction.amount) {
-      missing.push("amount");
-    }
-    if (transaction.type === "transfer") {
-      if (!transaction.fromAccountId) {
-        missing.push("source account");
-      }
-      if (!transaction.toAccountId) {
-        missing.push("destination account");
-      }
-    } else {
-      if (!transaction.accountId) {
-        missing.push("account");
-      }
-      if (!transaction.categoryId && transaction.type !== "income") {
-        missing.push("category");
-      }
-    }
-
-    return { transaction, missing };
-  }
-
-  function detectTransactionType(text) {
-    if (/(transfer|moved?|sent|shifted)/.test(text)) {
-      return "transfer";
-    }
-    if (/(received|income|earned|salary|sold|bonus|got paid|deposit)/.test(text)) {
-      return "income";
-    }
-    return "expense";
-  }
-
-  function extractAmount(text) {
-    const match = text.match(/(?:\$|usd\s*)?(\d+(?:\.\d{1,2})?)/);
-    return match ? Number(match[1]) : 0;
-  }
-
-  function extractDate(text) {
-    if (text.includes("today")) {
-      return todayIso();
-    }
-    if (text.includes("yesterday")) {
-      return shiftIsoDate(todayIso(), -1);
-    }
-    if (text.includes("tomorrow")) {
-      return shiftIsoDate(todayIso(), 1);
-    }
-    const isoMatch = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
-    if (isoMatch) {
-      return isoMatch[1];
-    }
-    const usMatch = text.match(/\b(\d{1,2}\/\d{1,2}\/\d{4})\b/);
-    if (usMatch) {
-      return normalizeDateInput(usMatch[1]);
-    }
-    return "";
-  }
-
-  function extractCounterparty(text) {
-    const expenseMatch = text.match(/\b(?:at|to)\s+([a-z0-9&.' -]+?)(?=\s+(?:from|on|for|category|project|tag|tags)\b|$)/i);
-    const incomeMatch = text.match(/\bfrom\s+([a-z0-9&.' -]+?)(?=\s+(?:into|on|project|tag|tags)\b|$)/i);
-    const match = incomeMatch || expenseMatch;
-    return match ? titleCase(match[1].trim()) : "";
-  }
-
-  function extractProject(text) {
-    const match = text.match(/\bproject\s+([a-z0-9&.' -]+?)(?=\s+(?:tag|tags|from|to|on|into)\b|$)/i);
-    return match ? titleCase(match[1].trim()) : "";
-  }
-
-  function extractTags(statement) {
-    const explicit = [];
-    const lower = statement.toLowerCase();
-    const tagPhraseMatch = lower.match(/\btags?\s+([a-z0-9,\s-]+)/);
-    if (tagPhraseMatch) {
-      explicit.push(...splitTags(tagPhraseMatch[1]));
-    }
-    const hashTags = statement.match(/#([a-zA-Z0-9_-]+)/g) || [];
-    hashTags.forEach((item) => explicit.push(item.replace("#", "").toLowerCase()));
-    return [...new Set(explicit)];
-  }
-
-  function extractAccounts(text) {
-    const loweredAccounts = state.accounts.map((account) => ({
-      id: account.id,
-      name: account.name.toLowerCase(),
-    }));
-    const matches = { primary: "", from: "", to: "" };
-    loweredAccounts.forEach((account) => {
-      if (!matches.primary && text.includes(account.name)) {
-        matches.primary = account.id;
-      }
-      if (!matches.from && new RegExp(`\\b(?:from|via|using)\\s+${escapeRegExp(account.name)}\\b`, "i").test(text)) {
-        matches.from = account.id;
-      }
-      if (!matches.to && new RegExp(`\\b(?:to|into|in)\\s+${escapeRegExp(account.name)}\\b`, "i").test(text)) {
-        matches.to = account.id;
-      }
-    });
-    return matches;
-  }
-
-  function detectCategory(text, type) {
-    if (type === "transfer") {
-      return null;
-    }
-    const exact = state.categories.find((category) => text.includes(category.name.toLowerCase()) && category.type === type);
-    if (exact) {
-      return exact;
-    }
-    for (const [categoryId, keywords] of Object.entries(categoryKeywordMap)) {
-      if (keywords.some((keyword) => text.includes(keyword))) {
-        const category = getCategory(categoryId);
-        if (category && category.type === type) {
-          return category;
-        }
-      }
-    }
-    return state.categories.find((category) => category.type === type) || null;
-  }
-
-  function detectSubcategory(text, category) {
-    return (category.subcategories || []).find((subcategory) => text.includes(subcategory.toLowerCase())) || "";
-  }
-
-  function getFilteredTransactions() {
-    return [...state.transactions]
-      .filter(matchesTransactionFilters)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }
-
-  function matchesTransactionFilters(transaction) {
-    const accountNames = [getAccount(transaction.accountId)?.name, getAccount(transaction.fromAccountId)?.name, getAccount(transaction.toAccountId)?.name]
-      .filter(Boolean)
-      .join(" ");
-    const categoryName = getCategory(transaction.categoryId)?.name || "";
-    const haystack = [
-      transaction.details,
-      transaction.counterparty,
-      transaction.project,
-      transaction.subcategory,
-      accountNames,
-      categoryName,
-      ...(transaction.tags || []),
-      transaction.type,
-      transaction.date,
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    if (uiState.filters.search && !haystack.includes(uiState.filters.search.toLowerCase())) {
-      return false;
-    }
-    if (uiState.filters.type !== "all" && transaction.type !== uiState.filters.type) {
-      return false;
-    }
-    if (
-      uiState.filters.account !== "all" &&
-      ![transaction.accountId, transaction.fromAccountId, transaction.toAccountId].includes(uiState.filters.account)
-    ) {
-      return false;
-    }
-    if (uiState.filters.category !== "all" && transaction.categoryId !== uiState.filters.category) {
-      return false;
-    }
-    if (
-      uiState.filters.tag &&
-      !(transaction.tags || []).some((tag) => tag.toLowerCase().includes(uiState.filters.tag.toLowerCase()))
-    ) {
-      return false;
-    }
-    if (uiState.filters.startDate && transaction.date < uiState.filters.startDate) {
-      return false;
-    }
-    if (uiState.filters.endDate && transaction.date > uiState.filters.endDate) {
-      return false;
-    }
-    return true;
-  }
-
-  function getReportTransactions() {
-    const { start, end } = getDateRange(uiState.reports.range);
-    return state.transactions.filter((transaction) => {
-      if (uiState.reports.type !== "all" && transaction.type !== uiState.reports.type) {
-        return false;
-      }
-      if (
-        uiState.reports.account !== "all" &&
-        ![transaction.accountId, transaction.fromAccountId, transaction.toAccountId].includes(uiState.reports.account)
-      ) {
-        return false;
-      }
-      if (start && transaction.date < start) {
-        return false;
-      }
-      if (end && transaction.date > end) {
-        return false;
-      }
-      return true;
     });
   }
 
@@ -2029,873 +849,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       };
     }
     return { start: "", end: "" };
-  }
-
-  function getGlobalMetrics() {
-    const balance = state.accounts.reduce((sum, account) => sum + getAccountBalance(account.id), 0);
-    const monthTransactions = getTransactionsForPreset("thisMonth");
-    const weekTransactions = getTransactionsForPreset("thisWeek");
-    const dayTransactions = getTransactionsForPreset("today");
-    return {
-      balance,
-      monthIncome: sumAmounts(monthTransactions.filter((transaction) => transaction.type === "income")),
-      monthExpense: sumAmounts(monthTransactions.filter((transaction) => transaction.type === "expense")),
-      weekIncome: sumAmounts(weekTransactions.filter((transaction) => transaction.type === "income")),
-      weekExpense: sumAmounts(weekTransactions.filter((transaction) => transaction.type === "expense")),
-      dayIncome: sumAmounts(dayTransactions.filter((transaction) => transaction.type === "income")),
-      dayExpense: sumAmounts(dayTransactions.filter((transaction) => transaction.type === "expense")),
-    };
-  }
-
-  function getTransactionsForPreset(preset) {
-    const today = todayIso();
-    if (preset === "today") {
-      return state.transactions.filter((transaction) => transaction.date === today);
-    }
-    if (preset === "thisWeek") {
-      const range = getCurrentWeekRange();
-      return state.transactions.filter((transaction) => transaction.date >= range.start && transaction.date <= range.end);
-    }
-    const range = getDateRange(preset);
-    return state.transactions.filter((transaction) => transaction.date >= range.start && transaction.date <= range.end);
-  }
-
-  function getCurrentWeekRange() {
-    const now = new Date();
-    const start = new Date(now);
-    const dayOffset = (now.getDay() + 6) % 7;
-    start.setDate(now.getDate() - dayOffset);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-    };
-  }
-
-  function getAccountBalance(accountId) {
-    const account = getAccount(accountId);
-    if (!account) {
-      return 0;
-    }
-    let balance = Number(account.openingBalance || 0);
-    state.transactions.forEach((transaction) => {
-      if (transaction.type === "expense" && transaction.accountId === accountId) {
-        balance -= Number(transaction.amount || 0);
-      }
-      if (transaction.type === "income" && transaction.accountId === accountId) {
-        balance += Number(transaction.amount || 0);
-      }
-      if (transaction.type === "transfer") {
-        if (transaction.fromAccountId === accountId) {
-          balance -= Number(transaction.amount || 0);
-        }
-        if (transaction.toAccountId === accountId) {
-          balance += Number(transaction.amount || 0);
-        }
-      }
-    });
-    return balance;
-  }
-
-  function getAccountFlow(accountId) {
-    let incoming = 0;
-    let outgoing = 0;
-    state.transactions.forEach((transaction) => {
-      const amount = Number(transaction.amount || 0);
-      if (transaction.type === "income" && transaction.accountId === accountId) {
-        incoming += amount;
-      }
-      if (transaction.type === "expense" && transaction.accountId === accountId) {
-        outgoing += amount;
-      }
-      if (transaction.type === "transfer" && transaction.toAccountId === accountId) {
-        incoming += amount;
-      }
-      if (transaction.type === "transfer" && transaction.fromAccountId === accountId) {
-        outgoing += amount;
-      }
-    });
-    return { incoming, outgoing };
-  }
-
-  function getTrailingMonths(count = 12) {
-    const months = [];
-    const now = new Date();
-    for (let offset = count - 1; offset >= 0; offset -= 1) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-      months.push({
-        key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
-        label: monthDate.toLocaleDateString("en-US", { month: "short" }),
-        year: monthDate.getFullYear(),
-        month: monthDate.getMonth(),
-      });
-    }
-    return months;
-  }
-
-  function getAccountMonthlyBalanceSeries(accountId) {
-    return getTrailingMonths(12).map((month) => ({
-      label: month.label,
-      value: getAccountBalanceAtDate(accountId, new Date(month.year, month.month + 1, 0)),
-    }));
-  }
-
-  function getAccountBalanceAtDate(accountId, date) {
-    const account = getAccount(accountId);
-    if (!account) {
-      return 0;
-    }
-    const cutoff = date.toISOString().slice(0, 10);
-    let balance = Number(account.openingBalance || 0);
-    state.transactions.forEach((transaction) => {
-      if (transaction.date > cutoff) {
-        return;
-      }
-      const amount = Number(transaction.amount || 0);
-      if (transaction.type === "expense" && transaction.accountId === accountId) {
-        balance -= amount;
-      }
-      if (transaction.type === "income" && transaction.accountId === accountId) {
-        balance += amount;
-      }
-      if (transaction.type === "transfer") {
-        if (transaction.fromAccountId === accountId) {
-          balance -= amount;
-        }
-        if (transaction.toAccountId === accountId) {
-          balance += amount;
-        }
-      }
-    });
-    return balance;
-  }
-
-  function getCategoryMonthlySeries(categoryId) {
-    const buckets = new Map(getTrailingMonths(12).map((month) => [month.key, { label: month.label, value: 0 }]));
-    state.transactions.forEach((transaction) => {
-      if (transaction.categoryId !== categoryId || !transaction.date) {
-        return;
-      }
-      const key = transaction.date.slice(0, 7);
-      if (!buckets.has(key)) {
-        return;
-      }
-      buckets.get(key).value += Number(transaction.amount || 0);
-    });
-    return [...buckets.values()];
-  }
-
-  function renderMiniTrendChart(series, color, label, valueLabel) {
-    const points = series.map((item) => Number(item.value || 0));
-    const hasActivity = points.some((value) => value !== 0);
-    const safeColor = color || "#19c6a7";
-    if (!hasActivity) {
-      return `
-        <div class="mini-trend-card">
-          <div class="mini-trend-copy">
-            <span>${escapeHtml(label)}</span>
-            <strong>${escapeHtml(valueLabel)}</strong>
-          </div>
-          <div class="mini-trend-empty">No 12M history yet</div>
-        </div>
-      `;
-    }
-    const width = 220;
-    const height = 56;
-    const padding = 4;
-    const min = Math.min(...points);
-    const max = Math.max(...points);
-    const range = max - min || 1;
-    const coords = points.map((value, index) => {
-      const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
-      const normalized = (value - min) / range;
-      const y = height - padding - normalized * (height - padding * 2);
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point) => `L ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
-    return `
-      <div class="mini-trend-card">
-        <div class="mini-trend-copy">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(valueLabel)}</strong>
-        </div>
-        <svg class="mini-trend-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-          <path d="${areaPath}" fill="${escapeHtml(withAlpha(safeColor, 0.18))}"></path>
-          <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(safeColor)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-        </svg>
-        <div class="mini-trend-axis">
-          <span>${escapeHtml(series[0].label)}</span>
-          <span>${escapeHtml(series[series.length - 1].label)}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  function buildMonthlySeries(transactions, resolver, count = 12) {
-    const buckets = new Map(getTrailingMonths(count).map((month) => [month.key, { label: month.label, value: 0 }]));
-    transactions.forEach((transaction) => {
-      if (!transaction.date) {
-        return;
-      }
-      const key = transaction.date.slice(0, 7);
-      if (!buckets.has(key)) {
-        return;
-      }
-      buckets.get(key).value += Number(resolver(transaction) || 0);
-    });
-    return [...buckets.values()];
-  }
-
-  function renderInlineSparkline(series, color) {
-    const points = series.map((item) => Number(item.value || 0));
-    if (!points.some((value) => value !== 0)) {
-      return `<div class="inline-sparkline inline-sparkline-empty"></div>`;
-    }
-    const width = 120;
-    const height = 28;
-    const padding = 3;
-    const min = Math.min(...points);
-    const max = Math.max(...points);
-    const range = max - min || 1;
-    const coords = points.map((value, index) => {
-      const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
-      const normalized = (value - min) / range;
-      const y = height - padding - normalized * (height - padding * 2);
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-    return `
-      <svg class="inline-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-        <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(color || "#19c6a7")}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
-      </svg>
-    `;
-  }
-
-  function renderTimelineOverviewChart(transactions) {
-    const incomeSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "income" ? transaction.amount : 0), 6);
-    const expenseSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "expense" ? transaction.amount : 0), 6);
-    const incomePoints = incomeSeries.map((item) => Number(item.value || 0));
-    const expensePoints = expenseSeries.map((item) => Number(item.value || 0));
-    if (![...incomePoints, ...expensePoints].some((value) => value !== 0)) {
-      return "";
-    }
-    const width = 280;
-    const height = 96;
-    const padding = 8;
-    const max = Math.max(...incomePoints, ...expensePoints, 1);
-    const buildCoords = (points) =>
-      points.map((value, index) => {
-        const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
-        const y = height - padding - (value / max) * (height - padding * 2);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      });
-    const incomeCoords = buildCoords(incomePoints);
-    const expenseCoords = buildCoords(expensePoints);
-    const axisLabels = incomeSeries.map((item) => `<span>${escapeHtml(item.label)}</span>`).join("");
-    return `
-      <div class="timeline-overview">
-        <svg class="timeline-overview-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-          <polyline points="${incomeCoords.join(" ")}" fill="none" stroke="#1ca866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-          <polyline points="${expenseCoords.join(" ")}" fill="none" stroke="#d35a5a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-        </svg>
-        <div class="timeline-overview-legend">
-          <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>Income trend</span></span>
-          <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>Expense trend</span></span>
-        </div>
-        <div class="timeline-overview-axis">${axisLabels}</div>
-      </div>
-    `;
-  }
-
-  function renderInsightSummary(metrics) {
-    const active = metrics.filter((item) => item.value > 0);
-    if (!active.length) {
-      return "";
-    }
-    const max = Math.max(...active.map((item) => item.value), 1);
-    return `
-      <div class="insight-summary">
-        ${active
-          .map(
-            (item) => `
-              <div class="insight-summary-row">
-                <div class="bar-meta">
-                  <strong>${escapeHtml(item.label)}</strong>
-                  <span>${escapeHtml(item.display)}</span>
-                </div>
-                <div class="bar-fill insight-bar">
-                  <span style="width:${(item.value / max) * 100}%; background:${escapeHtml(item.color)}"></span>
-                </div>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
-    `;
-  }
-
-  function getBudgetStatus(transactionsInput) {
-    const transactions = Array.isArray(transactionsInput) ? transactionsInput : state.transactions;
-    return state.categories
-      .filter((category) => category.type === "expense" && Number(category.budgetLimit) > 0)
-      .map((category) => {
-        const relevant = transactions.filter((transaction) => {
-          if (transaction.type !== "expense" || transaction.categoryId !== category.id) {
-            return false;
-          }
-          return isWithinBudgetPeriod(transaction.date, category.budgetPeriod);
-        });
-        const spent = sumAmounts(relevant);
-        const limit = Number(category.budgetLimit || 0);
-        return {
-          category,
-          spent,
-          limit,
-          progress: limit ? Math.min((spent / limit) * 100, 100) : 0,
-          over: spent > limit,
-        };
-      })
-      .sort((a, b) => b.progress - a.progress);
-  }
-
-  function isWithinBudgetPeriod(date, period) {
-    const target = new Date(`${date}T00:00:00`);
-    const now = new Date();
-    if (period === "weekly") {
-      const start = new Date(now);
-      start.setDate(now.getDate() - now.getDay());
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      return target >= start && target <= end;
-    }
-    return target.getFullYear() === now.getFullYear() && target.getMonth() === now.getMonth();
-  }
-
-  function renderTimeline(transactions) {
-    const grouped = new Map();
-    transactions.forEach((transaction) => {
-      const key = transaction.date.slice(0, 7);
-      if (!grouped.has(key)) {
-        grouped.set(key, { income: 0, expense: 0 });
-      }
-      const entry = grouped.get(key);
-      if (transaction.type === "income") {
-        entry.income += Number(transaction.amount || 0);
-      }
-      if (transaction.type === "expense") {
-        entry.expense += Number(transaction.amount || 0);
-      }
-    });
-    const rows = [...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
-    if (!rows.length) {
-      return renderEmpty("Add transactions to unlock cashflow timelines.");
-    }
-    const maxValue = Math.max(...rows.map(([, value]) => Math.max(value.income, value.expense)), 1);
-    return `${renderTimelineOverviewChart(transactions)}${rows
-      .map(([month, value]) => {
-        const net = value.income - value.expense;
-        return `
-          <div class="timeline-item">
-            <div class="bar-meta">
-              <strong>${escapeHtml(month)}</strong>
-              <span class="meta-pill neutral">Net ${formatCurrency(net)}</span>
-            </div>
-            <div class="bar-fill"><span style="width:${(value.income / maxValue) * 100}%"></span></div>
-            <p class="supporting-text">Income ${formatCurrency(value.income)}</p>
-            <div class="bar-fill" style="margin-top:10px"><span style="width:${(value.expense / maxValue) * 100}%; background:linear-gradient(90deg,#ef6461,#ffb84d)"></span></div>
-            <p class="supporting-text">Expense ${formatCurrency(value.expense)}</p>
-          </div>
-        `;
-      })
-      .join("")}`;
-  }
-
-  function renderCategoryBreakdown(transactions) {
-    const map = new Map();
-    transactions
-      .filter((transaction) => transaction.type === "expense")
-      .forEach((transaction) => {
-        const category = getCategory(transaction.categoryId);
-        const key = category?.id || "uncategorized";
-        const current = map.get(key) || {
-          label: category ? category.name : "Uncategorized",
-          value: 0,
-          color: category?.color || "#d35a5a",
-        };
-        current.value += Number(transaction.amount || 0);
-        map.set(key, current);
-      });
-    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 6);
-    if (!rows.length) {
-      return renderEmpty("No expense data for this report selection.");
-    }
-    const max = Math.max(...rows.map((row) => row[1].value), 1);
-    return rows
-      .map(([categoryId, row]) =>
-        renderBarItem(
-          row.label,
-          row.value,
-          max,
-          renderInlineSparkline(
-            buildMonthlySeries(
-              transactions.filter((transaction) => transaction.type === "expense" && (transaction.categoryId || "uncategorized") === categoryId),
-              (transaction) => transaction.amount || 0
-            ),
-            row.color
-          ),
-          row.color
-        )
-      )
-      .join("");
-  }
-
-  function getReportPieDataset(transactions) {
-    const symbol = getPrimaryCurrencySymbol();
-    const reportType = uiState.reports.type || "all";
-    if (reportType === "transfer") {
-      const transferMap = new Map();
-      transactions
-        .filter((transaction) => transaction.type === "transfer")
-        .forEach((transaction) => {
-          const from = getAccount(transaction.fromAccountId)?.name || "Unknown";
-          const to = getAccount(transaction.toAccountId)?.name || "Unknown";
-          const key = `${transaction.fromAccountId || from}:${transaction.toAccountId || to}`;
-          const current = transferMap.get(key) || {
-            label: `${from} â†’ ${to}`,
-            value: 0,
-            color: "#2f86ff",
-          };
-          current.value += Number(transaction.amount || 0);
-          transferMap.set(key, current);
-        });
-      return buildPieDataset([...transferMap.values()], "Transfer Routes", "Selected transfers", symbol);
-    }
-
-    if (reportType === "income" || reportType === "expense") {
-      const categoryMap = new Map();
-      const fallbackColor = reportType === "income" ? "#1ca866" : "#d35a5a";
-      transactions
-        .filter((transaction) => transaction.type === reportType)
-        .forEach((transaction) => {
-          const category = getCategory(transaction.categoryId);
-          const key = category?.id || "uncategorized";
-          const current = categoryMap.get(key) || {
-            label: category?.name || "Uncategorized",
-            value: 0,
-            color: category?.color || fallbackColor,
-          };
-          current.value += Number(transaction.amount || 0);
-          categoryMap.set(key, current);
-        });
-      return buildPieDataset(
-        [...categoryMap.values()],
-        reportType === "income" ? "Income Mix" : "Expense Mix",
-        reportType === "income" ? "Selected income categories" : "Selected expense categories",
-        symbol
-      );
-    }
-
-    const typeSegments = [
-      { label: "Income", value: sumAmounts(transactions.filter((transaction) => transaction.type === "income")), color: "#1ca866" },
-      { label: "Expenses", value: sumAmounts(transactions.filter((transaction) => transaction.type === "expense")), color: "#d35a5a" },
-      { label: "Transfers", value: sumAmounts(transactions.filter((transaction) => transaction.type === "transfer")), color: "#2f86ff" },
-    ].filter((segment) => segment.value > 0);
-
-    return buildPieDataset(typeSegments, "Type Mix", "Selected report totals", symbol);
-  }
-
-  function getCategoryRankingRows(transactions, type) {
-    const map = new Map();
-    transactions
-      .filter((transaction) => transaction.type === type)
-      .forEach((transaction) => {
-        const category = getCategory(transaction.categoryId);
-        const key = category?.id || "uncategorized";
-        const current = map.get(key) || {
-          id: key,
-          label: category?.name || "Uncategorized",
-          color: category?.color || (type === "income" ? "#1ca866" : "#ffb84d"),
-          icon: category?.icon || (type === "income" ? "briefcase" : "cart"),
-          value: 0,
-          count: 0,
-        };
-        current.value += Number(transaction.amount || 0);
-        current.count += 1;
-        map.set(key, current);
-      });
-
-    const rows = [...map.values()].sort((a, b) => b.value - a.value).slice(0, 5);
-    const total = rows.reduce((sum, row) => sum + row.value, 0);
-    return rows.map((row) => ({
-      ...row,
-      percent: total ? ((row.value / total) * 100).toFixed(1) : "0.0",
-    }));
-  }
-
-  function renderCategoryRankingItem(row, rank) {
-    const baseSymbol = getPrimaryCurrencySymbol();
-    const barWidth = Math.max(12, Math.min(100, Number(row.percent)));
-    return `
-      <article class="ranking-item">
-        <div class="ranking-item-main">
-          <div class="ranking-icon" style="--rank-color:${escapeHtml(row.color)}">${iconRegistry[row.icon] || iconRegistry.cart}</div>
-          <div class="ranking-copy">
-            <div class="ranking-topline">
-              <strong>${rank} ${escapeHtml(row.label)}</strong>
-              <span>${escapeHtml(row.percent)}%</span>
-            </div>
-            <div class="ranking-bar">
-              <span style="width:${barWidth}%; background:${escapeHtml(row.color)}"></span>
-            </div>
-          </div>
-        </div>
-        <div class="ranking-meta">
-          <strong>${formatMoney(row.value, baseSymbol)}</strong>
-          <span>${row.count} ${row.count === 1 ? "bill" : "bills"}</span>
-        </div>
-      </article>
-    `;
-  }
-
-  function buildPieDataset(rows, title, subtitle, symbol) {
-    const cleaned = rows
-      .filter((row) => Number(row.value || 0) > 0)
-      .sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
-    if (!cleaned.length) {
-      return { title, subtitle, symbol, total: 0, segments: [] };
-    }
-
-    const topRows = cleaned.slice(0, 5).map((row) => ({
-      label: row.label,
-      value: Number(row.value || 0),
-      color: row.color || "#00a6c7",
-    }));
-    const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
-    if (remainder > 0) {
-      topRows.push({
-        label: "Others",
-        value: remainder,
-        color: "#8aa8b3",
-      });
-    }
-
-    const total = topRows.reduce((sum, row) => sum + row.value, 0);
-    return {
-      title,
-      subtitle,
-      symbol,
-      total,
-      segments: topRows.map((row) => ({
-        ...row,
-        percent: Math.max(1, Math.round((row.value / total) * 100)),
-      })),
-    };
-  }
-
-  function renderAccountBreakdown(transactions) {
-    const map = new Map();
-    transactions.forEach((transaction) => {
-      if (transaction.type === "transfer") {
-        const from = getAccount(transaction.fromAccountId)?.name || "Unknown";
-        const to = getAccount(transaction.toAccountId)?.name || "Unknown";
-        const key = `transfer:${transaction.fromAccountId || from}:${transaction.toAccountId || to}`;
-        const current = map.get(key) || { label: `${from} â†’ ${to}`, value: 0, color: "#2f86ff" };
-        current.value += Number(transaction.amount || 0);
-        map.set(key, current);
-        return;
-      }
-      const account = getAccount(transaction.accountId);
-      const key = transaction.accountId || "unknown-account";
-      const current = map.get(key) || {
-        label: account?.name || "Unknown Account",
-        value: 0,
-        color: account?.color || "#00a6c7",
-      };
-      current.value += Number(transaction.amount || 0);
-      map.set(key, current);
-    });
-    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 6);
-    if (!rows.length) {
-      return renderEmpty("No account activity available for the selected filters.");
-    }
-    const max = Math.max(...rows.map((row) => row[1].value), 1);
-    return rows
-      .map(([key, row]) =>
-        renderBarItem(
-          row.label,
-          row.value,
-          max,
-          renderInlineSparkline(
-            buildMonthlySeries(
-              transactions.filter((transaction) => {
-                if (key.startsWith("transfer:")) {
-                  const transferKey = `transfer:${transaction.fromAccountId || (getAccount(transaction.fromAccountId)?.name || "Unknown")}:${transaction.toAccountId || (getAccount(transaction.toAccountId)?.name || "Unknown")}`;
-                  return transaction.type === "transfer" && transferKey === key;
-                }
-                return transaction.type !== "transfer" && (transaction.accountId || "unknown-account") === key;
-              }),
-              (transaction) => transaction.amount || 0
-            ),
-            row.color
-          ),
-          row.color
-        )
-      )
-      .join("");
-  }
-
-  function renderProjectTable(transactions) {
-    const map = new Map();
-    transactions.forEach((transaction) => {
-      (transaction.tags || []).forEach((tag) => {
-        const key = `tag:${tag}`;
-        const current = map.get(key) || { label: `#${tag}`, value: 0, color: "#00a6c7" };
-        current.value += Number(transaction.amount || 0);
-        map.set(key, current);
-      });
-      if (transaction.project) {
-        const key = `project:${transaction.project}`;
-        const current = map.get(key) || { label: transaction.project, value: 0, color: "#19c6a7" };
-        current.value += Number(transaction.amount || 0);
-        map.set(key, current);
-      }
-    });
-    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8);
-    if (!rows.length) {
-      return renderEmpty("Use tags and projects to unlock deeper reporting.");
-    }
-    const max = Math.max(...rows.map((row) => row[1].value), 1);
-    return rows
-      .map(
-        ([key, row]) => `
-          <div class="mini-row">
-            <div class="bar-meta">
-              <strong>${escapeHtml(row.label)}</strong>
-              <span>${formatCurrency(row.value)}</span>
-            </div>
-            <div class="report-row-graph">
-              ${renderInlineSparkline(
-                buildMonthlySeries(
-                  transactions.filter((transaction) =>
-                    key.startsWith("tag:")
-                      ? (transaction.tags || []).includes(key.replace("tag:", ""))
-                      : transaction.project === key.replace("project:", "")
-                  ),
-                  (transaction) => transaction.amount || 0
-                ),
-                row.color
-              )}
-              <div class="bar-fill">
-                <span style="width:${(row.value / max) * 100}%; background:${escapeHtml(row.color)}"></span>
-              </div>
-            </div>
-          </div>
-        `
-      )
-      .join("");
-  }
-
-  function renderInsights(transactions) {
-    if (!transactions.length) {
-      return renderEmpty("Insights will appear as soon as transactions are recorded.");
-    }
-    const sortedExpenses = transactions.filter((transaction) => transaction.type === "expense").sort((a, b) => b.amount - a.amount);
-    const topExpense = sortedExpenses[0];
-    const latest = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-    const byPayee = new Map();
-    transactions.forEach((transaction) => {
-      if (transaction.counterparty) {
-        byPayee.set(transaction.counterparty, (byPayee.get(transaction.counterparty) || 0) + Number(transaction.amount || 0));
-      }
-    });
-    const topCounterparty = [...byPayee.entries()].sort((a, b) => b[1] - a[1])[0];
-
-    return [
-      renderInsightSummary([
-        topExpense ? { label: "Largest Expense", value: Number(topExpense.amount || 0), display: formatCurrency(topExpense.amount), color: "#d35a5a" } : null,
-        latest ? { label: "Latest Entry", value: Number(latest.amount || 0), display: formatCurrency(latest.amount), color: "#00a6c7" } : null,
-        topCounterparty
-          ? { label: "Top Counterparty", value: Number(topCounterparty[1] || 0), display: formatCurrency(topCounterparty[1]), color: "#19c6a7" }
-          : null,
-      ].filter(Boolean)),
-      topExpense
-        ? insightCard(
-            "Largest Expense",
-            `${formatCurrency(topExpense.amount)} in ${getCategory(topExpense.categoryId)?.name || "Uncategorized"} on ${topExpense.date}`
-          )
-        : "",
-      latest ? insightCard("Latest Activity", `${titleCase(latest.type)} on ${latest.date} for ${formatCurrency(latest.amount)}`) : "",
-      topCounterparty ? insightCard("Top Counterparty", `${escapeHtml(topCounterparty[0])} with ${formatCurrency(topCounterparty[1])}`) : "",
-      insightCard("Voice Workflow", "Dictation pre-fills the transaction form so missing accounting details can be confirmed before saving."),
-    ].join("");
-  }
-
-  function exportTransactionsCsv() {
-    const rows = state.transactions.map((transaction) => ({
-      id: transaction.id,
-      type: transaction.type,
-      amount: transaction.amount,
-      date: transaction.date,
-      accountId: transaction.accountId || "",
-      accountName: getAccount(transaction.accountId)?.name || "",
-      fromAccountId: transaction.fromAccountId || "",
-      fromAccountName: getAccount(transaction.fromAccountId)?.name || "",
-      toAccountId: transaction.toAccountId || "",
-      toAccountName: getAccount(transaction.toAccountId)?.name || "",
-      categoryId: transaction.categoryId || "",
-      categoryName: getCategory(transaction.categoryId)?.name || "",
-      subcategory: transaction.subcategory || "",
-      tags: (transaction.tags || []).join(", "),
-      payeeOrPayer: transaction.counterparty || "",
-      project: transaction.project || "",
-      details: transaction.details || "",
-      createdAt: transaction.createdAt || "",
-      updatedAt: transaction.updatedAt || "",
-    }));
-    downloadCsv("transactions.csv", rows);
-  }
-
-  function exportAccountsCsv() {
-    const rows = state.accounts.map((account) => ({
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      currencySymbol: account.currencySymbol || "$",
-      openingBalance: account.openingBalance || 0,
-      icon: account.icon || "wallet",
-      color: account.color || "#19c6a7",
-      notes: account.notes || "",
-    }));
-    downloadCsv("accounts.csv", rows);
-  }
-
-  function exportCategoriesCsv() {
-    const rows = state.categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      type: category.type,
-      icon: category.icon || "cart",
-      color: category.color || "#19c6a7",
-      subcategories: (category.subcategories || []).join(", "),
-      budgetPeriod: category.budgetPeriod || "monthly",
-      budgetLimit: category.budgetLimit || 0,
-    }));
-    downloadCsv("categories.csv", rows);
-  }
-
-  function downloadCsv(filename, rows) {
-    if (!rows.length) {
-      showToast("There is no data to export yet.");
-      return;
-    }
-    const csv = toCsv(rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    showToast(`${filename} downloaded.`);
-  }
-
-  function clearFilters() {
-    uiState.filters = {
-      search: "",
-      type: "all",
-      account: "all",
-      category: "all",
-      tag: "",
-      startDate: "",
-      endDate: "",
-    };
-    document.getElementById("search-input").value = "";
-    document.getElementById("filter-type").value = "all";
-    document.getElementById("filter-account").value = "all";
-    document.getElementById("filter-category").value = "all";
-    document.getElementById("filter-tag").value = "";
-    document.getElementById("filter-start-date").value = "";
-    document.getElementById("filter-end-date").value = "";
-    renderTransactions();
-  }
-
-  function renderGlobalSearchResults() {
-    const panel = document.getElementById("global-search-results");
-    const query = uiState.globalSearch.trim().toLowerCase();
-    if (!query) {
-      hideGlobalSearchResults();
-      return;
-    }
-
-    const results = getGlobalSearchResults(query);
-    panel.innerHTML = results.length
-      ? results
-          .map(
-            (result) => `
-              <button class="global-search-item" type="button" data-action="open-search-result" data-kind="${escapeHtml(
-                result.kind
-              )}" data-id="${escapeHtml(result.id || "")}" data-query="${escapeHtml(result.query || "")}">
-                <span class="global-search-item-icon">${result.icon}</span>
-                <span class="global-search-item-copy">
-                  <strong>${escapeHtml(result.label)}</strong>
-                  <span>${escapeHtml(result.meta)}</span>
-                </span>
-              </button>
-            `
-          )
-          .join("")
-      : `<div class="empty-state compact-empty">No matches for "${escapeHtml(uiState.globalSearch.trim())}".</div>`;
-    panel.classList.remove("hidden");
-  }
-
-  function hideGlobalSearchResults() {
-    document.getElementById("global-search-results").classList.add("hidden");
-  }
-
-
-  function openGlobalSearchResult(kind, id, query) {
-    hideGlobalSearchResults();
-    if (kind === "transaction") {
-      switchScreen("transactions");
-      openTransactionModal(id);
-      return;
-    }
-    if (kind === "account") {
-      switchScreen("accounts");
-      openAccountModal(id);
-      return;
-    }
-    if (kind === "category") {
-      switchScreen("more");
-      openCategoryModal(id);
-      return;
-    }
-    if (kind === "query") {
-      applyGlobalQueryToTransactions(query);
-    }
-  }
-
-  function applyGlobalQueryToTransactions(query) {
-    uiState.filters.search = query;
-    document.getElementById("search-input").value = query;
-    switchScreen("transactions");
-    renderTransactions();
-    hideGlobalSearchResults();
-  }
-
-  function applyDateFilter(date) {
-    uiState.filters.startDate = date;
-    uiState.filters.endDate = date;
-    document.getElementById("filter-start-date").value = date;
-    document.getElementById("filter-end-date").value = date;
-    switchScreen("transactions");
-    renderTransactions();
   }
 
   function deleteTransaction(id) {
@@ -2968,7 +921,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             <div class="transaction-badge">${icon}</div>
             <div class="transaction-details">
               <strong>${escapeHtml(transaction.counterparty || category?.name || typeLabel)}</strong>
-              <p class="transaction-meta">${escapeHtml(primaryAccount)} â€¢ ${escapeHtml(transaction.date)}</p>
+              <p class="transaction-meta">${escapeHtml(primaryAccount)} | ${escapeHtml(transaction.date)}</p>
               <p class="transaction-meta">${escapeHtml(transaction.project || transaction.details || typeLabel)}</p>
               <div class="transaction-tags">
                 ${category ? `<span class="tag-pill">${escapeHtml(category.name)}</span>` : ""}
@@ -2987,239 +940,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     `;
   }
 
-
-  function getGlobalSearchResults(query) {
-    const results = [];
-    state.transactions.forEach((transaction) => {
-      const categoryName = getCategory(transaction.categoryId)?.name || transaction.type;
-      const accountName =
-        transaction.type === "transfer"
-          ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
-          : getAccount(transaction.accountId)?.name || "Unknown Account";
-      const haystack = [
-        transaction.counterparty,
-        transaction.project,
-        transaction.details,
-        categoryName,
-        accountName,
-        ...(transaction.tags || []),
-        transaction.date,
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (haystack.includes(query)) {
-        results.push({
-          kind: "transaction",
-          id: transaction.id,
-          icon:
-            transaction.type === "income" ? iconRegistry["arrow-up"] : transaction.type === "expense" ? iconRegistry["arrow-down"] : iconRegistry.swap,
-          label: transaction.counterparty || categoryName,
-          meta: `${transaction.date} | ${accountName} | ${formatTransactionAmount(transaction.amount, transaction)}`,
-        });
-      }
-    });
-
-    state.accounts.forEach((account) => {
-      if (`${account.name} ${account.type} ${account.notes || ""}`.toLowerCase().includes(query)) {
-        results.push({
-          kind: "account",
-          id: account.id,
-          icon: iconRegistry[account.icon] || iconRegistry.wallet,
-          label: account.name,
-          meta: `${titleCase(account.type)} | ${formatMoney(getAccountBalance(account.id), account.currencySymbol || "$")}`,
-        });
-      }
-    });
-
-    state.categories.forEach((category) => {
-      const haystack = `${category.name} ${category.type} ${(category.subcategories || []).join(" ")}`.toLowerCase();
-      if (haystack.includes(query)) {
-        results.push({
-          kind: "category",
-          id: category.id,
-          icon: iconRegistry[category.icon] || iconRegistry.cart,
-          label: category.name,
-          meta: `${titleCase(category.type)} | ${category.budgetLimit ? formatCurrency(category.budgetLimit) : "No budget limit"}`,
-        });
-      }
-    });
-
-    results.push({
-      kind: "query",
-      id: "",
-      query,
-      icon: iconRegistry.search,
-      label: `Search transactions for "${uiState.globalSearch.trim()}"`,
-      meta: "Open the Transactions tab with this query applied",
-    });
-
-    return results.slice(0, 8);
-  }
-
-  function renderAccountCard(account, manageMode) {
-    const balance = getAccountBalance(account.id);
-    const flow = getAccountFlow(account.id);
-    const accountSymbol = account.currencySymbol || "$";
-    const accountSeries = getAccountMonthlyBalanceSeries(account.id);
-    return `
-      <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
-        <div class="flash-card-top">
-          <div class="card-icon">${iconRegistry[account.icon] || iconRegistry.wallet}</div>
-          <span class="meta-pill neutral">${escapeHtml(accountSymbol)} â€¢ ${escapeHtml(titleCase(account.type))}</span>
-        </div>
-        <h3>${escapeHtml(account.name)}</h3>
-        <strong class="money account-balance">${formatMoney(balance, accountSymbol)}</strong>
-        ${renderMiniTrendChart(accountSeries, account.color || "#19c6a7", "12M Balance", formatMoney(accountSeries[accountSeries.length - 1]?.value || 0, accountSymbol))}
-        <div class="account-card-footer">
-          <div class="transaction-tags compact-tags">
-            <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
-            <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(flow.outgoing, accountSymbol)}</span></span>
-          </div>
-          ${
-            manageMode
-              ? `<div class="card-actions compact-actions account-button-row">
-                  <button class="ghost-button" type="button" data-action="edit-account" data-id="${escapeHtml(account.id)}">Edit</button>
-                  <button class="secondary-button" type="button" data-action="delete-account" data-id="${escapeHtml(account.id)}">Delete</button>
-                </div>`
-              : ""
-          }
-        </div>
-      </article>
-    `;
-  }
-
-  function renderBudgetCard(item) {
-    const baseSymbol = getPrimaryCurrencySymbol();
-    const periodIcon = item.category.budgetPeriod === "weekly" ? iconRegistry.week : iconRegistry.month;
-    return `
-      <article class="budget-item">
-        <div class="budget-card-head">
-          <div class="budget-copy">
-            <strong>${escapeHtml(item.category.name)}</strong>
-            <p>${escapeHtml(titleCase(item.category.budgetPeriod))} budget</p>
-          </div>
-          <div class="budget-legend">
-            <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(item.spent, baseSymbol)}</span></span>
-            <span class="meta-pill neutral meta-pill-icon">${periodIcon}<span>${formatMoney(item.limit, baseSymbol)}</span></span>
-          </div>
-        </div>
-        <div class="progress-track">
-          <div class="progress-bar ${item.over ? "over-limit" : ""}" style="width:${Math.max(item.progress, 6)}%"></div>
-        </div>
-      </article>
-    `;
-  }
-
-  function renderCategoryItem(category) {
-    const usage = getBudgetStatus().find((item) => item.category.id === category.id);
-    const baseSymbol = getPrimaryCurrencySymbol();
-    const categorySeries = getCategoryMonthlySeries(category.id);
-    return `
-      <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
-        <div class="category-main">
-          <div class="category-copy">
-            <div class="flash-card-top">
-              <div class="category-icon">${iconRegistry[category.icon] || iconRegistry.cart}</div>
-              <span class="meta-pill neutral">${escapeHtml(titleCase(category.type))}</span>
-            </div>
-            <h3>${escapeHtml(category.name)}</h3>
-            <div class="category-subs">
-              ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
-            </div>
-            ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
-          </div>
-          <div class="category-side">
-            <div class="category-meta-row">
-              ${
-                category.type === "expense" && Number(category.budgetLimit) > 0
-                  ? `<span class="meta-pill meta-pill-icon">${category.budgetPeriod === "weekly" ? iconRegistry.week : iconRegistry.month}<span>${formatMoney(category.budgetLimit, baseSymbol)}</span></span>`
-                  : `<span class="meta-pill neutral">No budget limit</span>`
-              }
-              ${usage ? `<span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span>` : ""}
-            </div>
-            <div class="category-button-row">
-              <button class="ghost-button" type="button" data-action="edit-category" data-id="${escapeHtml(category.id)}">Edit</button>
-              <button class="secondary-button" type="button" data-action="delete-category" data-id="${escapeHtml(category.id)}">Delete</button>
-            </div>
-          </div>
-        </div>
-      </article>
-    `;
-  }
-
-  function renderCategoryGroup(title, categories) {
-    return `
-      <section class="category-group">
-        <div class="category-group-header">
-          <p class="eyebrow">${escapeHtml(title)}</p>
-        </div>
-        <div class="category-group-list">
-          ${categories.map(renderCategoryItem).join("")}
-        </div>
-      </section>
-    `;
-  }
-
-  function renderHeroAccountPill(account) {
-    const balance = getAccountBalance(account.id);
-    const color = account.color || "#19c6a7";
-    const symbol = account.currencySymbol || "$";
-    return `
-      <article class="hero-account-pill" style="--account-pill-color:${escapeHtml(color)}">
-        <strong class="money">${formatMoney(balance, symbol)}</strong>
-        <span>${escapeHtml(account.name)}</span>
-      </article>
-    `;
-  }
-
-  function metricCard(label, value, note, chart = "") {
-    return `
-      <article class="metric-card">
-        <p class="eyebrow">${escapeHtml(label)}</p>
-        <strong class="money">${escapeHtml(value)}</strong>
-        <p>${escapeHtml(note)}</p>
-        ${chart}
-      </article>
-    `;
-  }
-
-  function renderBarItem(label, value, max, chart = "", color = "") {
-    const baseSymbol = getPrimaryCurrencySymbol();
-    return `
-      <div class="bar-item">
-        <div class="bar-meta">
-          <strong>${escapeHtml(label)}</strong>
-          <span>${formatMoney(value, baseSymbol)}</span>
-        </div>
-        <div class="report-row-graph">
-          ${chart}
-          <div class="bar-fill"><span style="width:${(value / max) * 100}%; ${color ? `background:${escapeHtml(color)};` : ""}"></span></div>
-        </div>
-      </div>
-    `;
-  }
-
-  function insightCard(title, copy) {
-    return `
-      <article class="insight-card">
-        <strong>${escapeHtml(title)}</strong>
-        <p>${escapeHtml(copy)}</p>
-      </article>
-    `;
-  }
-
-  function renderEmpty(message) {
-    return `<div class="empty-state">${escapeHtml(message)}</div>`;
-  }
-
-  function showToast(message) {
-    toastEl.textContent = message;
-    toastEl.classList.remove("hidden");
-    window.clearTimeout(uiState.toastTimer);
-    uiState.toastTimer = window.setTimeout(() => {
-      toastEl.classList.add("hidden");
-    }, 2600);
-  }
 
   function seedStaticContent() {
     document.getElementById("voice-examples").innerHTML = dictationExamples
@@ -3258,68 +978,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
-  function toCsv(rows) {
-    const headers = Object.keys(rows[0]);
-    const lines = [
-      headers.join(","),
-      ...rows.map((row) =>
-        headers
-          .map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`)
-          .join(",")
-      ),
-    ];
-    return lines.join("\n");
-  }
-
-  function parseCsv(text) {
-    const rows = [];
-    let current = "";
-    let row = [];
-    let inQuotes = false;
-    for (let i = 0; i < text.length; i += 1) {
-      const char = text[i];
-      const next = text[i + 1];
-      if (char === '"') {
-        if (inQuotes && next === '"') {
-          current += '"';
-          i += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === "," && !inQuotes) {
-        row.push(current);
-        current = "";
-      } else if ((char === "\n" || char === "\r") && !inQuotes) {
-        if (char === "\r" && next === "\n") {
-          i += 1;
-        }
-        row.push(current);
-        if (row.some((cell) => cell !== "")) {
-          rows.push(row);
-        }
-        row = [];
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    if (current || row.length) {
-      row.push(current);
-      rows.push(row);
-    }
-    if (!rows.length) {
-      return [];
-    }
-    const headers = rows[0].map((cell) => cell.trim());
-    return rows.slice(1).map((cells) => {
-      const entry = {};
-      headers.forEach((header, index) => {
-        entry[header] = (cells[index] || "").trim();
-      });
-      return entry;
-    });
-  }
-
   function getAccount(id) {
     return state.accounts.find((account) => account.id === id);
   }
@@ -3330,239 +988,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function getTransaction(id) {
     return state.transactions.find((transaction) => transaction.id === id);
-  }
-
-  function findAccountId(id, name) {
-    if (id && getAccount(id)) {
-      return id;
-    }
-    if (name) {
-      const match = state.accounts.find((account) => account.name.toLowerCase() === name.toLowerCase());
-      return match ? match.id : "";
-    }
-    return "";
-  }
-
-  function ensureImportedAccount(row, summary) {
-    const existingId = findAccountId(row.id, row.name);
-    if (existingId) {
-      return existingId;
-    }
-    const normalizedName = String(row.name || row.id || "").trim();
-    if (!normalizedName) {
-      return "";
-    }
-    const normalizedType = normalizeImportAccountType(row.type || inferImportedAccountType(normalizedName));
-    const payload = {
-      id: row.id || slugify(normalizedName) || uid("acc"),
-      name: normalizedName,
-      type: normalizedType,
-      currencySymbol: String(row.currencySymbol || "$").trim() || "$",
-      openingBalance: Number(row.openingBalance || 0),
-      color: row.color || getImportedAccountColor(normalizedType),
-      icon: row.icon || getImportedAccountIcon(normalizedType),
-      notes: row.notes || "Auto-created from transaction import",
-    };
-    upsertById(state.accounts, payload);
-    if (summary) {
-      summary.createdAccounts += 1;
-    }
-    return payload.id;
-  }
-
-  function findCategoryId(id, name) {
-    if (id && getCategory(id)) {
-      return id;
-    }
-    if (name) {
-      const match = state.categories.find((category) => category.name.toLowerCase() === name.toLowerCase());
-      return match ? match.id : "";
-    }
-    return "";
-  }
-
-  function ensureImportedCategory(row, summary) {
-    const existingId = findCategoryId(row.id, row.name);
-    if (existingId) {
-      return existingId;
-    }
-    const normalizedName = String(row.name || row.id || "").trim();
-    if (!normalizedName) {
-      return "";
-    }
-    const normalizedType = normalizeImportCategoryType(row.type);
-    const payload = {
-      id: row.id || slugify(normalizedName) || uid("cat"),
-      name: normalizedName,
-      type: normalizedType,
-      icon: row.icon || getImportedCategoryIcon(normalizedType),
-      color: row.color || getImportedCategoryColor(normalizedType),
-      subcategories: [],
-      budgetLimit: Number(row.budgetLimit || 0),
-      budgetPeriod: row.budgetPeriod === "weekly" ? "weekly" : "monthly",
-    };
-    upsertById(state.categories, payload);
-    if (summary) {
-      summary.createdCategories += 1;
-    }
-    return payload.id;
-  }
-
-  function appendImportedSubcategory(categoryId, subcategory, summary) {
-    const category = getCategory(categoryId);
-    if (!category) {
-      return;
-    }
-    const nextValue = String(subcategory || "").trim();
-    if (!nextValue) {
-      return;
-    }
-    if (!Array.isArray(category.subcategories)) {
-      category.subcategories = [];
-    }
-    const exists = category.subcategories.some((item) => item.toLowerCase() === nextValue.toLowerCase());
-    if (exists) {
-      return;
-    }
-    category.subcategories.push(nextValue);
-    if (summary) {
-      summary.appendedSubcategories += 1;
-    }
-  }
-
-  function normalizeImportTransactionType(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "income" || normalized === "transfer") {
-      return normalized;
-    }
-    return "expense";
-  }
-
-  function normalizeImportAccountType(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (["cash", "bank", "savings", "card", "wallet"].includes(normalized)) {
-      return normalized;
-    }
-    return "cash";
-  }
-
-  function normalizeImportCategoryType(value) {
-    return String(value || "").trim().toLowerCase() === "income" ? "income" : "expense";
-  }
-
-  function inferImportedAccountType(name) {
-    const normalized = String(name || "").toLowerCase();
-    if (normalized.includes("bank")) {
-      return "bank";
-    }
-    if (normalized.includes("save")) {
-      return "savings";
-    }
-    if (normalized.includes("card")) {
-      return "card";
-    }
-    if (normalized.includes("wallet")) {
-      return "wallet";
-    }
-    return "cash";
-  }
-
-  function getImportedAccountIcon(type) {
-    const normalized = normalizeImportAccountType(type);
-    return normalized === "bank" ? "bank" : normalized === "savings" ? "safe" : normalized === "card" ? "card" : normalized === "wallet" ? "wallet" : "cash";
-  }
-
-  function getImportedAccountColor(type) {
-    const normalized = normalizeImportAccountType(type);
-    return normalized === "bank" ? "#7db8ff" : normalized === "savings" ? "#ffb84d" : normalized === "card" ? "#9f86ff" : normalized === "wallet" ? "#00a6c7" : "#19c6a7";
-  }
-
-  function getImportedCategoryIcon(type) {
-    return normalizeImportCategoryType(type) === "income" ? "briefcase" : "cart";
-  }
-
-  function getImportedCategoryColor(type) {
-    return normalizeImportCategoryType(type) === "income" ? "#19c6a7" : "#ffb84d";
-  }
-
-  function sumAmounts(transactions) {
-    return transactions.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
-  }
-
-  function formatCurrency(value) {
-    return formatMoney(value, getPrimaryCurrencySymbol());
-  }
-
-  function formatCompactMoney(value, symbol) {
-    const amount = Number(value || 0);
-    const formatted = new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: amount >= 1000 ? 1 : 2,
-    }).format(Math.abs(amount));
-    return `${amount < 0 ? "-" : ""}${symbol || "$"} ${formatted}`;
-  }
-
-  function formatCalendarDisplayMoney(value, symbol) {
-    const amount = Number(value || 0);
-    return `${symbol || "$"} ${new Intl.NumberFormat("en-US", {
-      useGrouping: false,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Math.abs(amount))}`;
-  }
-
-  function formatCompactPlainAmount(value) {
-    const amount = Number(value || 0);
-    return new Intl.NumberFormat("en-US", {
-      useGrouping: false,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Math.abs(amount));
-  }
-
-  function formatMoney(value, symbol) {
-    const amount = Number(value || 0);
-    const formatted = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Math.abs(amount));
-    return `${amount < 0 ? "-" : ""}${symbol || "$"} ${formatted}`;
-  }
-
-  function withAlpha(hexColor, alpha) {
-    const hex = String(hexColor || "").replace("#", "").trim();
-    if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
-      return `rgba(18, 200, 164, ${alpha})`;
-    }
-    const red = parseInt(hex.slice(0, 2), 16);
-    const green = parseInt(hex.slice(2, 4), 16);
-    const blue = parseInt(hex.slice(4, 6), 16);
-    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-  }
-
-  function formatTransactionAmount(value, transaction) {
-    return formatMoney(value, getTransactionCurrencySymbol(transaction));
-  }
-
-  function getPrimaryCurrencySymbol() {
-    return state.accounts[0]?.currencySymbol || "$";
-  }
-
-  function getTransactionCurrencySymbol(transaction) {
-    if (transaction.type === "transfer") {
-      return getAccount(transaction.fromAccountId)?.currencySymbol || getAccount(transaction.toAccountId)?.currencySymbol || getPrimaryCurrencySymbol();
-    }
-    return getAccount(transaction.accountId)?.currencySymbol || getPrimaryCurrencySymbol();
-  }
-
-  function todayIso() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  function shiftIsoDate(isoDate, amount) {
-    const date = new Date(`${isoDate}T00:00:00`);
-    date.setDate(date.getDate() + amount);
-    return date.toISOString().slice(0, 10);
   }
 
 })();
