@@ -1731,6 +1731,27 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .reports-panel,
+  .reports-panel.search-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .reports-panel .field-group {
+    min-width: 0;
+  }
+
+  .reports-panel .field-label {
+    display: none;
+  }
+
+  .reports-panel select {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.82rem;
+  }
+
   .field-span-2 {
     grid-column: auto;
   }
