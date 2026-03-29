@@ -155,6 +155,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     exportTransactionsCsv,
     exportAccountsCsv,
     exportCategoriesCsv,
+    exportImportTemplate,
+    getImportTemplateMessage,
     findAccountId,
     ensureImportedAccount,
     findCategoryId,
@@ -309,6 +311,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   wireStaticIcons();
   seedStaticContent();
+  syncImportTemplateUi();
   initializeSpeechRecognition();
   bindEvents();
   renderAll();
@@ -328,7 +331,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("parse-button").addEventListener("click", handleParseStatement);
     document.getElementById("clear-filters-button").addEventListener("click", clearFilters);
     document.getElementById("add-category-button").addEventListener("click", () => openCategoryModal());
-    document.getElementById("open-import-button").addEventListener("click", () => openModal("import-modal"));
+    document.getElementById("open-import-button").addEventListener("click", () => {
+      syncImportTemplateUi();
+      openModal("import-modal");
+    });
     document.getElementById("export-transactions-button").addEventListener("click", exportTransactionsCsv);
     document.getElementById("export-accounts-button").addEventListener("click", exportAccountsCsv);
     document.getElementById("export-categories-button").addEventListener("click", exportCategoriesCsv);
@@ -344,6 +350,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-type").addEventListener("change", syncTransactionTypeFields);
     document.getElementById("transaction-category").addEventListener("change", renderSubcategoryOptions);
     document.getElementById("category-type").addEventListener("change", syncCategoryBudgetState);
+    document.getElementById("import-target").addEventListener("change", syncImportTemplateUi);
+    document.getElementById("download-import-template-button").addEventListener("click", handleDownloadImportTemplate);
 
     document.getElementById("transaction-form").addEventListener("submit", handleTransactionSubmit);
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
@@ -392,6 +400,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
 
     document.addEventListener("click", handleDelegatedClick);
+  }
+
+  function syncImportTemplateUi() {
+    const target = document.getElementById("import-target").value || "transactions";
+    document.getElementById("download-import-template-button").textContent = `Download ${titleCase(target)} Template`;
+    document.getElementById("import-template-help").textContent = getImportTemplateMessage(target);
+  }
+
+  function handleDownloadImportTemplate() {
+    exportImportTemplate(document.getElementById("import-target").value || "transactions");
   }
 
   function bindFilterInput(id, key) {

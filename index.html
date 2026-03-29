@@ -701,6 +701,15 @@
               </select>
             </div>
             <div class="field-group field-span-2">
+              <label class="field-label">Template</label>
+              <div class="modal-actions" style="justify-content:flex-start; padding-top:0;">
+                <button class="ghost-button" type="button" id="download-import-template-button">Download Transactions Template</button>
+              </div>
+              <p class="supporting-text" id="import-template-help">
+                Transactions CSV can auto-create missing accounts, categories, and subcategories when you provide the related name columns.
+              </p>
+            </div>
+            <div class="field-group field-span-2">
               <label class="field-label" for="import-file">CSV File</label>
               <input id="import-file" type="file" accept=".csv,text/csv" required />
             </div>

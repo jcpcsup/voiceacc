@@ -54,7 +54,173 @@ export function createCsvTools(api) {
     downloadCsv("categories.csv", rows);
   }
 
-  function downloadCsv(filename, rows) {
+  function exportImportTemplate(target) {
+    const normalizedTarget = target === "accounts" || target === "categories" ? target : "transactions";
+    const filename = `${normalizedTarget}-import-template.csv`;
+    downloadCsv(filename, getImportTemplateRows(normalizedTarget), false);
+    showToast(`${filename} downloaded.`);
+  }
+
+  function getImportTemplateRows(target) {
+    if (target === "accounts") {
+      return [
+        {
+          id: "acc-cash",
+          name: "Cash",
+          type: "cash",
+          currencySymbol: "$",
+          openingBalance: 500,
+          icon: "cash",
+          color: "#19c6a7",
+          notes: "Pocket cash account",
+        },
+      ];
+    }
+
+    if (target === "categories") {
+      return [
+        {
+          id: "groceries",
+          name: "Groceries",
+          type: "expense",
+          icon: "cart",
+          color: "#19c6a7",
+          subcategories: "Produce, Supermarket",
+          budgetPeriod: "monthly",
+          budgetLimit: 500,
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "tx-expense-001",
+        type: "expense",
+        amount: 45,
+        date: "2026-03-15",
+        accountId: "",
+        accountName: "Cash",
+        accountType: "cash",
+        accountCurrencySymbol: "$",
+        accountColor: "#19c6a7",
+        accountIcon: "cash",
+        fromAccountId: "",
+        fromAccountName: "",
+        fromAccountType: "",
+        fromAccountCurrencySymbol: "",
+        fromAccountColor: "",
+        fromAccountIcon: "",
+        toAccountId: "",
+        toAccountName: "",
+        toAccountType: "",
+        toAccountCurrencySymbol: "",
+        toAccountColor: "",
+        toAccountIcon: "",
+        categoryId: "",
+        categoryName: "Groceries",
+        categoryType: "expense",
+        categoryIcon: "cart",
+        categoryColor: "#19c6a7",
+        categoryBudgetLimit: 500,
+        categoryBudgetPeriod: "monthly",
+        subcategory: "Supermarket",
+        tags: "food, home",
+        payeeOrPayer: "Walmart",
+        project: "Home Budget",
+        details: "Weekly grocery run",
+        createdAt: "2026-03-15T09:00:00.000Z",
+        updatedAt: "2026-03-15T09:00:00.000Z",
+      },
+      {
+        id: "tx-income-001",
+        type: "income",
+        amount: 3200,
+        date: "2026-03-01",
+        accountId: "",
+        accountName: "Main Bank",
+        accountType: "bank",
+        accountCurrencySymbol: "$",
+        accountColor: "#7db8ff",
+        accountIcon: "bank",
+        fromAccountId: "",
+        fromAccountName: "",
+        fromAccountType: "",
+        fromAccountCurrencySymbol: "",
+        fromAccountColor: "",
+        fromAccountIcon: "",
+        toAccountId: "",
+        toAccountName: "",
+        toAccountType: "",
+        toAccountCurrencySymbol: "",
+        toAccountColor: "",
+        toAccountIcon: "",
+        categoryId: "",
+        categoryName: "Salary",
+        categoryType: "income",
+        categoryIcon: "briefcase",
+        categoryColor: "#19c6a7",
+        categoryBudgetLimit: 0,
+        categoryBudgetPeriod: "monthly",
+        subcategory: "Payroll",
+        tags: "salary, work",
+        payeeOrPayer: "Employer Inc",
+        project: "",
+        details: "Monthly salary deposit",
+        createdAt: "2026-03-01T08:00:00.000Z",
+        updatedAt: "2026-03-01T08:00:00.000Z",
+      },
+      {
+        id: "tx-transfer-001",
+        type: "transfer",
+        amount: 250,
+        date: "2026-03-20",
+        accountId: "",
+        accountName: "",
+        accountType: "",
+        accountCurrencySymbol: "",
+        accountColor: "",
+        accountIcon: "",
+        fromAccountId: "",
+        fromAccountName: "Main Bank",
+        fromAccountType: "bank",
+        fromAccountCurrencySymbol: "$",
+        fromAccountColor: "#7db8ff",
+        fromAccountIcon: "bank",
+        toAccountId: "",
+        toAccountName: "Bkash",
+        toAccountType: "wallet",
+        toAccountCurrencySymbol: "$",
+        toAccountColor: "#00a6c7",
+        toAccountIcon: "wallet",
+        categoryId: "",
+        categoryName: "",
+        categoryType: "",
+        categoryIcon: "",
+        categoryColor: "",
+        categoryBudgetLimit: "",
+        categoryBudgetPeriod: "",
+        subcategory: "",
+        tags: "transfer",
+        payeeOrPayer: "",
+        project: "",
+        details: "Move funds to mobile wallet",
+        createdAt: "2026-03-20T10:15:00.000Z",
+        updatedAt: "2026-03-20T10:15:00.000Z",
+      },
+    ];
+  }
+
+  function getImportTemplateMessage(target) {
+    if (target === "accounts") {
+      return "Use this template to bulk-create or update accounts by ID.";
+    }
+    if (target === "categories") {
+      return "Use this template to bulk-create or update categories and subcategory lists.";
+    }
+    return "Transactions CSV can auto-create missing accounts, categories, and subcategories when you provide the related name columns.";
+  }
+
+  function downloadCsv(filename, rows, announce = true) {
     if (!rows.length) {
       showToast("There is no data to export yet.");
       return;
@@ -69,7 +235,9 @@ export function createCsvTools(api) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    showToast(`${filename} downloaded.`);
+    if (announce) {
+      showToast(`${filename} downloaded.`);
+    }
   }
 
   function toCsv(rows) {
@@ -251,6 +419,8 @@ export function createCsvTools(api) {
     exportTransactionsCsv,
     exportAccountsCsv,
     exportCategoriesCsv,
+    exportImportTemplate,
+    getImportTemplateMessage,
     toCsv,
     findAccountId,
     ensureImportedAccount,
