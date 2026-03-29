@@ -281,6 +281,8 @@
               </div>
             </div>
 
+            <article class="panel report-pie-panel" id="report-pie"></article>
+
             <div class="metric-grid" id="report-metrics"></div>
 
             <div class="report-grid">
@@ -718,7 +720,7 @@
     <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
       <div class="lock-card">
         <div class="lock-icon" data-icon="safe"></div>
-        <p class="eyebrow" id="lock-mode-label">Local Access</p>
+        <p class="eyebrow" id="lock-mode-label">Supabase Cloud</p>
         <h2 id="lock-title">Unlock LedgerFlow Voice</h2>
         <p class="supporting-text hidden" id="lock-hint"></p>
         <div class="lock-toggle hidden" id="auth-mode-toggle">
@@ -738,7 +740,7 @@
             <label class="field-label" for="lock-password-confirm">Confirm Password</label>
             <input id="lock-password-confirm" type="password" autocomplete="new-password" />
           </div>
-          <p class="lock-error hidden" id="lock-error">Incorrect password. Try again.</p>
+          <p class="lock-error hidden" id="lock-error">Unable to sign in. Try again.</p>
           <p class="lock-status hidden" id="lock-status"></p>
           <button class="primary-button lock-submit" id="lock-submit-button" type="submit">Login</button>
         </form>
@@ -746,6 +748,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
