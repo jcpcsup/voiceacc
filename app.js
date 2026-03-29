@@ -921,35 +921,71 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const category = getCategory(transaction.categoryId);
     const transactionSymbol = getTransactionCurrencySymbol(transaction);
     const typeLabel = titleCase(transaction.type);
-    const primaryAccount =
+    const typeColor =
+      transaction.type === "expense" ? "#ef6461" : transaction.type === "income" ? "#12c8a4" : "#00a6c7";
+    const cardColor = category?.color || typeColor;
+    const title =
+      transaction.counterparty ||
+      transaction.details ||
+      category?.name ||
+      (transaction.type === "transfer" ? "Transfer" : `${typeLabel} Transaction`);
+    const accountLine =
       transaction.type === "transfer"
         ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
         : getAccount(transaction.accountId)?.name || "Unknown Account";
-    const amountPrefix = transaction.type === "expense" ? "- " : transaction.type === "income" ? "+ " : "<-> ";
-    const icon =
-      transaction.type === "expense"
-        ? iconRegistry["arrow-up"]
-        : transaction.type === "income"
+    const leadingIcon =
+      category && iconRegistry[category.icon]
+        ? iconRegistry[category.icon]
+        : transaction.type === "expense"
           ? iconRegistry["arrow-down"]
-          : iconRegistry.swap;
+          : transaction.type === "income"
+            ? iconRegistry["arrow-up"]
+            : iconRegistry.swap;
+    const categoryPill = category
+      ? `<span class="tag-pill transaction-theme-pill">${escapeHtml(category.name)}</span>`
+      : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`;
+    const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
+    const detailPills = [
+      transaction.counterparty
+        ? `<span class="meta-pill neutral">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
+        : "",
+      transaction.project ? `<span class="meta-pill neutral">${escapeHtml(transaction.project)}</span>` : "",
+    ]
+      .filter(Boolean)
+      .join("");
     return `
-      <article class="transaction-item ${escapeHtml(transaction.type)}">
+      <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}">
         <div class="transaction-top">
           <div class="transaction-main">
-            <div class="transaction-badge">${icon}</div>
+            <div class="transaction-rail">
+              <div class="transaction-badge">${leadingIcon}</div>
+              <div class="transaction-mobile-actions">
+                <button class="icon-button transaction-icon-action" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}" aria-label="Edit transaction">
+                  ${iconRegistry.pen}
+                </button>
+                <button class="icon-button transaction-icon-action delete" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}" aria-label="Delete transaction">
+                  ${iconRegistry.bin}
+                </button>
+              </div>
+            </div>
             <div class="transaction-details">
-              <strong>${escapeHtml(transaction.counterparty || category?.name || typeLabel)}</strong>
-              <p class="transaction-meta">${escapeHtml(primaryAccount)} | ${escapeHtml(transaction.date)}</p>
-              <p class="transaction-meta">${escapeHtml(transaction.project || transaction.details || typeLabel)}</p>
-              <div class="transaction-tags">
-                ${category ? `<span class="tag-pill">${escapeHtml(category.name)}</span>` : ""}
+              <div class="transaction-header-line">
+                <strong class="transaction-title">${escapeHtml(title)}</strong>
+                <strong class="money transaction-amount transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+                  transaction.amount,
+                  transactionSymbol
+                )}</strong>
+              </div>
+              <p class="transaction-meta transaction-meta-line">${escapeHtml(accountLine)} | ${escapeHtml(transaction.date)}</p>
+              <div class="transaction-tags transaction-tags-primary">
+                ${categoryPill}
                 ${transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : ""}
                 ${(transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("")}
               </div>
+              ${detailPills ? `<div class="transaction-tags transaction-tags-secondary">${detailPills}</div>` : ""}
             </div>
           </div>
-          <div class="item-actions">
-            <strong class="money transaction-amount">${amountPrefix}${formatMoney(transaction.amount, transactionSymbol)}</strong>
+          <div class="item-actions transaction-card-actions">
             <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
             <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
           </div>

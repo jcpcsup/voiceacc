@@ -31,4 +31,6 @@ export const iconRegistry = {
   "arrow-up": svgIcon("M12 19V5M6 11l6-6 6 6"),
   "arrow-down": svgIcon("M12 5v14M6 13l6 6 6-6"),
   swap: svgIcon("M7 7h11l-3-3M17 17H6l3 3M18 7a5 5 0 0 1 0 10M6 17A5 5 0 0 1 6 7"),
+  pen: svgIcon("M4 20h4l10.5-10.5-4-4L4 16v4z M13.5 6.5l4 4"),
+  bin: svgIcon("M6 7h12M9 7V5h6v2M8 10v7M12 10v7M16 10v7M7 7l1 13h8l1-13"),
 };

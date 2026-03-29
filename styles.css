@@ -1046,24 +1046,31 @@ textarea:focus {
 
 .transaction-item {
   padding: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--card-color, var(--accent)) 8%, white), rgba(255, 255, 255, 0.96) 58%),
+    var(--panel-strong);
 }
 
-.transaction-item.expense {
-  border-left: 5px solid rgba(239, 100, 97, 0.7);
-}
-
-.transaction-item.income {
-  border-left: 5px solid rgba(18, 200, 164, 0.85);
-}
-
-.transaction-item.transfer {
-  border-left: 5px solid rgba(0, 166, 199, 0.75);
+.transaction-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--card-color, var(--accent));
 }
 
 .transaction-main {
   display: flex;
   align-items: flex-start;
   gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-rail {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
 }
 
 .transaction-badge,
@@ -1074,23 +1081,99 @@ textarea:focus {
   width: 46px;
   height: 46px;
   border-radius: 16px;
-  background: rgba(18, 200, 164, 0.1);
-  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 16%, white);
+  color: var(--card-color, var(--accent));
 }
 
 .transaction-amount {
   font-size: 1.45rem;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.transaction-amount-expense {
+  color: #d35350;
+}
+
+.transaction-amount-income {
+  color: #129f70;
+}
+
+.transaction-amount-transfer {
+  color: #0f8eab;
 }
 
 .transaction-details {
   flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
 }
 
 .transaction-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
+}
+
+.transaction-tags-secondary {
+  margin-top: 2px;
+}
+
+.transaction-theme-pill {
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 14%, white);
+  color: var(--card-color, var(--accent));
+}
+
+.transaction-header-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.transaction-title {
+  font-size: 1.02rem;
+}
+
+.transaction-meta-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transaction-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.transaction-mobile-actions {
+  display: none;
+  gap: 8px;
+}
+
+.transaction-icon-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  color: var(--card-color, var(--accent));
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 12%, white);
+  border-color: color-mix(in srgb, var(--card-color, var(--accent)) 18%, white);
+}
+
+.transaction-icon-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.transaction-icon-action.delete {
+  color: #d35350;
+  border-color: rgba(211, 83, 80, 0.18);
+  background: rgba(239, 100, 97, 0.08);
 }
 
 .compact-tags {
@@ -2183,6 +2266,70 @@ textarea:focus {
     font-size: 0.95rem;
     line-height: 1;
     color: rgba(100, 128, 138, 0.7);
+  }
+
+  .transaction-top {
+    align-items: flex-start;
+  }
+
+  .transaction-main {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .transaction-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .transaction-badge svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .transaction-mobile-actions {
+    display: grid;
+  }
+
+  .transaction-card-actions {
+    display: none;
+  }
+
+  .transaction-header-line {
+    gap: 8px;
+    align-items: start;
+  }
+
+  .transaction-title {
+    font-size: 0.96rem;
+  }
+
+  .transaction-amount {
+    font-size: 1.14rem;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .transaction-tags-primary {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .transaction-tags-primary::-webkit-scrollbar {
+    display: none;
+  }
+
+  .transaction-tags-primary .meta-pill,
+  .transaction-tags-primary .tag-pill {
+    flex: 0 0 auto;
+  }
+
+  .transaction-meta-line {
+    white-space: normal;
   }
 
   .transaction-main,
