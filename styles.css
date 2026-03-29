@@ -1153,6 +1153,10 @@ textarea:focus {
   margin-top: 18px;
 }
 
+.report-ranking-panel + .metric-grid {
+  margin-top: 18px;
+}
+
 .reports-panel {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
