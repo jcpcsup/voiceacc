@@ -994,14 +994,35 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const typeColor =
       transaction.type === "expense" ? "#ef6461" : transaction.type === "income" ? "#12c8a4" : "#00a6c7";
     const cardColor = category?.color || typeColor;
-    const accountLine =
+    const categoryPills = [
+      category
+        ? `<span class="tag-pill transaction-theme-pill">${escapeHtml(category.name)}</span>`
+        : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`,
+      transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : "",
+    ]
+      .filter(Boolean)
+      .join("");
+    const tagPills = (transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("");
+    const accountPills =
       transaction.type === "transfer"
-        ? `${getAccount(transaction.fromAccountId)?.name || "Unknown"} -> ${getAccount(transaction.toAccountId)?.name || "Unknown"}`
-        : getAccount(transaction.accountId)?.name || "Unknown Account";
-    const title =
-      transaction.counterparty ||
-      category?.name ||
-      (transaction.type === "transfer" ? "Transfer" : `${typeLabel} Transaction`);
+        ? [getAccount(transaction.fromAccountId), getAccount(transaction.toAccountId)]
+            .filter(Boolean)
+            .map(
+              (account) =>
+                `<span class="account-theme-pill" style="--account-pill-color:${escapeHtml(account.color || "#19c6a7")}">${escapeHtml(
+                  account.name
+                )}</span>`
+            )
+            .join("")
+        : (() => {
+            const account = getAccount(transaction.accountId);
+            if (!account) {
+              return '<span class="account-theme-pill" style="--account-pill-color:#5f7380">Unknown</span>';
+            }
+            return `<span class="account-theme-pill" style="--account-pill-color:${escapeHtml(account.color || "#19c6a7")}">${escapeHtml(
+              account.name
+            )}</span>`;
+          })();
     const leadingIcon =
       category && iconRegistry[category.icon]
         ? iconRegistry[category.icon]
@@ -1010,16 +1031,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
           : transaction.type === "income"
             ? iconRegistry["arrow-up"]
             : iconRegistry.swap;
-    const categoryPill = category
-      ? `<span class="tag-pill transaction-theme-pill">${escapeHtml(category.name)}</span>`
-      : `<span class="tag-pill transaction-theme-pill">${escapeHtml(typeLabel)}</span>`;
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
     const detailPills = [
-      `<span class="meta-pill neutral">${escapeHtml(accountLine)}</span>`,
       transaction.counterparty
-        ? `<span class="meta-pill transaction-theme-pill">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
+        ? `<span class="meta-pill transaction-pill-payee">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
         : "",
-      transaction.project ? `<span class="meta-pill transaction-theme-pill">${escapeHtml(transaction.project)}</span>` : "",
+      transaction.project ? `<span class="meta-pill transaction-pill-project">${escapeHtml(transaction.project)}</span>` : "",
     ]
       .filter(Boolean)
       .join("");
@@ -1040,18 +1057,17 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             </div>
             <div class="transaction-details">
               <div class="transaction-header-line">
-                <strong class="transaction-title">${escapeHtml(title)}</strong>
+                <div class="transaction-tags transaction-tags-primary transaction-tags-header">
+                  ${categoryPills}
+                </div>
                 <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
                   transaction.amount,
                   transactionSymbol
                 )}</strong>
               </div>
               <p class="transaction-meta transaction-meta-line">${escapeHtml(transaction.date)}</p>
-              <div class="transaction-tags transaction-tags-primary">
-                ${categoryPill}
-                ${transaction.subcategory ? `<span class="meta-pill neutral">${escapeHtml(transaction.subcategory)}</span>` : ""}
-                ${(transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("")}
-              </div>
+              ${tagPills ? `<div class="transaction-tags transaction-tags-primary">${tagPills}</div>` : ""}
+              <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
               ${detailPills ? `<div class="transaction-tags transaction-tags-secondary">${detailPills}</div>` : ""}
               ${
                 transaction.details
@@ -1065,6 +1081,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
               transaction.amount,
               transactionSymbol
             )}</strong>
+            <div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>
             <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
             <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
           </div>

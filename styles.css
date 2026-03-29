@@ -635,6 +635,7 @@ body.app-locked .app-shell {
 .calendar-cell-flow {
   display: grid;
   gap: 6px;
+  justify-items: end;
 }
 
 .calendar-pill {
@@ -1153,12 +1154,32 @@ textarea:focus {
 
 .transaction-tags-secondary {
   margin-top: 2px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.transaction-tags-secondary::-webkit-scrollbar {
+  display: none;
 }
 
 .transaction-theme-pill {
   background: color-mix(in srgb, var(--card-color, var(--accent)) 14%, white);
   color: var(--card-color, var(--accent));
   border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 12%, rgba(13, 47, 61, 0.08));
+}
+
+.transaction-pill-payee {
+  background: rgba(102, 87, 202, 0.14);
+  color: #6657ca;
+  border: 1px solid rgba(102, 87, 202, 0.18);
+}
+
+.transaction-pill-project {
+  background: rgba(146, 73, 0, 0.12);
+  color: #924900;
+  border: 1px solid rgba(146, 73, 0, 0.18);
 }
 
 .transaction-header-line {
@@ -1168,14 +1189,40 @@ textarea:focus {
   align-items: start;
 }
 
-.transaction-title {
-  font-size: 1.02rem;
+.transaction-tags-header {
+  margin-right: 8px;
 }
 
 .transaction-meta-line {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.transaction-account-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transaction-account-strip-desktop {
+  justify-content: flex-end;
+}
+
+.transaction-account-strip-mobile {
+  display: none;
+}
+
+.account-theme-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--account-pill-color, #19c6a7);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .transaction-card-actions {
@@ -2377,10 +2424,6 @@ textarea:focus {
     align-items: start;
   }
 
-  .transaction-title {
-    font-size: 0.96rem;
-  }
-
   .transaction-amount {
     font-size: 1.14rem;
     justify-self: end;
@@ -2401,6 +2444,19 @@ textarea:focus {
 
   .transaction-tags-primary .meta-pill,
   .transaction-tags-primary .tag-pill {
+    flex: 0 0 auto;
+  }
+
+  .transaction-account-strip-mobile {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .transaction-account-strip-desktop {
+    display: none;
+  }
+
+  .transaction-tags-secondary .meta-pill {
     flex: 0 0 auto;
   }
 
