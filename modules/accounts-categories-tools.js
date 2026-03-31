@@ -32,6 +32,21 @@ export function createAccountsCategoriesTools(api) {
     return months;
   }
 
+  function buildMonthSequence(startDate, endDate) {
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    const months = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      months.push({
+        key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`,
+        label: cursor.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return months;
+  }
+
   function getCurrentWeekRange() {
     const now = new Date();
     const start = new Date(now);
@@ -85,6 +100,9 @@ export function createAccountsCategoriesTools(api) {
       snapshot.incomingByAccount.set(accountId, 0);
       snapshot.outgoingByAccount.set(accountId, 0);
       snapshot.monthDeltaByAccount.set(accountId, Array.from({ length: snapshot.months.length }, () => 0));
+      snapshot.currentMonthStartingBalanceByAccount.set(accountId, opening);
+      snapshot.currentMonthDeltaByAccount.set(accountId, Array.from({ length: snapshot.currentMonthDays.length }, () => 0));
+      snapshot.allTimeMonthDeltaByAccount.set(accountId, Array.from({ length: snapshot.allTimeMonths.length }, () => 0));
     }
   }
 
@@ -138,9 +156,24 @@ export function createAccountsCategoriesTools(api) {
 
   function buildAggregateSnapshot() {
     const months = getTrailingMonths(12);
+    const now = new Date();
+    const today = todayIso();
+    const currentMonthDays = Array.from({ length: now.getDate() }, (_, index) => ({
+      key: `${String(index + 1).padStart(2, "0")}`,
+      label: String(index + 1),
+    }));
+    const earliestTransactionDate = state.transactions
+      .map((transaction) => transaction.date)
+      .filter(Boolean)
+      .sort()[0];
+    const allTimeMonths = buildMonthSequence(earliestTransactionDate ? new Date(`${earliestTransactionDate}T00:00:00`) : now, now);
     const snapshot = {
       months,
+      currentMonthDays,
+      allTimeMonths,
       monthIndexByKey: new Map(months.map((month, index) => [month.key, index])),
+      currentMonthDayIndexByKey: new Map(currentMonthDays.map((day, index) => [day.key, index])),
+      allTimeMonthIndexByKey: new Map(allTimeMonths.map((month, index) => [month.key, index])),
       firstTrackedMonthIso: `${months[0].key}-01`,
       balanceByAccount: new Map(),
       carryBalanceByAccount: new Map(),
@@ -148,6 +181,11 @@ export function createAccountsCategoriesTools(api) {
       outgoingByAccount: new Map(),
       monthDeltaByAccount: new Map(),
       monthlySeriesByAccount: new Map(),
+      currentMonthStartingBalanceByAccount: new Map(),
+      currentMonthDeltaByAccount: new Map(),
+      currentMonthSeriesByAccount: new Map(),
+      allTimeMonthDeltaByAccount: new Map(),
+      allTimeSeriesByAccount: new Map(),
       monthlyByCategory: new Map(),
       totals: {
         balance: 0,
@@ -164,7 +202,6 @@ export function createAccountsCategoriesTools(api) {
       primeAccountMaps(snapshot, account.id, account.openingBalance || 0);
     });
 
-    const today = todayIso();
     const thisWeek = getCurrentWeekRange();
     const thisMonth = getDateRange("thisMonth");
 
@@ -174,15 +211,54 @@ export function createAccountsCategoriesTools(api) {
         return;
       }
 
+       const applyCurrentMonthDelta = (accountId, delta) => {
+        if (!accountId) {
+          return;
+        }
+        primeAccountMaps(snapshot, accountId, getAccount(accountId)?.openingBalance || 0);
+        if (transaction.date < thisMonth.start) {
+          snapshot.currentMonthStartingBalanceByAccount.set(
+            accountId,
+            Number(snapshot.currentMonthStartingBalanceByAccount.get(accountId) || 0) + delta
+          );
+          return;
+        }
+        if (transaction.date >= thisMonth.start && transaction.date <= today) {
+          const dayIndex = snapshot.currentMonthDayIndexByKey.get(transaction.date.slice(8, 10));
+          if (dayIndex !== undefined) {
+            snapshot.currentMonthDeltaByAccount.get(accountId)[dayIndex] += delta;
+          }
+        }
+      };
+
+      const applyAllTimeDelta = (accountId, delta) => {
+        if (!accountId) {
+          return;
+        }
+        primeAccountMaps(snapshot, accountId, getAccount(accountId)?.openingBalance || 0);
+        const monthIndex = snapshot.allTimeMonthIndexByKey.get(transaction.date.slice(0, 7));
+        if (monthIndex !== undefined) {
+          snapshot.allTimeMonthDeltaByAccount.get(accountId)[monthIndex] += delta;
+        }
+      };
+
       if (transaction.type === "income") {
         applyAccountAggregate(snapshot, transaction.accountId, amount, "incoming", transaction.date);
+        applyCurrentMonthDelta(transaction.accountId, amount);
+        applyAllTimeDelta(transaction.accountId, amount);
       }
       if (transaction.type === "expense") {
         applyAccountAggregate(snapshot, transaction.accountId, -amount, "outgoing", transaction.date);
+        applyCurrentMonthDelta(transaction.accountId, -amount);
+        applyAllTimeDelta(transaction.accountId, -amount);
       }
       if (transaction.type === "transfer") {
         applyAccountAggregate(snapshot, transaction.fromAccountId, -amount, "outgoing", transaction.date);
         applyAccountAggregate(snapshot, transaction.toAccountId, amount, "incoming", transaction.date);
+        applyCurrentMonthDelta(transaction.fromAccountId, -amount);
+        applyCurrentMonthDelta(transaction.toAccountId, amount);
+        applyAllTimeDelta(transaction.fromAccountId, -amount);
+        applyAllTimeDelta(transaction.toAccountId, amount);
       }
 
       addCategoryMonthlyAmount(snapshot, transaction.categoryId, amount, transaction.date);
@@ -226,6 +302,33 @@ export function createAccountsCategoriesTools(api) {
         };
       });
       snapshot.monthlySeriesByAccount.set(accountId, series);
+
+      let currentMonthBalance = Number(snapshot.currentMonthStartingBalanceByAccount.get(accountId) || 0);
+      const currentMonthDeltas = snapshot.currentMonthDeltaByAccount.get(accountId) || Array.from({ length: snapshot.currentMonthDays.length }, () => 0);
+      snapshot.currentMonthSeriesByAccount.set(
+        accountId,
+        snapshot.currentMonthDays.map((day, index) => {
+          currentMonthBalance += Number(currentMonthDeltas[index] || 0);
+          return {
+            label: day.label,
+            value: currentMonthBalance,
+          };
+        })
+      );
+
+      let allTimeBalance = Number(account.openingBalance || 0);
+      const allTimeDeltas = snapshot.allTimeMonthDeltaByAccount.get(accountId) || Array.from({ length: snapshot.allTimeMonths.length }, () => 0);
+      snapshot.allTimeSeriesByAccount.set(
+        accountId,
+        snapshot.allTimeMonths.map((month, index) => {
+          allTimeBalance += Number(allTimeDeltas[index] || 0);
+          return {
+            label: month.label,
+            value: allTimeBalance,
+          };
+        })
+      );
+
       snapshot.totals.balance += Number(snapshot.balanceByAccount.get(accountId) || 0);
     });
 
@@ -279,6 +382,28 @@ export function createAccountsCategoriesTools(api) {
     );
   }
 
+  function getAccountCurrentMonthBalanceSeries(accountId) {
+    const snapshot = getAggregateSnapshot();
+    return (
+      snapshot.currentMonthSeriesByAccount.get(accountId) ||
+      snapshot.currentMonthDays.map((day) => ({
+        label: day.label,
+        value: Number(getAccount(accountId)?.openingBalance || 0),
+      }))
+    );
+  }
+
+  function getAccountAllTimeBalanceSeries(accountId) {
+    const snapshot = getAggregateSnapshot();
+    return (
+      snapshot.allTimeSeriesByAccount.get(accountId) ||
+      snapshot.allTimeMonths.map((month) => ({
+        label: month.label,
+        value: Number(getAccount(accountId)?.openingBalance || 0),
+      }))
+    );
+  }
+
   function getCategoryMonthlySeries(categoryId) {
     const snapshot = getAggregateSnapshot();
     return (
@@ -298,7 +423,9 @@ export function createAccountsCategoriesTools(api) {
     const balance = getAccountBalance(account.id);
     const flow = getAccountFlow(account.id);
     const accountSymbol = account.currencySymbol || "$";
+    const monthSeries = getAccountCurrentMonthBalanceSeries(account.id);
     const accountSeries = getAccountMonthlyBalanceSeries(account.id);
+    const allTimeSeries = getAccountAllTimeBalanceSeries(account.id);
     return `
       <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
         <div class="flash-card-top">
@@ -307,7 +434,20 @@ export function createAccountsCategoriesTools(api) {
         </div>
         <h3>${escapeHtml(account.name)}</h3>
         <strong class="money account-balance">${formatMoney(balance, accountSymbol)}</strong>
-        ${renderMiniTrendChart(accountSeries, account.color || "#19c6a7", "12M Balance", formatMoney(accountSeries[accountSeries.length - 1]?.value || 0, accountSymbol))}
+        ${
+          manageMode
+            ? `<div class="account-chart-trio">
+                ${renderMiniTrendChart(monthSeries, account.color || "#19c6a7", "Monthly Balance", formatMoney(monthSeries[monthSeries.length - 1]?.value || 0, accountSymbol))}
+                ${renderMiniTrendChart(accountSeries, account.color || "#19c6a7", "12M Balance", formatMoney(accountSeries[accountSeries.length - 1]?.value || 0, accountSymbol))}
+                ${renderMiniTrendChart(allTimeSeries, account.color || "#19c6a7", "All Time Historical", formatMoney(allTimeSeries[allTimeSeries.length - 1]?.value || 0, accountSymbol))}
+              </div>`
+            : renderMiniTrendChart(
+                accountSeries,
+                account.color || "#19c6a7",
+                "12M Balance",
+                formatMoney(accountSeries[accountSeries.length - 1]?.value || 0, accountSymbol)
+              )
+        }
         <div class="account-card-footer">
           <div class="transaction-tags compact-tags">
             <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>

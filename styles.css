@@ -754,6 +754,18 @@ body.app-locked .app-shell {
   border: 1px solid rgba(18, 59, 70, 0.08);
 }
 
+.account-chart-trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.account-chart-trio .mini-trend-card {
+  margin-top: 0;
+  min-width: 0;
+}
+
 .mini-trend-copy {
   display: flex;
   align-items: center;
@@ -2620,6 +2632,10 @@ textarea:focus {
 
   .report-ranking-panel .empty-state {
     padding: 18px 14px;
+  }
+
+  .account-chart-trio {
+    grid-template-columns: 1fr;
   }
 
   .report-pie-layout {
