@@ -159,6 +159,26 @@ export function createAccountsCategoriesTools(api) {
     snapshot.monthlyByCategory.get(categoryId)[monthIndex].value += Number(amount || 0);
   }
 
+  function addCategoryCurrentMonthAmount(snapshot, categoryId, amount, transactionDate, rangeEnd) {
+    if (!categoryId || !transactionDate || !rangeEnd || transactionDate > rangeEnd) {
+      return;
+    }
+    const dayIndex = snapshot.currentMonthDayIndexByKey.get(transactionDate.slice(8, 10));
+    if (dayIndex === undefined) {
+      return;
+    }
+    if (!snapshot.currentMonthByCategory.has(categoryId)) {
+      snapshot.currentMonthByCategory.set(
+        categoryId,
+        snapshot.currentMonthDays.map((day) => ({
+          label: day.label,
+          value: 0,
+        }))
+      );
+    }
+    snapshot.currentMonthByCategory.get(categoryId)[dayIndex].value += Number(amount || 0);
+  }
+
   function buildAggregateSnapshot() {
     const months = getTrailingMonths(12);
     const now = new Date();
@@ -192,6 +212,7 @@ export function createAccountsCategoriesTools(api) {
       allTimeMonthDeltaByAccount: new Map(),
       allTimeSeriesByAccount: new Map(),
       monthlyByCategory: new Map(),
+      currentMonthByCategory: new Map(),
       totals: {
         balance: 0,
         monthIncome: 0,
@@ -267,6 +288,9 @@ export function createAccountsCategoriesTools(api) {
       }
 
       addCategoryMonthlyAmount(snapshot, transaction.categoryId, amount, transaction.date);
+      if (transaction.date >= thisMonth.start && transaction.date <= today) {
+        addCategoryCurrentMonthAmount(snapshot, transaction.categoryId, amount, transaction.date, today);
+      }
 
       if (transaction.date === today) {
         if (transaction.type === "income") {
@@ -422,6 +446,17 @@ export function createAccountsCategoriesTools(api) {
     );
   }
 
+  function getCategoryCurrentMonthSeries(categoryId) {
+    const snapshot = getAggregateSnapshot();
+    return (
+      snapshot.currentMonthByCategory.get(categoryId) ||
+      snapshot.currentMonthDays.map((day) => ({
+        label: day.label,
+        value: 0,
+      }))
+    );
+  }
+
   function getGlobalMetrics() {
     return { ...getAggregateSnapshot().totals };
   }
@@ -487,6 +522,7 @@ export function createAccountsCategoriesTools(api) {
   function renderCategoryItem(category) {
     const usage = getCategoryUsage ? getCategoryUsage(category.id) : null;
     const baseSymbol = getPrimaryCurrencySymbol();
+    const monthSeries = getCategoryCurrentMonthSeries(category.id);
     const categorySeries = getCategoryMonthlySeries(category.id);
     return `
       <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
@@ -500,7 +536,10 @@ export function createAccountsCategoriesTools(api) {
             <div class="category-subs">
               ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
             </div>
-            ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
+            <div class="category-chart-row">
+              ${renderMiniTrendChart(monthSeries, category.color || "#19c6a7", "Monthly Activity", formatMoney(monthSeries[monthSeries.length - 1]?.value || 0, baseSymbol))}
+              ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
+            </div>
           </div>
           <div class="category-side">
             <div class="category-meta-row">
@@ -553,6 +592,7 @@ export function createAccountsCategoriesTools(api) {
     getAccountMonthlyBalanceSeries,
     getAccountBalanceAtDate,
     getCategoryMonthlySeries,
+    getCategoryCurrentMonthSeries,
     getCurrentWeekRange,
     getTransactionsForPreset,
     getGlobalMetrics,
