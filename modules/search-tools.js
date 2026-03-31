@@ -84,6 +84,7 @@ export function createSearchTools(api) {
       startDate: "",
       endDate: "",
     };
+    uiState.transactionPage = 1;
     document.getElementById("search-input").value = "";
     document.getElementById("filter-type").value = "all";
     document.getElementById("filter-account").value = "all";
@@ -151,6 +152,7 @@ export function createSearchTools(api) {
 
   function applyGlobalQueryToTransactions(query) {
     uiState.filters.search = query;
+    uiState.transactionPage = 1;
     document.getElementById("search-input").value = query;
     switchScreen("transactions");
     renderTransactions();

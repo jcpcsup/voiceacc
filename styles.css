@@ -1268,6 +1268,13 @@ textarea:focus {
   scrollbar-width: none;
 }
 
+.transaction-inline-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .transaction-inline-meta::-webkit-scrollbar,
 .transaction-top-meta::-webkit-scrollbar {
   display: none;
@@ -1523,6 +1530,16 @@ textarea:focus {
 
 .results-bar {
   margin-top: 18px;
+}
+
+.transaction-pagination {
+  margin-top: 14px;
+}
+
+.transaction-pagination p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .metric-card {

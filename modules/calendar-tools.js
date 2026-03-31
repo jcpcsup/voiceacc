@@ -86,6 +86,7 @@ export function createCalendarTools(api) {
   function applyDateFilter(date) {
     uiState.filters.startDate = date;
     uiState.filters.endDate = date;
+    uiState.transactionPage = 1;
     document.getElementById("filter-start-date").value = date;
     document.getElementById("filter-end-date").value = date;
     switchScreen("transactions");

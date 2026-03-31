@@ -24,6 +24,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const STORAGE_KEY = "ledgerflow-voice-v1";
+  const TRANSACTIONS_PAGE_SIZE = 50;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
     SUPABASE_CONFIGURED && typeof window.supabase?.createClient === "function";
@@ -91,6 +92,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     recognition: null,
     isListening: false,
     transactionsFiltersExpanded: false,
+    transactionPage: 1,
   };
 
   const {
@@ -342,6 +344,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       clearFilters();
       setTransactionFiltersExpanded(false);
     });
+    document.getElementById("transaction-page-prev-button").addEventListener("click", () => changeTransactionPage(-1));
+    document.getElementById("transaction-page-next-button").addEventListener("click", () => changeTransactionPage(1));
     document.getElementById("add-category-button").addEventListener("click", () => openCategoryModal());
     document.getElementById("toggle-transaction-filters-button").addEventListener("click", toggleTransactionFiltersPanel);
     document.getElementById("open-import-button").addEventListener("click", () => {
@@ -567,6 +571,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     uiState.filters.tag = activeReportDetailFilters.tag || "";
     uiState.filters.startDate = startDate;
     uiState.filters.endDate = endDate;
+    uiState.transactionPage = 1;
 
     closeModal("report-detail-modal");
     setTransactionFiltersExpanded(true);
@@ -749,9 +754,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     deleteTransaction(transactionId);
   }
 
+  function changeTransactionPage(direction) {
+    uiState.transactionPage = Math.max(1, Number(uiState.transactionPage || 1) + direction);
+    renderTransactions();
+  }
+
   function bindFilterInput(id, key) {
     document.getElementById(id).addEventListener("input", (event) => {
       uiState.filters[key] = key === "startDate" || key === "endDate" ? normalizeDateInput(event.target.value) : event.target.value;
+      uiState.transactionPage = 1;
       renderTransactions();
     });
   }
@@ -1054,12 +1065,24 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   function renderTransactions() {
     syncTransactionFilterInputs();
     const matches = getFilteredTransactions();
+    const totalPages = Math.max(1, Math.ceil(matches.length / TRANSACTIONS_PAGE_SIZE));
+    uiState.transactionPage = Math.min(Math.max(1, uiState.transactionPage || 1), totalPages);
+    const startIndex = (uiState.transactionPage - 1) * TRANSACTIONS_PAGE_SIZE;
+    const visibleMatches = matches.slice(startIndex, startIndex + TRANSACTIONS_PAGE_SIZE);
     document.getElementById("transaction-result-count").textContent = `${matches.length} matching transaction${
       matches.length === 1 ? "" : "s"
     }`;
     document.getElementById("transaction-list").innerHTML = matches.length
-      ? matches.map(renderTransactionItem).join("")
+      ? visibleMatches.map(renderTransactionItem).join("")
       : renderEmpty("No transactions match your search yet.");
+    const pagination = document.getElementById("transaction-pagination");
+    const pageLabel = document.getElementById("transaction-page-label");
+    const prevButton = document.getElementById("transaction-page-prev-button");
+    const nextButton = document.getElementById("transaction-page-next-button");
+    pagination.classList.toggle("hidden", matches.length <= TRANSACTIONS_PAGE_SIZE);
+    pageLabel.textContent = `Page ${uiState.transactionPage} of ${totalPages}`;
+    prevButton.disabled = uiState.transactionPage <= 1;
+    nextButton.disabled = uiState.transactionPage >= totalPages;
   }
 
   function renderAccounts() {
@@ -1356,15 +1379,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const leadingIcon =
       category ? renderCategoryIcon(category.icon) : renderCategoryIcon("");
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
-    const detailPills = [
+    const detailPillParts = [
       transaction.counterparty
         ? `<span class="meta-pill transaction-pill-payee">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
         : "",
       transaction.project ? `<span class="meta-pill transaction-pill-project">${escapeHtml(transaction.project)}</span>` : "",
-      tagPills,
+      tagPills ? `<span class="transaction-inline-tags">${tagPills}</span>` : "",
     ]
-      .filter(Boolean)
-      .join("");
+      .filter(Boolean);
+    const detailPillsInline = detailPillParts.join('<span class="transaction-header-separator transaction-inline-separator">|</span>');
+    const detailPills = detailPillParts.join("");
     return `
       <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}" data-action="edit-transaction-card" data-id="${escapeHtml(
         transaction.id
@@ -1392,8 +1416,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                       ${headerPills}
                     </div>
                     ${
-                      detailPills
-                        ? `<span class="transaction-header-separator transaction-inline-separator">|</span><div class="transaction-tags transaction-inline-meta">${detailPills}</div>`
+                      detailPillsInline
+                        ? `<span class="transaction-header-separator transaction-inline-separator">|</span><div class="transaction-tags transaction-inline-meta">${detailPillsInline}</div>`
                         : ""
                     }
                   </div>
