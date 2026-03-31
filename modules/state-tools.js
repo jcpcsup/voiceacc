@@ -19,6 +19,7 @@ export function createStateTools(api) {
       Array.isArray(parsed.accounts) && parsed.accounts.length
         ? parsed.accounts.map((account) => ({
             currencySymbol: "$",
+            includeInTotalBalance: true,
             ...account,
           }))
         : structuredClone(defaultState.accounts);

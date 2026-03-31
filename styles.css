@@ -1524,6 +1524,19 @@ textarea:focus {
   min-width: 0;
 }
 
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 .field-span-2 {
   grid-column: span 2;
 }

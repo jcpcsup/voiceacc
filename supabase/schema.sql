@@ -17,6 +17,7 @@ create table if not exists public.accounts (
   type text not null,
   currency_symbol text not null default '$',
   opening_balance numeric(14, 2) not null default 0,
+  include_in_total_balance boolean not null default true,
   color text not null default '#19c6a7',
   icon text not null default 'wallet',
   notes text not null default '',
@@ -64,6 +65,9 @@ create index if not exists accounts_user_id_idx on public.accounts (user_id);
 create index if not exists categories_user_id_idx on public.categories (user_id);
 create index if not exists transactions_user_id_idx on public.transactions (user_id);
 create index if not exists transactions_user_id_date_idx on public.transactions (user_id, transaction_date desc);
+
+alter table public.accounts
+add column if not exists include_in_total_balance boolean not null default true;
 
 drop trigger if exists accounts_set_updated_at on public.accounts;
 create trigger accounts_set_updated_at

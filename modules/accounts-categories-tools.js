@@ -77,7 +77,9 @@ export function createAccountsCategoriesTools(api) {
 
   function getAggregateCacheSignature() {
     const monthAnchor = new Date().toISOString().slice(0, 7);
-    const accountPart = state.accounts.map((account) => `${account.id}:${Number(account.openingBalance || 0)}`).join("|");
+    const accountPart = state.accounts
+      .map((account) => `${account.id}:${Number(account.openingBalance || 0)}:${account.includeInTotalBalance !== false ? 1 : 0}`)
+      .join("|");
     const transactionPart = state.transactions
       .map(
         (transaction) =>
@@ -329,7 +331,9 @@ export function createAccountsCategoriesTools(api) {
         })
       );
 
-      snapshot.totals.balance += Number(snapshot.balanceByAccount.get(accountId) || 0);
+      if (account.includeInTotalBalance !== false) {
+        snapshot.totals.balance += Number(snapshot.balanceByAccount.get(accountId) || 0);
+      }
     });
 
     return snapshot;

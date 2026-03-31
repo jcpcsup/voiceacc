@@ -90,6 +90,7 @@ export function createModalTools(api) {
     document.getElementById("account-modal-title").textContent = accountId ? "Edit Account" : "Add Account";
     document.getElementById("account-color").value = "#19c6a7";
     document.getElementById("account-currency-symbol").value = "$";
+    document.getElementById("account-include-in-total-balance").checked = true;
     if (accountId) {
       const account = getAccount(accountId);
       if (!account) {
@@ -99,6 +100,7 @@ export function createModalTools(api) {
       document.getElementById("account-type").value = account.type;
       document.getElementById("account-currency-symbol").value = account.currencySymbol || "$";
       document.getElementById("account-opening-balance").value = account.openingBalance ?? 0;
+      document.getElementById("account-include-in-total-balance").checked = account.includeInTotalBalance !== false;
       document.getElementById("account-color").value = account.color || "#19c6a7";
       document.getElementById("account-icon").value = account.icon || "wallet";
       document.getElementById("account-notes").value = account.notes || "";
@@ -214,6 +216,7 @@ export function createModalTools(api) {
       type: document.getElementById("account-type").value,
       currencySymbol: document.getElementById("account-currency-symbol").value.trim() || "$",
       openingBalance: Number(document.getElementById("account-opening-balance").value || 0),
+      includeInTotalBalance: document.getElementById("account-include-in-total-balance").checked,
       color: document.getElementById("account-color").value,
       icon: document.getElementById("account-icon").value,
       notes: document.getElementById("account-notes").value.trim(),
@@ -399,6 +402,7 @@ export function createModalTools(api) {
         type: row.type || "cash",
         currencySymbol: row.currencySymbol || "$",
         openingBalance: Number(row.openingBalance || 0),
+        includeInTotalBalance: String(row.includeInTotalBalance ?? "true").toLowerCase() !== "false",
         color: row.color || "#19c6a7",
         icon: row.icon || "wallet",
         notes: row.notes || "",
