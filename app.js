@@ -45,6 +45,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     transactions: [],
   };
   let pendingConfirmAction = null;
+  let activeReportDetailFilters = null;
   let swipeGesture = null;
   let uiState;
 
@@ -465,6 +466,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!detail) {
       return;
     }
+    activeReportDetailFilters = detail.filters || null;
     document.getElementById("report-detail-eyebrow").textContent = detail.eyebrow || "Chart Detail";
     document.getElementById("report-detail-title").textContent = detail.label || "Segment";
     document.getElementById("report-detail-value").textContent = detail.value || "";
@@ -473,14 +475,44 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("report-detail-meta").innerHTML = (detail.meta || [])
       .map(
         (item) => `
-          <div class="report-detail-meta-row">
+          <${
+            item.action === "open-report-entries" && activeReportDetailFilters ? "button" : "div"
+          } class="report-detail-meta-row ${item.action === "open-report-entries" && activeReportDetailFilters ? "report-detail-meta-button" : ""}" ${
+            item.action === "open-report-entries" && activeReportDetailFilters ? 'type="button" data-action="open-report-detail-entries"' : ""
+          }>
             <span>${escapeHtml(item.label || "")}</span>
             <strong>${escapeHtml(item.value || "")}</strong>
-          </div>
+          </${item.action === "open-report-entries" && activeReportDetailFilters ? "button" : "div"}>
         `
       )
       .join("");
     openModal("report-detail-modal");
+  }
+
+  function openReportEntriesFromDetail() {
+    if (!activeReportDetailFilters) {
+      return;
+    }
+    uiState.filters.search = activeReportDetailFilters.search || "";
+    uiState.filters.type = activeReportDetailFilters.type || "all";
+    uiState.filters.account = activeReportDetailFilters.accountId || "all";
+    uiState.filters.category = activeReportDetailFilters.categoryId || "all";
+    uiState.filters.tag = activeReportDetailFilters.tag || "";
+    uiState.filters.startDate = activeReportDetailFilters.startDate || "";
+    uiState.filters.endDate = activeReportDetailFilters.endDate || "";
+
+    document.getElementById("search-input").value = uiState.filters.search;
+    document.getElementById("filter-type").value = uiState.filters.type;
+    document.getElementById("filter-account").value = uiState.filters.account;
+    document.getElementById("filter-category").value = uiState.filters.category;
+    document.getElementById("filter-tag").value = uiState.filters.tag;
+    document.getElementById("filter-start-date").value = uiState.filters.startDate;
+    document.getElementById("filter-end-date").value = uiState.filters.endDate;
+
+    closeModal("report-detail-modal");
+    setTransactionFiltersExpanded(true);
+    switchScreen("transactions");
+    renderTransactions();
   }
 
   function isSwipeNavigationAllowed(target) {
@@ -825,6 +857,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "open-report-segment") {
       openReportDetailModal(getReportChartSegmentDetail(actionTarget.dataset.index || ""));
+    }
+    if (action === "open-report-detail-entries") {
+      openReportEntriesFromDetail();
     }
   }
 

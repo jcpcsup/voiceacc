@@ -1703,6 +1703,13 @@ textarea:focus {
   text-align: left;
 }
 
+.report-breakdown-account-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .report-breakdown-account-chip {
   padding: 5px 8px;
   border-radius: 999px;
@@ -1755,7 +1762,7 @@ textarea:focus {
 .report-breakdown-column-cluster {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 3px;
   height: 180px;
   width: 100%;
   justify-content: center;
@@ -1773,7 +1780,7 @@ textarea:focus {
 }
 
 .report-breakdown-column-button-sub {
-  width: 14px;
+  width: 8px;
 }
 
 .report-breakdown-column-fill {
@@ -1935,6 +1942,12 @@ textarea:focus {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(13, 47, 61, 0.07);
+}
+
+.report-detail-meta-button {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
 }
 
 .ranking-list {

@@ -125,6 +125,19 @@ export function createReportsTools(api) {
     return ["expense", "income", "transfer"].filter((type) => selected.includes(type));
   }
 
+  function getBaseReportFilters() {
+    const { start, end } = getDateRange(uiState.reports.range);
+    return {
+      search: "",
+      type: "all",
+      accountId: uiState.reports.account !== "all" ? uiState.reports.account : "",
+      categoryId: "",
+      tag: "",
+      startDate: start || "",
+      endDate: end || "",
+    };
+  }
+
   function buildMonthlySeries(transactions, resolver, count = 12) {
     const buckets = new Map(getTrailingMonths(count).map((month) => [month.key, { label: month.label, value: 0 }]));
     transactions.forEach((transaction) => {
@@ -324,6 +337,7 @@ export function createReportsTools(api) {
     const symbol = getPrimaryCurrencySymbol();
     const selectedTypes = getSelectedReportTypes();
     if (selectedTypes.length === 1 && selectedTypes[0] === "transfer") {
+      const baseFilters = getBaseReportFilters();
       const transferMap = new Map();
       transactions
         .filter((transaction) => transaction.type === "transfer")
@@ -336,6 +350,11 @@ export function createReportsTools(api) {
             value: 0,
             color: "#2f86ff",
             count: 0,
+            filters: {
+              ...baseFilters,
+              type: "transfer",
+              search: `${from} ${to}`.trim(),
+            },
           };
           current.value += Number(transaction.amount || 0);
           current.count += 1;
@@ -348,6 +367,7 @@ export function createReportsTools(api) {
       const categoryMap = new Map();
       const reportType = selectedTypes[0];
       const fallbackColor = reportType === "income" ? "#1ca866" : "#d35a5a";
+      const baseFilters = getBaseReportFilters();
       transactions
         .filter((transaction) => transaction.type === reportType)
         .forEach((transaction) => {
@@ -359,6 +379,11 @@ export function createReportsTools(api) {
             color: category?.color || fallbackColor,
             count: 0,
             accounts: new Map(),
+            filters: {
+              ...baseFilters,
+              type: reportType,
+              categoryId: category?.id || "",
+            },
           };
           current.value += Number(transaction.amount || 0);
           current.count += 1;
@@ -369,6 +394,12 @@ export function createReportsTools(api) {
             value: 0,
             color: account?.color || "#5f7380",
             count: 0,
+            filters: {
+              ...baseFilters,
+              type: reportType,
+              categoryId: category?.id || "",
+              accountId: account?.id || transaction.accountId || "",
+            },
           };
           accountCurrent.value += Number(transaction.amount || 0);
           accountCurrent.count += 1;
@@ -392,6 +423,10 @@ export function createReportsTools(api) {
         value: sumAmounts(transactions.filter((transaction) => transaction.type === type)),
         count: transactions.filter((transaction) => transaction.type === type).length,
         color: type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff",
+        filters: {
+          ...getBaseReportFilters(),
+          type,
+        },
       }))
       .filter((segment) => segment.value > 0);
 
@@ -490,15 +525,19 @@ export function createReportsTools(api) {
   }
 
   function renderBreakdownDonut(dataset, detailMap) {
+    const categoryGap = 2.6;
     let currentAngle = -90;
     const innerSegments = dataset.segments
       .map((segment, index) => {
         const sliceAngle = (segment.value / dataset.total) * 360;
         const startAngle = currentAngle;
         const endAngle = currentAngle + sliceAngle;
+        const padding = Math.min(categoryGap / 2, sliceAngle / 3);
+        const visibleStart = startAngle + padding;
+        const visibleEnd = endAngle - padding;
         detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
         currentAngle = endAngle;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 92, startAngle, endAngle, 24)}" fill="${escapeHtml(
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 92, visibleStart, visibleEnd, 24)}" fill="${escapeHtml(
           segment.color
         )}" data-action="open-report-segment" data-index="segment:${index}"></path>`;
       })
@@ -509,14 +548,18 @@ export function createReportsTools(api) {
         const sliceAngle = (segment.value / dataset.total) * 360;
         const startAngle = currentAngle;
         const endAngle = currentAngle + sliceAngle;
+        const padding = Math.min(categoryGap / 2, sliceAngle / 3);
+        const visibleStart = startAngle + padding;
+        const visibleEnd = endAngle - padding;
+        const visibleSliceAngle = Math.max(visibleEnd - visibleStart, 0);
         currentAngle = endAngle;
         if (!Array.isArray(segment.accounts) || !segment.accounts.length) {
           return "";
         }
-        let childAngle = startAngle;
+        let childAngle = visibleStart;
         return segment.accounts
           .map((account, accountIndex) => {
-            const accountAngle = (account.value / segment.value) * sliceAngle;
+            const accountAngle = (account.value / segment.value) * visibleSliceAngle;
             const accountStart = childAngle;
             const accountEnd = childAngle + accountAngle;
             childAngle = accountEnd;
@@ -575,7 +618,7 @@ export function createReportsTools(api) {
                               detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
                               return `
                                 <button class="report-breakdown-account-button" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}">
-                                  <span class="report-breakdown-account-chip" style="background:${escapeHtml(account.color)}">${escapeHtml(account.label)}</span>
+                                  <span class="report-breakdown-account-label">${escapeHtml(account.label)}</span>
                                   <span class="report-breakdown-bar-track report-breakdown-bar-track-sub">
                                     <span class="report-breakdown-bar-fill" style="width:${(account.value / maxValue) * 100}%; background:${escapeHtml(
                                       account.color
@@ -765,6 +808,7 @@ export function createReportsTools(api) {
   function buildStackedPeriodBucket(transactions, start, end, label, selectedTypes) {
     const startIso = typeof start === "string" ? start : start.toISOString().slice(0, 10);
     const endIso = typeof end === "string" ? end : end.toISOString().slice(0, 10);
+    const baseFilters = getBaseReportFilters();
     const categoryMap = new Map();
     transactions
       .filter((transaction) => transaction.date >= startIso && transaction.date <= endIso && selectedTypes.includes(transaction.type))
@@ -779,6 +823,13 @@ export function createReportsTools(api) {
           color: category?.color || (transaction.type === "income" ? "#1ca866" : "#d35a5a"),
           value: 0,
           count: 0,
+          filters: {
+            ...baseFilters,
+            type: category?.type || transaction.type,
+            categoryId: category?.id || "",
+            startDate: startIso,
+            endDate: endIso,
+          },
         };
         current.value += Number(transaction.amount || 0);
         current.count += 1;
@@ -799,8 +850,9 @@ export function createReportsTools(api) {
       color: segment.color,
       value: formatMoney(segment.value, dataset.symbol),
       percent: `${segment.percent}% share`,
+      filters: segment.filters || getBaseReportFilters(),
       meta: [
-        { label: "Entries", value: String(segment.count || 0) },
+        { label: "Entries", value: String(segment.count || 0), action: "open-report-entries" },
         { label: "Scope", value: dataset.subtitle },
       ],
     };
@@ -815,9 +867,10 @@ export function createReportsTools(api) {
       color: account.color,
       value: formatMoney(account.value, dataset.symbol),
       percent: `${categoryShare}% of ${segment.label}`,
+      filters: account.filters || segment.filters || getBaseReportFilters(),
       meta: [
         { label: "Overall Share", value: `${totalShare}%` },
-        { label: "Entries", value: String(account.count || 0) },
+        { label: "Entries", value: String(account.count || 0), action: "open-report-entries" },
       ],
     };
   }
@@ -830,8 +883,9 @@ export function createReportsTools(api) {
       color: segment.color,
       value: formatMoney(segment.value, getPrimaryCurrencySymbol()),
       percent: `${periodShare}% of ${period.label}`,
+      filters: segment.filters || getBaseReportFilters(),
       meta: [
-        { label: "Entries", value: String(segment.count || 0) },
+        { label: "Entries", value: String(segment.count || 0), action: "open-report-entries" },
         { label: "Period Total", value: formatMoney(period.total, getPrimaryCurrencySymbol()) },
       ],
     };
@@ -947,6 +1001,7 @@ export function createReportsTools(api) {
       value: Number(row.value || 0),
       color: row.color || "#00a6c7",
       count: Number(row.count || 0),
+      filters: row.filters || null,
       accounts: Array.isArray(row.accounts) ? row.accounts : [],
     }));
     const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
@@ -957,6 +1012,7 @@ export function createReportsTools(api) {
         value: remainder,
         color: "#8aa8b3",
         count: remainderCount,
+        filters: getBaseReportFilters(),
         accounts: [],
       });
     }
