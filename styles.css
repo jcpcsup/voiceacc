@@ -1570,7 +1570,7 @@ textarea:focus {
 
 .report-pie-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 1.05fr) minmax(260px, 0.95fr);
+  grid-template-columns: minmax(420px, 1.2fr) minmax(220px, 0.8fr);
   gap: 18px;
   align-items: center;
   margin-top: 12px;
@@ -1610,6 +1610,11 @@ textarea:focus {
   min-width: 0;
 }
 
+.report-pie-visual-wrap-wide {
+  width: 100%;
+  justify-content: stretch;
+}
+
 .report-pie-visual,
 .report-breakdown-visual {
   position: relative;
@@ -1624,7 +1629,7 @@ textarea:focus {
 .report-breakdown-visual-polar::after {
   content: "";
   position: absolute;
-  inset: 18%;
+  inset: 34%;
   border-radius: 50%;
   background: rgba(248, 254, 255, 0.96);
   box-shadow: inset 0 0 0 1px rgba(13, 47, 61, 0.05);
@@ -1662,7 +1667,8 @@ textarea:focus {
 .report-breakdown-bars {
   display: grid;
   gap: 12px;
-  width: min(100%, 360px);
+  width: 100%;
+  max-width: none;
 }
 
 .report-breakdown-bar-group {
@@ -1733,7 +1739,8 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   gap: 14px;
-  width: min(100%, 360px);
+  width: 100%;
+  max-width: none;
   min-height: 220px;
 }
 
@@ -1785,7 +1792,8 @@ textarea:focus {
 .report-stacked-breakdown {
   display: grid;
   gap: 12px;
-  width: min(100%, 360px);
+  width: 100%;
+  max-width: none;
 }
 
 .report-stacked-row {

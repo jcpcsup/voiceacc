@@ -498,7 +498,7 @@ export function createReportsTools(api) {
         const endAngle = currentAngle + sliceAngle;
         detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
         currentAngle = endAngle;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 84, startAngle, endAngle, 34)}" fill="${escapeHtml(
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 92, startAngle, endAngle, 24)}" fill="${escapeHtml(
           segment.color
         )}" data-action="open-report-segment" data-index="segment:${index}"></path>`;
       })
@@ -524,10 +524,10 @@ export function createReportsTools(api) {
             return `<path class="report-chart-slice report-chart-slice-secondary" d="${buildArcPath(
               110,
               110,
-              100,
+              106,
               accountStart,
               accountEnd,
-              88
+              94
             )}" fill="${escapeHtml(account.color)}" data-action="open-report-segment" data-index="account:${segmentIndex}:${accountIndex}"></path>`;
           })
           .join("");
@@ -552,7 +552,7 @@ export function createReportsTools(api) {
   function renderBreakdownBars(dataset, detailMap) {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
     return `
-      <div class="report-pie-visual-wrap">
+      <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
         <div class="report-breakdown-bars">
           ${dataset.segments
             .map((segment, index) => {
@@ -600,7 +600,7 @@ export function createReportsTools(api) {
   function renderBreakdownColumns(dataset, detailMap) {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
     return `
-      <div class="report-pie-visual-wrap">
+      <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
         <div class="report-breakdown-columns">
           ${dataset.segments
             .map((segment, index) => {
@@ -643,11 +643,10 @@ export function createReportsTools(api) {
   function renderBreakdownStacked(transactions, detailMap) {
     const periods = buildStackedPeriods(transactions);
     if (!periods.length) {
-      return `<div class="report-pie-visual-wrap">${renderEmpty("No stacked data is available for this filtered range yet.")}</div>`;
+      return `<div class="report-pie-visual-wrap report-pie-visual-wrap-wide">${renderEmpty("No stacked data is available for this filtered range yet.")}</div>`;
     }
-    const maxTotal = Math.max(...periods.map((period) => period.total), 1);
     return `
-      <div class="report-pie-visual-wrap">
+      <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
         <div class="report-stacked-breakdown">
           ${periods
             .map(
@@ -657,9 +656,10 @@ export function createReportsTools(api) {
                     <strong>${escapeHtml(period.label)}</strong>
                     <span>${formatMoney(period.total, getPrimaryCurrencySymbol())}</span>
                   </div>
-                  <div class="report-stacked-row-track" style="width:${(period.total / maxTotal) * 100}%;">
+                  <div class="report-stacked-row-track">
                     ${period.segments
                       .map((segment, segmentIndex) => {
+                        const segmentWidth = period.total > 0 ? (segment.value / period.total) * 100 : 0;
                         detailMap.set(`stack:${periodIndex}:${segmentIndex}`, buildStackedDetail(period, segment));
                         return `
                           <button
@@ -667,7 +667,7 @@ export function createReportsTools(api) {
                             type="button"
                             data-action="open-report-segment"
                             data-index="stack:${periodIndex}:${segmentIndex}"
-                            style="width:${(segment.value / period.total) * 100}%; background:${escapeHtml(segment.color)}"
+                            style="width:${segmentWidth}%; background:${escapeHtml(segment.color)}"
                           ></button>
                         `;
                       })
@@ -696,9 +696,62 @@ export function createReportsTools(api) {
         weeks.push(buildStackedPeriodBucket(transactions, weekStart, weekEnd, `Week ${weeks.length + 1}`, selectedTypes));
         cursor.setDate(cursor.getDate() + 7);
       }
-      return weeks.filter((period) => period.total > 0);
+      return weeks;
     }
-
+    if (uiState.reports.range === "last30") {
+      const { start, end } = getDateRange("last30");
+      const buckets = [];
+      let cursor = new Date(`${start}T00:00:00`);
+      let weekIndex = 1;
+      while (cursor.toISOString().slice(0, 10) <= end) {
+        const bucketStart = new Date(cursor);
+        const bucketEnd = new Date(cursor);
+        bucketEnd.setDate(bucketEnd.getDate() + 6);
+        buckets.push(buildStackedPeriodBucket(transactions, bucketStart, bucketEnd, `Week ${weekIndex}`, selectedTypes));
+        cursor.setDate(cursor.getDate() + 7);
+        weekIndex += 1;
+      }
+      return buckets;
+    }
+    if (uiState.reports.range === "thisQuarter") {
+      const now = new Date();
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      return Array.from({ length: 3 }, (_, offset) => {
+        const monthDate = new Date(now.getFullYear(), quarterStartMonth + offset, 1);
+        const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+        const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+        return buildStackedPeriodBucket(
+          transactions,
+          `${key}-01`,
+          `${key}-${String(endDate.getDate()).padStart(2, "0")}`,
+          monthDate.toLocaleDateString("en-US", { month: "short" }),
+          selectedTypes
+        );
+      });
+    }
+    if (uiState.reports.range === "all") {
+      const years = [...new Set(transactions.map((transaction) => String(transaction.date || "").slice(0, 4)).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true })
+      );
+      return years
+        .map((year) => buildStackedPeriodBucket(transactions, `${year}-01-01`, `${year}-12-31`, year, selectedTypes))
+        .filter((period) => period.segments.length);
+    }
+    if (uiState.reports.range === "thisYear") {
+      const now = new Date();
+      return Array.from({ length: 12 }, (_, monthIndex) => {
+        const monthDate = new Date(now.getFullYear(), monthIndex, 1);
+        const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+        const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+        return buildStackedPeriodBucket(
+          transactions,
+          `${key}-01`,
+          `${key}-${String(endDate.getDate()).padStart(2, "0")}`,
+          monthDate.toLocaleDateString("en-US", { month: "short" }),
+          selectedTypes
+        );
+      });
+    }
     return getTrailingMonths(12)
       .map((month) => {
         const start = `${month.key}-01`;
@@ -706,7 +759,7 @@ export function createReportsTools(api) {
         const end = `${month.key}-${String(endDate.getDate()).padStart(2, "0")}`;
         return buildStackedPeriodBucket(transactions, start, end, month.label, selectedTypes);
       })
-      .filter((period) => period.total > 0);
+      .filter((period) => period.segments.length);
   }
 
   function buildStackedPeriodBucket(transactions, start, end, label, selectedTypes) {
