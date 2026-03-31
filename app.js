@@ -391,6 +391,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("report-range").addEventListener("change", (event) => {
       uiState.reports.range = event.target.value;
       uiState.reports.anchorDate = todayIso();
+      syncReportRangeOptionLabels();
       syncReportRangeNavigator();
       renderReports();
     });
@@ -454,6 +455,50 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
+  function formatReportRangeDate(iso) {
+    return String(iso || "").replace(/-/g, "/");
+  }
+
+  function getReportRangeLabel(range, anchorIso = uiState.reports.anchorDate || todayIso()) {
+    const reference = new Date(`${anchorIso}T12:00:00`);
+    if (range === "thisMonth") {
+      return reference.toLocaleDateString("en-US", { month: "long" });
+    }
+    if (range === "last30") {
+      const { start, end } = getDateRange("last30", anchorIso);
+      return `${formatReportRangeDate(start)} - ${formatReportRangeDate(end)}`;
+    }
+    if (range === "thisQuarter") {
+      const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
+      const startMonth = new Date(reference.getFullYear(), quarterStartMonth, 1).toLocaleDateString("en-US", { month: "short" });
+      const endMonth = new Date(reference.getFullYear(), quarterStartMonth + 2, 1).toLocaleDateString("en-US", { month: "short" });
+      return `${startMonth} - ${endMonth}`;
+    }
+    if (range === "thisYear") {
+      return String(reference.getFullYear());
+    }
+    return "All Time";
+  }
+
+  function syncReportRangeOptionLabels() {
+    const reportRange = document.getElementById("report-range");
+    if (!reportRange) {
+      return;
+    }
+    [
+      ["thisMonth", getReportRangeLabel("thisMonth")],
+      ["last30", getReportRangeLabel("last30")],
+      ["thisQuarter", getReportRangeLabel("thisQuarter")],
+      ["thisYear", getReportRangeLabel("thisYear")],
+      ["all", "All Time"],
+    ].forEach(([value, label]) => {
+      const option = reportRange.querySelector(`option[value="${value}"]`);
+      if (option) {
+        option.textContent = label;
+      }
+    });
+  }
+
   function syncReportRangeNavigator() {
     const prevButton = document.getElementById("report-range-prev-button");
     const nextButton = document.getElementById("report-range-next-button");
@@ -508,6 +553,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     } else {
       uiState.reports.anchorDate = anchor.toISOString().slice(0, 10);
     }
+    syncReportRangeOptionLabels();
     syncReportRangeNavigator();
     renderReports();
   }
@@ -1021,6 +1067,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderCategories();
     renderReports();
     syncReportTypeButtons();
+    syncReportRangeOptionLabels();
     syncReportRangeNavigator();
     renderCalendarOverview();
     renderGlobalSearchResults();
@@ -1204,8 +1251,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
-  function getDateRange(range) {
-    const reference = range === "all" ? new Date() : new Date(`${uiState.reports.anchorDate || todayIso()}T12:00:00`);
+  function getDateRange(range, anchorOverride = "") {
+    const anchorIso = anchorOverride || uiState.reports.anchorDate || todayIso();
+    const reference = range === "all" ? new Date() : new Date(`${anchorIso}T12:00:00`);
     const now = new Date();
     const today = todayIso();
     if (range === "all") {

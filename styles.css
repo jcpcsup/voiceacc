@@ -2639,7 +2639,7 @@ textarea:focus {
 
   .reports-panel,
   .reports-panel.search-panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
     gap: 8px;
     padding: 14px;
   }
@@ -2659,7 +2659,19 @@ textarea:focus {
   .reports-panel select {
     min-height: 44px;
     padding: 0 10px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
+  }
+
+  .report-range-control {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    gap: 4px;
+  }
+
+  .report-range-nav {
+    width: 36px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 1rem;
   }
 
   .report-range-control {
