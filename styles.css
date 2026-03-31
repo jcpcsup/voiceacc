@@ -1583,6 +1583,27 @@ textarea:focus {
   gap: 8px;
 }
 
+.report-range-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.report-range-nav {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 14px;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.report-range-nav:disabled {
+  opacity: 0.42;
+  transform: none;
+}
+
 .report-type-chip,
 .report-chart-switcher-button {
   padding: 10px 12px;
@@ -1693,21 +1714,12 @@ textarea:focus {
 }
 
 .report-breakdown-account-button {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
+  display: block;
   align-items: center;
   border: 0;
   background: transparent;
   padding: 0;
   text-align: left;
-}
-
-.report-breakdown-account-label {
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
 }
 
 .report-breakdown-account-chip {
@@ -2548,6 +2560,17 @@ textarea:focus {
     min-height: 44px;
     padding: 0 10px;
     font-size: 0.82rem;
+  }
+
+  .report-range-control {
+    gap: 6px;
+  }
+
+  .report-range-nav {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 1.15rem;
   }
 
   .report-type-multi {

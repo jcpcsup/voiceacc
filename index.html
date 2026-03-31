@@ -269,13 +269,17 @@
             <div class="search-panel reports-panel">
               <div class="field-group">
                 <label class="field-label" for="report-range">Date Range</label>
-                <select id="report-range">
-                  <option value="thisMonth">This Month</option>
-                  <option value="last30">Last 30 Days</option>
-                  <option value="thisQuarter">This Quarter</option>
-                  <option value="thisYear">This Year</option>
-                  <option value="all">All Time</option>
-                </select>
+                <div class="report-range-control">
+                  <button class="ghost-button report-range-nav" type="button" id="report-range-prev-button" aria-label="Previous date range">&#8249;</button>
+                  <select id="report-range">
+                    <option value="thisMonth">This Month</option>
+                    <option value="last30">Last 30 Days</option>
+                    <option value="thisQuarter">This Quarter</option>
+                    <option value="thisYear">This Year</option>
+                    <option value="all">All Time</option>
+                  </select>
+                  <button class="ghost-button report-range-nav" type="button" id="report-range-next-button" aria-label="Next date range">&#8250;</button>
+                </div>
               </div>
               <div class="field-group">
                 <label class="field-label" for="report-account">Account</label>

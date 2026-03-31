@@ -617,8 +617,9 @@ export function createReportsTools(api) {
                             .map((account, accountIndex) => {
                               detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
                               return `
-                                <button class="report-breakdown-account-button" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}">
-                                  <span class="report-breakdown-account-label">${escapeHtml(account.label)}</span>
+                                <button class="report-breakdown-account-button" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}" aria-label="${escapeHtml(
+                                  `${account.label} ${formatMoney(account.value, dataset.symbol)}`
+                                )}">
                                   <span class="report-breakdown-bar-track report-breakdown-bar-track-sub">
                                     <span class="report-breakdown-bar-fill" style="width:${(account.value / maxValue) * 100}%; background:${escapeHtml(
                                       account.color

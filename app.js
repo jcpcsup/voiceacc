@@ -85,6 +85,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       account: "all",
       types: ["expense"],
       chartStyle: "donut",
+      anchorDate: new Date().toISOString().slice(0, 10),
     },
     toastTimer: null,
     recognition: null,
@@ -384,12 +385,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
     document.getElementById("report-range").addEventListener("change", (event) => {
       uiState.reports.range = event.target.value;
+      uiState.reports.anchorDate = todayIso();
+      syncReportRangeNavigator();
       renderReports();
     });
     document.getElementById("report-account").addEventListener("change", (event) => {
       uiState.reports.account = event.target.value;
       renderReports();
     });
+    document.getElementById("report-range-prev-button").addEventListener("click", () => shiftReportRange(-1));
+    document.getElementById("report-range-next-button").addEventListener("click", () => shiftReportRange(1));
     document.querySelectorAll("[data-report-type-value]").forEach((button) => {
       button.addEventListener("click", () => toggleReportType(button.dataset.reportTypeValue || ""));
     });
@@ -442,6 +447,64 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       button.classList.toggle("report-type-chip-active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
+  }
+
+  function syncReportRangeNavigator() {
+    const prevButton = document.getElementById("report-range-prev-button");
+    const nextButton = document.getElementById("report-range-next-button");
+    if (!prevButton || !nextButton) {
+      return;
+    }
+    const disabled = uiState.reports.range === "all";
+    prevButton.disabled = disabled;
+    nextButton.disabled = disabled || isReportRangeAtLatest();
+  }
+
+  function isReportRangeAtLatest() {
+    const range = uiState.reports.range;
+    const anchor = new Date(`${uiState.reports.anchorDate}T12:00:00`);
+    const now = new Date();
+    if (range === "last30") {
+      return anchor.toISOString().slice(0, 10) >= todayIso();
+    }
+    if (range === "thisMonth") {
+      return anchor.getFullYear() === now.getFullYear() && anchor.getMonth() === now.getMonth();
+    }
+    if (range === "thisQuarter") {
+      return (
+        anchor.getFullYear() === now.getFullYear() &&
+        Math.floor(anchor.getMonth() / 3) === Math.floor(now.getMonth() / 3)
+      );
+    }
+    if (range === "thisYear") {
+      return anchor.getFullYear() === now.getFullYear();
+    }
+    return true;
+  }
+
+  function shiftReportRange(direction) {
+    const range = uiState.reports.range;
+    if (range === "all") {
+      return;
+    }
+    const anchor = new Date(`${uiState.reports.anchorDate}T12:00:00`);
+    if (range === "last30") {
+      anchor.setDate(anchor.getDate() + direction * 30);
+    } else if (range === "thisMonth") {
+      anchor.setMonth(anchor.getMonth() + direction);
+    } else if (range === "thisQuarter") {
+      anchor.setMonth(anchor.getMonth() + direction * 3);
+    } else if (range === "thisYear") {
+      anchor.setFullYear(anchor.getFullYear() + direction);
+    }
+    const today = new Date(`${todayIso()}T12:00:00`);
+    if (anchor > today) {
+      uiState.reports.anchorDate = todayIso();
+    } else {
+      uiState.reports.anchorDate = anchor.toISOString().slice(0, 10);
+    }
+    syncReportRangeNavigator();
+    renderReports();
   }
 
   function toggleReportType(value) {
@@ -903,6 +966,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderCategories();
     renderReports();
     syncReportTypeButtons();
+    syncReportRangeNavigator();
     renderCalendarOverview();
     renderGlobalSearchResults();
     renderCloudStatus();
@@ -1086,31 +1150,42 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function getDateRange(range) {
+    const reference = range === "all" ? new Date() : new Date(`${uiState.reports.anchorDate || todayIso()}T12:00:00`);
     const now = new Date();
     const today = todayIso();
     if (range === "all") {
       return { start: "", end: "" };
     }
     if (range === "last30") {
-      return { start: shiftIsoDate(today, -29), end: today };
+      const end = reference > now ? today : reference.toISOString().slice(0, 10);
+      return { start: shiftIsoDate(end, -29), end };
     }
     if (range === "thisMonth") {
+      const endOfMonth = new Date(reference.getFullYear(), reference.getMonth() + 1, 0).toISOString().slice(0, 10);
       return {
-        start: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
-        end: today,
+        start: `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, "0")}-01`,
+        end:
+          reference.getFullYear() === now.getFullYear() && reference.getMonth() === now.getMonth()
+            ? today
+            : endOfMonth,
       };
     }
     if (range === "thisQuarter") {
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
+      const quarterEnd = new Date(reference.getFullYear(), quarterStartMonth + 3, 0).toISOString().slice(0, 10);
       return {
-        start: `${now.getFullYear()}-${String(quarterStartMonth + 1).padStart(2, "0")}-01`,
-        end: today,
+        start: `${reference.getFullYear()}-${String(quarterStartMonth + 1).padStart(2, "0")}-01`,
+        end:
+          reference.getFullYear() === now.getFullYear() && Math.floor(reference.getMonth() / 3) === Math.floor(now.getMonth() / 3)
+            ? today
+            : quarterEnd,
       };
     }
     if (range === "thisYear") {
+      const yearEnd = `${reference.getFullYear()}-12-31`;
       return {
-        start: `${now.getFullYear()}-01-01`,
-        end: today,
+        start: `${reference.getFullYear()}-01-01`,
+        end: reference.getFullYear() === now.getFullYear() ? today : yearEnd,
       };
     }
     return { start: "", end: "" };
