@@ -612,19 +612,20 @@ export function createReportsTools(api) {
                   </button>
                   ${
                     Array.isArray(segment.accounts) && segment.accounts.length
-                      ? `<div class="report-breakdown-bar-accounts">
+                      ? `<div class="report-breakdown-bar-accounts" role="group" aria-label="${escapeHtml(segment.label)} account breakdown">
                           ${segment.accounts
                             .map((account, accountIndex) => {
+                              const accountShare = segment.value > 0 ? (account.value / segment.value) * 100 : 0;
                               detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
                               return `
-                                <button class="report-breakdown-account-button" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}" aria-label="${escapeHtml(
-                                  `${account.label} ${formatMoney(account.value, dataset.symbol)}`
-                                )}">
-                                  <span class="report-breakdown-bar-track report-breakdown-bar-track-sub">
-                                    <span class="report-breakdown-bar-fill" style="width:${(account.value / maxValue) * 100}%; background:${escapeHtml(
-                                      account.color
-                                    )}"></span>
-                                  </span>
+                                <button
+                                  class="report-breakdown-account-button"
+                                  type="button"
+                                  data-action="open-report-segment"
+                                  data-index="account:${index}:${accountIndex}"
+                                  aria-label="${escapeHtml(`${account.label} ${formatMoney(account.value, dataset.symbol)} ${accountShare.toFixed(2)}%`)}"
+                                  style="width:${accountShare}%; background:${escapeHtml(account.color)}"
+                                >
                                 </button>
                               `;
                             })
