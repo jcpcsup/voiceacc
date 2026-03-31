@@ -1047,19 +1047,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("hero-account-strip").innerHTML = heroAccounts.length
       ? heroAccounts.map(renderHeroAccountPill).join("")
       : "";
-
-    const budgetsContainer = document.getElementById("overview-budgets");
-    const budgetItems = getBudgetStatus().slice(0, 4);
-    budgetsContainer.innerHTML = budgetItems.length
-      ? budgetItems.map(renderBudgetCard).join("")
-      : renderEmpty("No budgets configured yet. Add budget limits to categories.");
-
-    const recentTransactions = [...state.transactions]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5);
-    document.getElementById("overview-transactions").innerHTML = recentTransactions.length
-      ? recentTransactions.map(renderTransactionItem).join("")
-      : renderEmpty("No transactions yet. Use dictation or manual entry to create one.");
   }
 
   function renderTransactions() {
