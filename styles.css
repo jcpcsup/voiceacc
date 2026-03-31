@@ -1566,6 +1566,21 @@ textarea:focus {
   font-size: 1.85rem;
 }
 
+#report-metrics .metric-card {
+  min-width: 0;
+}
+
+#report-metrics .metric-card strong {
+  font-family: "Bahnschrift Condensed", "Arial Narrow", "Aptos Narrow", var(--font-display);
+  font-size: clamp(1.26rem, 1.7vw, 1.7rem);
+  letter-spacing: -0.075em;
+  line-height: 1;
+  white-space: nowrap;
+  font-stretch: condensed;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-wrap: nowrap;
+}
+
 .metric-card .inline-sparkline {
   margin-top: 10px;
 }
