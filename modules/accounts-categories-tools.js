@@ -536,10 +536,6 @@ export function createAccountsCategoriesTools(api) {
             <div class="category-subs">
               ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
             </div>
-            <div class="category-chart-row">
-              ${renderMiniTrendChart(monthSeries, category.color || "#19c6a7", "Monthly Activity", formatMoney(monthSeries[monthSeries.length - 1]?.value || 0, baseSymbol))}
-              ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
-            </div>
           </div>
           <div class="category-side">
             <div class="category-meta-row">
@@ -555,6 +551,10 @@ export function createAccountsCategoriesTools(api) {
               <button class="secondary-button" type="button" data-action="delete-category" data-id="${escapeHtml(category.id)}">Delete</button>
             </div>
           </div>
+        </div>
+        <div class="category-chart-row">
+          ${renderMiniTrendChart(monthSeries, category.color || "#19c6a7", "Monthly Activity", formatMoney(monthSeries[monthSeries.length - 1]?.value || 0, baseSymbol))}
+          ${renderMiniTrendChart(categorySeries, category.color || "#19c6a7", "12M Activity", formatMoney(categorySeries[categorySeries.length - 1]?.value || 0, baseSymbol))}
         </div>
       </article>
     `;
