@@ -82,7 +82,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     reports: {
       range: "thisMonth",
       account: "all",
-      type: "all",
+      types: ["expense"],
+      chartStyle: "pie",
     },
     toastTimer: null,
     recognition: null,
@@ -130,6 +131,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   let getBudgetStatus = () => [];
   let renderReports = () => {};
+  let getReportChartSegmentDetail = () => null;
 
   const {
     getAccountBalance,
@@ -188,7 +190,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderTransactions,
   });
 
-  ({ renderReports, getBudgetStatus } = createReportsTools({
+  ({ renderReports, getBudgetStatus, getReportChartSegmentDetail } = createReportsTools({
     state,
     uiState,
     iconRegistry,
@@ -387,9 +389,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       uiState.reports.account = event.target.value;
       renderReports();
     });
-    document.getElementById("report-type").addEventListener("change", (event) => {
-      uiState.reports.type = event.target.value;
-      renderReports();
+    document.querySelectorAll("[data-report-type-value]").forEach((button) => {
+      button.addEventListener("click", () => toggleReportType(button.dataset.reportTypeValue || ""));
     });
 
     document.getElementById("calendar-prev-button").addEventListener("click", () => shiftCalendarMonth(-1));
@@ -431,6 +432,55 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function handleDownloadImportTemplate() {
     exportImportTemplate(document.getElementById("import-target").value || "transactions");
+  }
+
+  function syncReportTypeButtons() {
+    document.querySelectorAll("[data-report-type-value]").forEach((button) => {
+      const value = button.dataset.reportTypeValue || "";
+      const active = uiState.reports.types.includes(value);
+      button.classList.toggle("report-type-chip-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  function toggleReportType(value) {
+    if (!value) {
+      return;
+    }
+    const current = new Set(uiState.reports.types || []);
+    if (current.has(value)) {
+      if (current.size === 1) {
+        return;
+      }
+      current.delete(value);
+    } else {
+      current.add(value);
+    }
+    uiState.reports.types = ["expense", "income", "transfer"].filter((type) => current.has(type));
+    syncReportTypeButtons();
+    renderReports();
+  }
+
+  function openReportDetailModal(detail) {
+    if (!detail) {
+      return;
+    }
+    document.getElementById("report-detail-eyebrow").textContent = detail.eyebrow || "Chart Detail";
+    document.getElementById("report-detail-title").textContent = detail.label || "Segment";
+    document.getElementById("report-detail-value").textContent = detail.value || "";
+    document.getElementById("report-detail-percent").textContent = detail.percent || "";
+    document.getElementById("report-detail-swatch").style.background = detail.color || "#19c6a7";
+    document.getElementById("report-detail-meta").innerHTML = (detail.meta || [])
+      .map(
+        (item) => `
+          <div class="report-detail-meta-row">
+            <span>${escapeHtml(item.label || "")}</span>
+            <strong>${escapeHtml(item.value || "")}</strong>
+          </div>
+        `
+      )
+      .join("");
+    openModal("report-detail-modal");
   }
 
   function isSwipeNavigationAllowed(target) {
@@ -510,7 +560,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (currentIndex === -1) {
       return;
     }
-    const nextIndex = deltaX > 0 ? currentIndex + 1 : currentIndex - 1;
+    const nextIndex = deltaX > 0 ? currentIndex - 1 : currentIndex + 1;
     const nextScreen = SCREEN_ORDER[nextIndex];
     if (nextScreen) {
       switchScreen(nextScreen);
@@ -768,6 +818,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (action === "open-search-result") {
       openGlobalSearchResult(actionTarget.dataset.kind, id, actionTarget.dataset.query || "");
     }
+    if (action === "set-report-chart-style") {
+      uiState.reports.chartStyle = actionTarget.dataset.style || "pie";
+      renderReports();
+      return;
+    }
+    if (action === "open-report-segment") {
+      openReportDetailModal(getReportChartSegmentDetail(Number(actionTarget.dataset.index || -1)));
+    }
   }
 
   function setAuthView(mode) {
@@ -809,6 +867,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderAccounts();
     renderCategories();
     renderReports();
+    syncReportTypeButtons();
     renderCalendarOverview();
     renderGlobalSearchResults();
     renderCloudStatus();

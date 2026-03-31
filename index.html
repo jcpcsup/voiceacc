@@ -282,13 +282,12 @@
                 <select id="report-account"></select>
               </div>
               <div class="field-group">
-                <label class="field-label" for="report-type">Type</label>
-                <select id="report-type">
-                  <option value="all">All</option>
-                  <option value="expense">Expense</option>
-                  <option value="income">Income</option>
-                  <option value="transfer">Transfer</option>
-                </select>
+                <label class="field-label" for="report-type-multi">Type</label>
+                <div class="report-type-multi" id="report-type-multi" aria-label="Transaction type filters">
+                  <button class="report-type-chip report-type-chip-active" type="button" data-report-type-value="expense">Expense</button>
+                  <button class="report-type-chip" type="button" data-report-type-value="income">Income</button>
+                  <button class="report-type-chip" type="button" data-report-type-value="transfer">Transfer</button>
+                </div>
               </div>
             </div>
 
@@ -753,6 +752,29 @@
           <button class="ghost-button" type="button" data-close-modal="confirm-modal">Cancel</button>
           <button class="primary-button danger-button" type="button" id="confirm-modal-submit">Delete</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="report-detail-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="report-detail-modal"></div>
+      <div class="modal-card modal-card-compact">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="report-detail-eyebrow">Chart Detail</p>
+            <h2 id="report-detail-title">Segment</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="report-detail-modal" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div class="report-detail-card">
+          <div class="report-detail-swatch" id="report-detail-swatch"></div>
+          <div class="report-detail-values">
+            <strong id="report-detail-value">৳ 0.00</strong>
+            <span id="report-detail-percent">0%</span>
+          </div>
+        </div>
+        <div class="report-detail-meta" id="report-detail-meta"></div>
       </div>
     </div>
 

@@ -1544,12 +1544,41 @@ textarea:focus {
   margin-top: 12px;
 }
 
+.report-type-multi,
+.report-chart-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-type-chip,
+.report-chart-switcher-button {
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 47, 61, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.report-type-chip-active,
+.report-chart-switcher-button-active {
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.16), rgba(0, 166, 199, 0.14));
+  border-color: rgba(18, 200, 164, 0.2);
+  color: var(--accent-strong);
+}
+
+.report-chart-switcher {
+  margin-top: 12px;
+}
+
 .report-pie-visual-wrap {
   display: flex;
   justify-content: center;
 }
 
-.report-pie-visual {
+.report-pie-visual,
+.report-breakdown-visual {
   position: relative;
   width: min(100%, 260px);
   aspect-ratio: 1;
@@ -1557,13 +1586,80 @@ textarea:focus {
   box-shadow: inset 0 2px 18px rgba(255, 255, 255, 0.36), 0 18px 36px rgba(14, 87, 99, 0.14);
 }
 
-.report-pie-visual::after {
+.report-pie-visual::after,
+.report-breakdown-visual-donut::after,
+.report-breakdown-visual-polar::after {
   content: "";
   position: absolute;
   inset: 18%;
   border-radius: 50%;
   background: rgba(248, 254, 255, 0.96);
   box-shadow: inset 0 0 0 1px rgba(13, 47, 61, 0.05);
+}
+
+.report-breakdown-visual-pie::after {
+  display: none;
+}
+
+.report-chart-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.report-chart-slice {
+  cursor: pointer;
+  transform-origin: 110px 110px;
+  transition: transform 140ms ease, opacity 140ms ease, filter 140ms ease;
+}
+
+.report-chart-slice:hover,
+.report-chart-slice:focus-visible {
+  transform: scale(1.02);
+  filter: brightness(1.04);
+}
+
+.report-legend-button {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.report-breakdown-bars {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 300px);
+}
+
+.report-breakdown-bar-button {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  text-align: left;
+}
+
+.report-breakdown-bar-label {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.report-breakdown-bar-track {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(18, 59, 70, 0.08);
+  overflow: hidden;
+}
+
+.report-breakdown-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
 }
 
 .report-pie-center {
@@ -1630,6 +1726,55 @@ textarea:focus {
   height: 12px;
   border-radius: 999px;
   flex: 0 0 auto;
+}
+
+.report-detail-card {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(13, 47, 61, 0.08);
+}
+
+.report-detail-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+}
+
+.report-detail-values {
+  display: grid;
+  gap: 4px;
+}
+
+.report-detail-values strong {
+  font-size: 1.2rem;
+}
+
+.report-detail-values span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.report-detail-meta {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.report-detail-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(13, 47, 61, 0.07);
 }
 
 .ranking-list {
@@ -2228,6 +2373,17 @@ textarea:focus {
     font-size: 0.82rem;
   }
 
+  .report-type-multi {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .report-type-chip,
+  .report-chart-switcher-button {
+    padding: 9px 10px;
+    font-size: 0.78rem;
+  }
+
   .report-pie-panel {
     margin-top: 12px;
     padding: 16px 14px;
@@ -2250,7 +2406,8 @@ textarea:focus {
     gap: 14px;
   }
 
-  .report-pie-visual {
+  .report-pie-visual,
+  .report-breakdown-visual {
     width: min(100%, 210px);
   }
 

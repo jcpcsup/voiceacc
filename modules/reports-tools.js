@@ -18,6 +18,7 @@ export function createReportsTools(api) {
     renderBudgetCard,
     insightCard,
   } = api;
+  let lastBreakdownDataset = null;
 
   function renderReports() {
     const transactions = getReportTransactions();
@@ -49,7 +50,7 @@ export function createReportsTools(api) {
     ].join("");
 
     const budgetStatus = getBudgetStatus(transactions);
-    document.getElementById("report-pie").innerHTML = renderReportPieChart(transactions);
+    document.getElementById("report-pie").innerHTML = renderReportBreakdown(transactions);
     document.getElementById("report-ranking").innerHTML = renderCategoryRanking(transactions);
     document.getElementById("timeline-chart").innerHTML = renderTimeline(transactions);
     document.getElementById("category-report").innerHTML = renderCategoryBreakdown(transactions);
@@ -87,8 +88,9 @@ export function createReportsTools(api) {
 
   function getReportTransactions() {
     const { start, end } = getDateRange(uiState.reports.range);
+    const selectedTypes = getSelectedReportTypes();
     return state.transactions.filter((transaction) => {
-      if (uiState.reports.type !== "all" && transaction.type !== uiState.reports.type) {
+      if (!selectedTypes.includes(transaction.type)) {
         return false;
       }
       if (
@@ -105,6 +107,11 @@ export function createReportsTools(api) {
       }
       return true;
     });
+  }
+
+  function getSelectedReportTypes() {
+    const selected = Array.isArray(uiState.reports.types) && uiState.reports.types.length ? uiState.reports.types : ["expense"];
+    return ["expense", "income", "transfer"].filter((type) => selected.includes(type));
   }
 
   function buildMonthlySeries(transactions, resolver, count = 12) {
@@ -302,10 +309,10 @@ export function createReportsTools(api) {
       .join("");
   }
 
-  function getReportPieDataset(transactions) {
+  function getReportBreakdownDataset(transactions) {
     const symbol = getPrimaryCurrencySymbol();
-    const reportType = uiState.reports.type || "all";
-    if (reportType === "transfer") {
+    const selectedTypes = getSelectedReportTypes();
+    if (selectedTypes.length === 1 && selectedTypes[0] === "transfer") {
       const transferMap = new Map();
       transactions
         .filter((transaction) => transaction.type === "transfer")
@@ -317,15 +324,18 @@ export function createReportsTools(api) {
             label: `${from} -> ${to}`,
             value: 0,
             color: "#2f86ff",
+            count: 0,
           };
           current.value += Number(transaction.amount || 0);
+          current.count += 1;
           transferMap.set(key, current);
         });
       return buildPieDataset([...transferMap.values()], "Transfer Routes", "Selected transfers", symbol);
     }
 
-    if (reportType === "income" || reportType === "expense") {
+    if (selectedTypes.length === 1 && (selectedTypes[0] === "income" || selectedTypes[0] === "expense")) {
       const categoryMap = new Map();
+      const reportType = selectedTypes[0];
       const fallbackColor = reportType === "income" ? "#1ca866" : "#d35a5a";
       transactions
         .filter((transaction) => transaction.type === reportType)
@@ -336,8 +346,10 @@ export function createReportsTools(api) {
             label: category?.name || "Uncategorized",
             value: 0,
             color: category?.color || fallbackColor,
+            count: 0,
           };
           current.value += Number(transaction.amount || 0);
+          current.count += 1;
           categoryMap.set(key, current);
         });
       return buildPieDataset(
@@ -348,17 +360,22 @@ export function createReportsTools(api) {
       );
     }
 
-    const typeSegments = [
-      { label: "Income", value: sumAmounts(transactions.filter((transaction) => transaction.type === "income")), color: "#1ca866" },
-      { label: "Expenses", value: sumAmounts(transactions.filter((transaction) => transaction.type === "expense")), color: "#d35a5a" },
-      { label: "Transfers", value: sumAmounts(transactions.filter((transaction) => transaction.type === "transfer")), color: "#2f86ff" },
-    ].filter((segment) => segment.value > 0);
+    const typeSegments = selectedTypes
+      .map((type) => ({
+        label: titleCase(type === "expense" ? "expenses" : type),
+        value: sumAmounts(transactions.filter((transaction) => transaction.type === type)),
+        count: transactions.filter((transaction) => transaction.type === type).length,
+        color: type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff",
+      }))
+      .filter((segment) => segment.value > 0);
 
     return buildPieDataset(typeSegments, "Type Mix", "Selected report totals", symbol);
   }
 
-  function renderReportPieChart(transactions) {
-    const dataset = getReportPieDataset(transactions);
+  function renderReportBreakdown(transactions) {
+    const dataset = getReportBreakdownDataset(transactions);
+    lastBreakdownDataset = dataset;
+    const chartStyle = uiState.reports.chartStyle || "pie";
     if (!dataset.segments.length || dataset.total <= 0) {
       return `
         <div class="section-heading compact">
@@ -367,19 +384,10 @@ export function createReportsTools(api) {
             <h3>Filtered Breakdown</h3>
           </div>
         </div>
+        ${renderBreakdownSwitcher(chartStyle)}
         ${renderEmpty("No filtered values available for a pie chart yet.")}
       `;
     }
-
-    let current = 0;
-    const gradientStops = dataset.segments
-      .map((segment) => {
-        const start = (current / dataset.total) * 100;
-        current += segment.value;
-        const end = (current / dataset.total) * 100;
-        return `${segment.color} ${start}% ${end}%`;
-      })
-      .join(", ");
 
     return `
       <div class="section-heading compact">
@@ -389,20 +397,14 @@ export function createReportsTools(api) {
         </div>
         <span class="meta-pill neutral">${escapeHtml(dataset.subtitle)}</span>
       </div>
+      ${renderBreakdownSwitcher(chartStyle)}
       <div class="report-pie-layout">
-        <div class="report-pie-visual-wrap">
-          <div class="report-pie-visual" style="background: conic-gradient(${gradientStops});">
-            <div class="report-pie-center">
-              <span>${escapeHtml(dataset.title)}</span>
-              <strong>${formatMoney(dataset.total, dataset.symbol)}</strong>
-            </div>
-          </div>
-        </div>
+        ${renderBreakdownVisual(dataset, chartStyle)}
         <div class="report-pie-legend">
           ${dataset.segments
             .map(
-              (segment) => `
-                <div class="report-pie-legend-item">
+              (segment, index) => `
+                <button class="report-pie-legend-item report-legend-button" type="button" data-action="open-report-segment" data-index="${index}">
                   <div class="report-pie-legend-main">
                     <span class="report-pie-swatch" style="background:${escapeHtml(segment.color)}"></span>
                     <strong>${escapeHtml(segment.label)}</strong>
@@ -411,7 +413,126 @@ export function createReportsTools(api) {
                     <span>${formatMoney(segment.value, dataset.symbol)}</span>
                     <span>${segment.percent}%</span>
                   </div>
-                </div>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBreakdownSwitcher(activeStyle) {
+    const options = [
+      { value: "pie", label: "Pie" },
+      { value: "donut", label: "Donut" },
+      { value: "polar", label: "Polar" },
+      { value: "bars", label: "Bars" },
+    ];
+    return `
+      <div class="report-chart-switcher">
+        ${options
+          .map(
+            (option) => `
+              <button
+                class="report-chart-switcher-button ${activeStyle === option.value ? "report-chart-switcher-button-active" : ""}"
+                type="button"
+                data-action="set-report-chart-style"
+                data-style="${option.value}"
+              >
+                ${escapeHtml(option.label)}
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderBreakdownVisual(dataset, chartStyle) {
+    if (chartStyle === "bars") {
+      return renderBreakdownBars(dataset);
+    }
+    if (chartStyle === "polar") {
+      return renderBreakdownPolar(dataset);
+    }
+    return renderBreakdownCircular(dataset, chartStyle === "donut");
+  }
+
+  function renderBreakdownCircular(dataset, isDonut) {
+    let currentAngle = -90;
+    const outerRadius = 100;
+    const innerRadius = isDonut ? 46 : 0;
+    const segmentsMarkup = dataset.segments
+      .map((segment, index) => {
+        const sliceAngle = (segment.value / dataset.total) * 360;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + sliceAngle;
+        currentAngle = endAngle;
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, outerRadius, startAngle, endAngle, innerRadius)}" fill="${escapeHtml(
+          segment.color
+        )}" data-action="open-report-segment" data-index="${index}"></path>`;
+      })
+      .join("");
+    return `
+      <div class="report-pie-visual-wrap">
+        <div class="report-breakdown-visual ${isDonut ? "report-breakdown-visual-donut" : "report-breakdown-visual-pie"}">
+          <svg class="report-chart-svg" viewBox="0 0 220 220" aria-label="${escapeHtml(dataset.title)}">
+            ${segmentsMarkup}
+          </svg>
+          <div class="report-pie-center">
+            <span>${escapeHtml(dataset.title)}</span>
+            <strong>${formatMoney(dataset.total, dataset.symbol)}</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBreakdownPolar(dataset) {
+    const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
+    const angleStep = 360 / dataset.segments.length;
+    const markup = dataset.segments
+      .map((segment, index) => {
+        const startAngle = -90 + index * angleStep;
+        const endAngle = startAngle + angleStep - 4;
+        const radius = 42 + (segment.value / maxValue) * 58;
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, radius, startAngle, endAngle, 28)}" fill="${escapeHtml(
+          segment.color
+        )}" data-action="open-report-segment" data-index="${index}"></path>`;
+      })
+      .join("");
+    return `
+      <div class="report-pie-visual-wrap">
+        <div class="report-breakdown-visual report-breakdown-visual-polar">
+          <svg class="report-chart-svg" viewBox="0 0 220 220" aria-label="${escapeHtml(dataset.title)}">
+            ${markup}
+          </svg>
+          <div class="report-pie-center">
+            <span>${escapeHtml(dataset.title)}</span>
+            <strong>${formatMoney(dataset.total, dataset.symbol)}</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBreakdownBars(dataset) {
+    const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
+    return `
+      <div class="report-pie-visual-wrap">
+        <div class="report-breakdown-bars">
+          ${dataset.segments
+            .map(
+              (segment, index) => `
+                <button class="report-breakdown-bar-button" type="button" data-action="open-report-segment" data-index="${index}">
+                  <span class="report-breakdown-bar-label">${escapeHtml(segment.label)}</span>
+                  <span class="report-breakdown-bar-track">
+                    <span class="report-breakdown-bar-fill" style="width:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
+                      segment.color
+                    )}"></span>
+                  </span>
+                </button>
               `
             )
             .join("")}
@@ -474,8 +595,8 @@ export function createReportsTools(api) {
   }
 
   function renderCategoryRanking(transactions) {
-    const reportType = uiState.reports.type || "all";
-    if (reportType === "transfer") {
+    const selectedTypes = getSelectedReportTypes();
+    if (selectedTypes.length === 1 && selectedTypes[0] === "transfer") {
       return `
         <div class="section-heading compact">
           <div>
@@ -488,7 +609,7 @@ export function createReportsTools(api) {
       `;
     }
 
-    const targetType = reportType === "income" ? "income" : "expense";
+    const targetType = selectedTypes.includes("expense") ? "expense" : "income";
     const rows = getCategoryRankingRows(transactions, targetType);
     if (!rows.length) {
       return `
@@ -529,13 +650,16 @@ export function createReportsTools(api) {
       label: row.label,
       value: Number(row.value || 0),
       color: row.color || "#00a6c7",
+      count: Number(row.count || 0),
     }));
     const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
+    const remainderCount = cleaned.slice(5).reduce((sum, row) => sum + Number(row.count || 0), 0);
     if (remainder > 0) {
       topRows.push({
         label: "Others",
         value: remainder,
         color: "#8aa8b3",
+        count: remainderCount,
       });
     }
 
@@ -549,6 +673,57 @@ export function createReportsTools(api) {
         ...row,
         percent: Math.max(1, Math.round((row.value / total) * 100)),
       })),
+    };
+  }
+
+  function buildArcPath(cx, cy, outerRadius, startAngle, endAngle, innerRadius = 0) {
+    const startOuter = polarToCartesian(cx, cy, outerRadius, endAngle);
+    const endOuter = polarToCartesian(cx, cy, outerRadius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    if (!innerRadius) {
+      return [
+        `M ${cx} ${cy}`,
+        `L ${startOuter.x} ${startOuter.y}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${endOuter.x} ${endOuter.y}`,
+        "Z",
+      ].join(" ");
+    }
+    const startInner = polarToCartesian(cx, cy, innerRadius, startAngle);
+    const endInner = polarToCartesian(cx, cy, innerRadius, endAngle);
+    return [
+      `M ${startOuter.x} ${startOuter.y}`,
+      `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${endOuter.x} ${endOuter.y}`,
+      `L ${startInner.x} ${startInner.y}`,
+      `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${endInner.x} ${endInner.y}`,
+      "Z",
+    ].join(" ");
+  }
+
+  function polarToCartesian(cx, cy, radius, angleInDegrees) {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+    return {
+      x: cx + radius * Math.cos(angleInRadians),
+      y: cy + radius * Math.sin(angleInRadians),
+    };
+  }
+
+  function getReportChartSegmentDetail(index) {
+    const dataset = lastBreakdownDataset;
+    const segment = dataset?.segments?.[index];
+    if (!segment || !dataset) {
+      return null;
+    }
+    return {
+      eyebrow: dataset.title,
+      label: segment.label,
+      color: segment.color,
+      value: formatMoney(segment.value, dataset.symbol),
+      percent: `${segment.percent}% share`,
+      meta: [
+        { label: "Chart", value: uiState.reports.chartStyle || "pie" },
+        { label: "Entries", value: String(segment.count || 0) },
+        { label: "Scope", value: dataset.subtitle },
+      ],
     };
   }
 
@@ -718,5 +893,6 @@ export function createReportsTools(api) {
   return {
     renderReports,
     getBudgetStatus,
+    getReportChartSegmentDetail,
   };
 }
