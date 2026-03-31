@@ -347,13 +347,28 @@ export function createReportsTools(api) {
             value: 0,
             color: category?.color || fallbackColor,
             count: 0,
+            accounts: new Map(),
           };
           current.value += Number(transaction.amount || 0);
           current.count += 1;
+          const account = getAccount(transaction.accountId);
+          const accountKey = transaction.accountId || account?.name || "unknown-account";
+          const accountCurrent = current.accounts.get(accountKey) || {
+            label: account?.name || "Unknown Account",
+            value: 0,
+            color: account?.color || "#5f7380",
+            count: 0,
+          };
+          accountCurrent.value += Number(transaction.amount || 0);
+          accountCurrent.count += 1;
+          current.accounts.set(accountKey, accountCurrent);
           categoryMap.set(key, current);
         });
       return buildPieDataset(
-        [...categoryMap.values()],
+        [...categoryMap.values()].map((row) => ({
+          ...row,
+          accounts: [...row.accounts.values()].sort((a, b) => b.value - a.value),
+        })),
         reportType === "income" ? "Income Mix" : "Expense Mix",
         reportType === "income" ? "Selected income categories" : "Selected expense categories",
         symbol
@@ -374,8 +389,7 @@ export function createReportsTools(api) {
 
   function renderReportBreakdown(transactions) {
     const dataset = getReportBreakdownDataset(transactions);
-    lastBreakdownDataset = dataset;
-    const chartStyle = uiState.reports.chartStyle || "pie";
+    const chartStyle = uiState.reports.chartStyle || "donut";
     if (!dataset.segments.length || dataset.total <= 0) {
       return `
         <div class="section-heading compact">
@@ -385,7 +399,7 @@ export function createReportsTools(api) {
           </div>
         </div>
         ${renderBreakdownSwitcher(chartStyle)}
-        ${renderEmpty("No filtered values available for a pie chart yet.")}
+        ${renderEmpty("No filtered values available for this chart yet.")}
       `;
     }
 
@@ -399,12 +413,12 @@ export function createReportsTools(api) {
       </div>
       ${renderBreakdownSwitcher(chartStyle)}
       <div class="report-pie-layout">
-        ${renderBreakdownVisual(dataset, chartStyle)}
+        ${renderBreakdownVisual(dataset, chartStyle, transactions)}
         <div class="report-pie-legend">
           ${dataset.segments
             .map(
               (segment, index) => `
-                <button class="report-pie-legend-item report-legend-button" type="button" data-action="open-report-segment" data-index="${index}">
+                <button class="report-pie-legend-item report-legend-button" type="button" data-action="open-report-segment" data-index="segment:${index}">
                   <div class="report-pie-legend-main">
                     <span class="report-pie-swatch" style="background:${escapeHtml(segment.color)}"></span>
                     <strong>${escapeHtml(segment.label)}</strong>
@@ -424,10 +438,10 @@ export function createReportsTools(api) {
 
   function renderBreakdownSwitcher(activeStyle) {
     const options = [
-      { value: "pie", label: "Pie" },
       { value: "donut", label: "Donut" },
-      { value: "polar", label: "Polar" },
-      { value: "bars", label: "Bars" },
+      { value: "bars", label: "Bar" },
+      { value: "column", label: "Column" },
+      { value: "stacked", label: "Stacked Bar" },
     ];
     return `
       <div class="report-chart-switcher">
@@ -449,36 +463,71 @@ export function createReportsTools(api) {
     `;
   }
 
-  function renderBreakdownVisual(dataset, chartStyle) {
+  function renderBreakdownVisual(dataset, chartStyle, transactions) {
+    const detailMap = new Map();
+    lastBreakdownDataset = { dataset, detailMap };
     if (chartStyle === "bars") {
-      return renderBreakdownBars(dataset);
+      return renderBreakdownBars(dataset, detailMap);
     }
-    if (chartStyle === "polar") {
-      return renderBreakdownPolar(dataset);
+    if (chartStyle === "column") {
+      return renderBreakdownColumns(dataset, detailMap);
     }
-    return renderBreakdownCircular(dataset, chartStyle === "donut");
+    if (chartStyle === "stacked") {
+      return renderBreakdownStacked(transactions, detailMap);
+    }
+    return renderBreakdownDonut(dataset, detailMap);
   }
 
-  function renderBreakdownCircular(dataset, isDonut) {
+  function renderBreakdownDonut(dataset, detailMap) {
     let currentAngle = -90;
-    const outerRadius = 100;
-    const innerRadius = isDonut ? 46 : 0;
-    const segmentsMarkup = dataset.segments
+    const innerSegments = dataset.segments
       .map((segment, index) => {
         const sliceAngle = (segment.value / dataset.total) * 360;
         const startAngle = currentAngle;
         const endAngle = currentAngle + sliceAngle;
+        detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
         currentAngle = endAngle;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, outerRadius, startAngle, endAngle, innerRadius)}" fill="${escapeHtml(
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 78, startAngle, endAngle, 44)}" fill="${escapeHtml(
           segment.color
-        )}" data-action="open-report-segment" data-index="${index}"></path>`;
+        )}" data-action="open-report-segment" data-index="segment:${index}"></path>`;
+      })
+      .join("");
+    currentAngle = -90;
+    const outerSegments = dataset.segments
+      .map((segment, segmentIndex) => {
+        const sliceAngle = (segment.value / dataset.total) * 360;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + sliceAngle;
+        currentAngle = endAngle;
+        if (!Array.isArray(segment.accounts) || !segment.accounts.length) {
+          return "";
+        }
+        let childAngle = startAngle;
+        return segment.accounts
+          .map((account, accountIndex) => {
+            const accountAngle = (account.value / segment.value) * sliceAngle;
+            const accountStart = childAngle;
+            const accountEnd = childAngle + accountAngle;
+            childAngle = accountEnd;
+            detailMap.set(`account:${segmentIndex}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
+            return `<path class="report-chart-slice report-chart-slice-secondary" d="${buildArcPath(
+              110,
+              110,
+              100,
+              accountStart,
+              accountEnd,
+              82
+            )}" fill="${escapeHtml(account.color)}" data-action="open-report-segment" data-index="account:${segmentIndex}:${accountIndex}"></path>`;
+          })
+          .join("");
       })
       .join("");
     return `
       <div class="report-pie-visual-wrap">
-        <div class="report-breakdown-visual ${isDonut ? "report-breakdown-visual-donut" : "report-breakdown-visual-pie"}">
+        <div class="report-breakdown-visual report-breakdown-visual-donut">
           <svg class="report-chart-svg" viewBox="0 0 220 220" aria-label="${escapeHtml(dataset.title)}">
-            ${segmentsMarkup}
+            ${innerSegments}
+            ${outerSegments}
           </svg>
           <div class="report-pie-center">
             <span>${escapeHtml(dataset.title)}</span>
@@ -489,56 +538,239 @@ export function createReportsTools(api) {
     `;
   }
 
-  function renderBreakdownPolar(dataset) {
-    const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
-    const angleStep = 360 / dataset.segments.length;
-    const markup = dataset.segments
-      .map((segment, index) => {
-        const startAngle = -90 + index * angleStep;
-        const endAngle = startAngle + angleStep - 4;
-        const radius = 42 + (segment.value / maxValue) * 58;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, radius, startAngle, endAngle, 28)}" fill="${escapeHtml(
-          segment.color
-        )}" data-action="open-report-segment" data-index="${index}"></path>`;
-      })
-      .join("");
-    return `
-      <div class="report-pie-visual-wrap">
-        <div class="report-breakdown-visual report-breakdown-visual-polar">
-          <svg class="report-chart-svg" viewBox="0 0 220 220" aria-label="${escapeHtml(dataset.title)}">
-            ${markup}
-          </svg>
-          <div class="report-pie-center">
-            <span>${escapeHtml(dataset.title)}</span>
-            <strong>${formatMoney(dataset.total, dataset.symbol)}</strong>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderBreakdownBars(dataset) {
+  function renderBreakdownBars(dataset, detailMap) {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
     return `
       <div class="report-pie-visual-wrap">
         <div class="report-breakdown-bars">
           ${dataset.segments
+            .map((segment, index) => {
+              detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
+              return `
+                <div class="report-breakdown-bar-group">
+                  <button class="report-breakdown-bar-button" type="button" data-action="open-report-segment" data-index="segment:${index}">
+                    <span class="report-breakdown-bar-label">${escapeHtml(segment.label)}</span>
+                    <span class="report-breakdown-bar-track">
+                      <span class="report-breakdown-bar-fill" style="width:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
+                        segment.color
+                      )}"></span>
+                    </span>
+                  </button>
+                  ${
+                    Array.isArray(segment.accounts) && segment.accounts.length
+                      ? `<div class="report-breakdown-bar-accounts">
+                          ${segment.accounts
+                            .map((account, accountIndex) => {
+                              detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
+                              return `
+                                <button class="report-breakdown-account-button" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}">
+                                  <span class="report-breakdown-account-chip" style="background:${escapeHtml(account.color)}">${escapeHtml(account.label)}</span>
+                                  <span class="report-breakdown-bar-track report-breakdown-bar-track-sub">
+                                    <span class="report-breakdown-bar-fill" style="width:${(account.value / maxValue) * 100}%; background:${escapeHtml(
+                                      account.color
+                                    )}"></span>
+                                  </span>
+                                </button>
+                              `;
+                            })
+                            .join("")}
+                        </div>`
+                      : ""
+                  }
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBreakdownColumns(dataset, detailMap) {
+    const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
+    return `
+      <div class="report-pie-visual-wrap">
+        <div class="report-breakdown-columns">
+          ${dataset.segments
+            .map((segment, index) => {
+              detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
+              return `
+                <div class="report-breakdown-column-group">
+                  <div class="report-breakdown-column-cluster">
+                    <button class="report-breakdown-column-button" type="button" data-action="open-report-segment" data-index="segment:${index}">
+                      <span class="report-breakdown-column-fill" style="height:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
+                        segment.color
+                      )}"></span>
+                    </button>
+                    ${
+                      Array.isArray(segment.accounts) && segment.accounts.length
+                        ? segment.accounts
+                            .map((account, accountIndex) => {
+                              detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
+                              return `
+                                <button class="report-breakdown-column-button report-breakdown-column-button-sub" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}">
+                                  <span class="report-breakdown-column-fill" style="height:${(account.value / maxValue) * 100}%; background:${escapeHtml(
+                                    account.color
+                                  )}"></span>
+                                </button>
+                              `;
+                            })
+                            .join("")
+                        : ""
+                    }
+                  </div>
+                  <span class="report-breakdown-column-label">${escapeHtml(segment.label)}</span>
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBreakdownStacked(transactions, detailMap) {
+    const periods = buildStackedPeriods(transactions);
+    if (!periods.length) {
+      return `<div class="report-pie-visual-wrap">${renderEmpty("No stacked data is available for this filtered range yet.")}</div>`;
+    }
+    const maxTotal = Math.max(...periods.map((period) => period.total), 1);
+    return `
+      <div class="report-pie-visual-wrap">
+        <div class="report-stacked-breakdown">
+          ${periods
             .map(
-              (segment, index) => `
-                <button class="report-breakdown-bar-button" type="button" data-action="open-report-segment" data-index="${index}">
-                  <span class="report-breakdown-bar-label">${escapeHtml(segment.label)}</span>
-                  <span class="report-breakdown-bar-track">
-                    <span class="report-breakdown-bar-fill" style="width:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
-                      segment.color
-                    )}"></span>
-                  </span>
-                </button>
+              (period, periodIndex) => `
+                <div class="report-stacked-row">
+                  <div class="report-stacked-row-meta">
+                    <strong>${escapeHtml(period.label)}</strong>
+                    <span>${formatMoney(period.total, getPrimaryCurrencySymbol())}</span>
+                  </div>
+                  <div class="report-stacked-row-track" style="width:${(period.total / maxTotal) * 100}%;">
+                    ${period.segments
+                      .map((segment, segmentIndex) => {
+                        detailMap.set(`stack:${periodIndex}:${segmentIndex}`, buildStackedDetail(period, segment));
+                        return `
+                          <button
+                            class="report-stacked-segment"
+                            type="button"
+                            data-action="open-report-segment"
+                            data-index="stack:${periodIndex}:${segmentIndex}"
+                            style="width:${(segment.value / period.total) * 100}%; background:${escapeHtml(segment.color)}"
+                          ></button>
+                        `;
+                      })
+                      .join("")}
+                  </div>
+                </div>
               `
             )
             .join("")}
         </div>
       </div>
     `;
+  }
+
+  function buildStackedPeriods(transactions) {
+    const selectedTypes = getSelectedReportTypes();
+    if (uiState.reports.range === "thisMonth") {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const weeks = [];
+      let cursor = new Date(startOfMonth);
+      while (cursor.getMonth() === startOfMonth.getMonth()) {
+        const weekStart = new Date(cursor);
+        const weekEnd = new Date(cursor);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weeks.push(buildStackedPeriodBucket(transactions, weekStart, weekEnd, `Week ${weeks.length + 1}`, selectedTypes));
+        cursor.setDate(cursor.getDate() + 7);
+      }
+      return weeks.filter((period) => period.total > 0);
+    }
+
+    return getTrailingMonths(12)
+      .map((month) => {
+        const start = `${month.key}-01`;
+        const endDate = new Date(month.year, month.month + 1, 0);
+        const end = `${month.key}-${String(endDate.getDate()).padStart(2, "0")}`;
+        return buildStackedPeriodBucket(transactions, start, end, month.label, selectedTypes);
+      })
+      .filter((period) => period.total > 0);
+  }
+
+  function buildStackedPeriodBucket(transactions, start, end, label, selectedTypes) {
+    const startIso = typeof start === "string" ? start : start.toISOString().slice(0, 10);
+    const endIso = typeof end === "string" ? end : end.toISOString().slice(0, 10);
+    const categoryMap = new Map();
+    transactions
+      .filter((transaction) => transaction.date >= startIso && transaction.date <= endIso && selectedTypes.includes(transaction.type))
+      .forEach((transaction) => {
+        if (transaction.type === "transfer") {
+          return;
+        }
+        const category = getCategory(transaction.categoryId);
+        const key = category?.id || `uncategorized-${transaction.type}`;
+        const current = categoryMap.get(key) || {
+          label: category?.name || "Uncategorized",
+          color: category?.color || (transaction.type === "income" ? "#1ca866" : "#d35a5a"),
+          value: 0,
+          count: 0,
+        };
+        current.value += Number(transaction.amount || 0);
+        current.count += 1;
+        categoryMap.set(key, current);
+      });
+    const segments = [...categoryMap.values()].sort((a, b) => b.value - a.value);
+    return {
+      label,
+      total: segments.reduce((sum, segment) => sum + segment.value, 0),
+      segments,
+    };
+  }
+
+  function buildSegmentDetail(dataset, segment, eyebrow) {
+    return {
+      eyebrow,
+      label: segment.label,
+      color: segment.color,
+      value: formatMoney(segment.value, dataset.symbol),
+      percent: `${segment.percent}% share`,
+      meta: [
+        { label: "Entries", value: String(segment.count || 0) },
+        { label: "Scope", value: dataset.subtitle },
+      ],
+    };
+  }
+
+  function buildAccountDetail(dataset, segment, account) {
+    const categoryShare = segment.value ? ((account.value / segment.value) * 100).toFixed(2) : "0.00";
+    const totalShare = dataset.total ? ((account.value / dataset.total) * 100).toFixed(2) : "0.00";
+    return {
+      eyebrow: segment.label,
+      label: account.label,
+      color: account.color,
+      value: formatMoney(account.value, dataset.symbol),
+      percent: `${categoryShare}% of ${segment.label}`,
+      meta: [
+        { label: "Overall Share", value: `${totalShare}%` },
+        { label: "Entries", value: String(account.count || 0) },
+      ],
+    };
+  }
+
+  function buildStackedDetail(period, segment) {
+    const periodShare = period.total ? ((segment.value / period.total) * 100).toFixed(2) : "0.00";
+    return {
+      eyebrow: period.label,
+      label: segment.label,
+      color: segment.color,
+      value: formatMoney(segment.value, getPrimaryCurrencySymbol()),
+      percent: `${periodShare}% of ${period.label}`,
+      meta: [
+        { label: "Entries", value: String(segment.count || 0) },
+        { label: "Period Total", value: formatMoney(period.total, getPrimaryCurrencySymbol()) },
+      ],
+    };
   }
 
   function getCategoryRankingRows(transactions, type) {
@@ -651,6 +883,7 @@ export function createReportsTools(api) {
       value: Number(row.value || 0),
       color: row.color || "#00a6c7",
       count: Number(row.count || 0),
+      accounts: Array.isArray(row.accounts) ? row.accounts : [],
     }));
     const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
     const remainderCount = cleaned.slice(5).reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -660,6 +893,7 @@ export function createReportsTools(api) {
         value: remainder,
         color: "#8aa8b3",
         count: remainderCount,
+        accounts: [],
       });
     }
 
@@ -708,23 +942,11 @@ export function createReportsTools(api) {
   }
 
   function getReportChartSegmentDetail(index) {
-    const dataset = lastBreakdownDataset;
-    const segment = dataset?.segments?.[index];
-    if (!segment || !dataset) {
+    const detailMap = lastBreakdownDataset?.detailMap;
+    if (!detailMap || !detailMap.has(index)) {
       return null;
     }
-    return {
-      eyebrow: dataset.title,
-      label: segment.label,
-      color: segment.color,
-      value: formatMoney(segment.value, dataset.symbol),
-      percent: `${segment.percent}% share`,
-      meta: [
-        { label: "Chart", value: uiState.reports.chartStyle || "pie" },
-        { label: "Entries", value: String(segment.count || 0) },
-        { label: "Scope", value: dataset.subtitle },
-      ],
-    };
+    return detailMap.get(index);
   }
 
   function renderAccountBreakdown(transactions) {

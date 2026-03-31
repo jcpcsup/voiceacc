@@ -83,7 +83,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       range: "thisMonth",
       account: "all",
       types: ["expense"],
-      chartStyle: "pie",
+      chartStyle: "donut",
     },
     toastTimer: null,
     recognition: null,
@@ -819,12 +819,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       openGlobalSearchResult(actionTarget.dataset.kind, id, actionTarget.dataset.query || "");
     }
     if (action === "set-report-chart-style") {
-      uiState.reports.chartStyle = actionTarget.dataset.style || "pie";
+      uiState.reports.chartStyle = actionTarget.dataset.style || "donut";
       renderReports();
       return;
     }
     if (action === "open-report-segment") {
-      openReportDetailModal(getReportChartSegmentDetail(Number(actionTarget.dataset.index || -1)));
+      openReportDetailModal(getReportChartSegmentDetail(actionTarget.dataset.index || ""));
     }
   }
 
