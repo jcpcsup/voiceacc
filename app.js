@@ -1184,14 +1184,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
               account.name
             )}</span>`;
           })();
+    const renderCategoryIcon = (icon) => {
+      const value = String(icon || "").trim();
+      if (value && iconRegistry[value]) {
+        return iconRegistry[value];
+      }
+      if (value) {
+        return `<span class="custom-icon-text">${escapeHtml(value)}</span>`;
+      }
+      return transaction.type === "expense"
+        ? iconRegistry["arrow-down"]
+        : transaction.type === "income"
+          ? iconRegistry["arrow-up"]
+          : iconRegistry.swap;
+    };
     const leadingIcon =
-      category && iconRegistry[category.icon]
-        ? iconRegistry[category.icon]
-        : transaction.type === "expense"
-          ? iconRegistry["arrow-down"]
-          : transaction.type === "income"
-            ? iconRegistry["arrow-up"]
-            : iconRegistry.swap;
+      category ? renderCategoryIcon(category.icon) : renderCategoryIcon("");
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
     const detailPills = [
       transaction.counterparty

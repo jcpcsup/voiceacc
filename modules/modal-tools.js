@@ -242,7 +242,7 @@ export function createModalTools(api) {
       id: categoryId || slugify(rawName) || uid("cat"),
       name: rawName,
       type,
-      icon: document.getElementById("category-icon").value,
+      icon: document.getElementById("category-icon").value.trim(),
       color: document.getElementById("category-color").value,
       subcategories: document
         .getElementById("category-subcategories")

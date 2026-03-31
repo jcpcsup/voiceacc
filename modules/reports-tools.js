@@ -20,6 +20,17 @@ export function createReportsTools(api) {
   } = api;
   let lastBreakdownDataset = null;
 
+  function renderCategoryIcon(icon, fallback) {
+    const value = String(icon || "").trim();
+    if (value && iconRegistry[value]) {
+      return iconRegistry[value];
+    }
+    if (value) {
+      return `<span class="custom-icon-text">${escapeHtml(value)}</span>`;
+    }
+    return fallback;
+  }
+
   function renderReports() {
     const transactions = getReportTransactions();
     const baseSymbol = getPrimaryCurrencySymbol();
@@ -487,7 +498,7 @@ export function createReportsTools(api) {
         const endAngle = currentAngle + sliceAngle;
         detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
         currentAngle = endAngle;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 78, startAngle, endAngle, 44)}" fill="${escapeHtml(
+        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 84, startAngle, endAngle, 34)}" fill="${escapeHtml(
           segment.color
         )}" data-action="open-report-segment" data-index="segment:${index}"></path>`;
       })
@@ -516,7 +527,7 @@ export function createReportsTools(api) {
               100,
               accountStart,
               accountEnd,
-              82
+              88
             )}" fill="${escapeHtml(account.color)}" data-action="open-report-segment" data-index="account:${segmentIndex}:${accountIndex}"></path>`;
           })
           .join("");
@@ -807,7 +818,7 @@ export function createReportsTools(api) {
     return `
       <article class="ranking-item">
         <div class="ranking-item-main">
-          <div class="ranking-icon" style="--rank-color:${escapeHtml(row.color)}">${iconRegistry[row.icon] || iconRegistry.cart}</div>
+          <div class="ranking-icon" style="--rank-color:${escapeHtml(row.color)}">${renderCategoryIcon(row.icon, iconRegistry.cart)}</div>
           <div class="ranking-copy">
             <div class="ranking-topline">
               <strong>${rank} ${escapeHtml(row.label)}</strong>

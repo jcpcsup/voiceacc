@@ -326,6 +326,17 @@ export function createAccountsCategoriesTools(api) {
     `;
   }
 
+  function renderCategoryIcon(icon) {
+    const value = String(icon || "").trim();
+    if (value && iconRegistry[value]) {
+      return iconRegistry[value];
+    }
+    if (value) {
+      return `<span class="custom-icon-text">${escapeHtml(value)}</span>`;
+    }
+    return iconRegistry.cart;
+  }
+
   function renderCategoryItem(category) {
     const usage = getCategoryUsage ? getCategoryUsage(category.id) : null;
     const baseSymbol = getPrimaryCurrencySymbol();
@@ -335,7 +346,7 @@ export function createAccountsCategoriesTools(api) {
         <div class="category-main">
           <div class="category-copy">
             <div class="flash-card-top">
-              <div class="category-icon">${iconRegistry[category.icon] || iconRegistry.cart}</div>
+              <div class="category-icon">${renderCategoryIcon(category.icon)}</div>
               <span class="meta-pill neutral">${escapeHtml(titleCase(category.type))}</span>
             </div>
             <h3>${escapeHtml(category.name)}</h3>

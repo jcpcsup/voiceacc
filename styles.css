@@ -707,6 +707,12 @@ body.app-locked .app-shell {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+@media (min-width: 721px) {
+  #account-list.account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .large-grid {
   margin-top: 18px;
 }
@@ -828,6 +834,15 @@ body.app-locked .app-shell {
 .category-icon svg {
   width: 26px;
   height: 26px;
+}
+
+.custom-icon-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-size: 1.3rem;
+  line-height: 1;
 }
 
 .account-card h3,
@@ -1242,6 +1257,23 @@ textarea:focus {
   min-width: 0;
 }
 
+#overview-transactions .transaction-top-meta {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+#overview-transactions .transaction-top-meta::-webkit-scrollbar {
+  display: none;
+}
+
+#overview-transactions .transaction-tags-header,
+#overview-transactions .transaction-category-box {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 .transaction-meta-line {
   white-space: nowrap;
   overflow: hidden;
@@ -1538,7 +1570,7 @@ textarea:focus {
 
 .report-pie-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(360px, 1.05fr) minmax(260px, 0.95fr);
   gap: 18px;
   align-items: center;
   margin-top: 12px;
@@ -1575,12 +1607,13 @@ textarea:focus {
 .report-pie-visual-wrap {
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 
 .report-pie-visual,
 .report-breakdown-visual {
   position: relative;
-  width: min(100%, 260px);
+  width: min(100%, 340px);
   aspect-ratio: 1;
   border-radius: 50%;
   box-shadow: inset 0 2px 18px rgba(255, 255, 255, 0.36), 0 18px 36px rgba(14, 87, 99, 0.14);
@@ -1629,7 +1662,7 @@ textarea:focus {
 .report-breakdown-bars {
   display: grid;
   gap: 12px;
-  width: min(100%, 300px);
+  width: min(100%, 360px);
 }
 
 .report-breakdown-bar-group {
@@ -1700,7 +1733,7 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   gap: 14px;
-  width: min(100%, 320px);
+  width: min(100%, 360px);
   min-height: 220px;
 }
 
@@ -1752,7 +1785,7 @@ textarea:focus {
 .report-stacked-breakdown {
   display: grid;
   gap: 12px;
-  width: min(100%, 320px);
+  width: min(100%, 360px);
 }
 
 .report-stacked-row {
