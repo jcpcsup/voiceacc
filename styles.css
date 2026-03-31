@@ -2375,7 +2375,8 @@ textarea:focus {
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   gap: 8px;
-  margin-top: 0;
+  margin-top: 10px;
+  width: 100%;
 }
 
 .category-subs::-webkit-scrollbar {
@@ -3220,6 +3221,19 @@ textarea:focus {
   .category-side {
     grid-template-columns: 1fr;
     min-width: 0;
+  }
+
+  .category-side {
+    order: -1;
+    gap: 8px;
+  }
+
+  .category-copy {
+    order: 1;
+  }
+
+  .category-meta-row {
+    justify-content: flex-end;
   }
 
   .results-bar {

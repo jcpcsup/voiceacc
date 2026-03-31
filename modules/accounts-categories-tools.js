@@ -556,9 +556,6 @@ export function createAccountsCategoriesTools(api) {
               <div class="category-icon">${renderCategoryIcon(category.icon)}</div>
             </div>
             <h3>${escapeHtml(category.name)}</h3>
-            <div class="category-subs">
-              ${(category.subcategories || []).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
-            </div>
           </div>
           <div class="category-side">
             <div class="category-meta-row">
@@ -575,6 +572,9 @@ export function createAccountsCategoriesTools(api) {
             </div>
             ${usage ? `<div class="category-usage-row"><span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span></div>` : ""}
           </div>
+        </div>
+        <div class="category-subs">
+          ${(category.subcategories || []).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
         </div>
         <div class="category-chart-row">
           ${renderMiniTrendChart(monthSeries, category.color || "#19c6a7", "Monthly Activity", formatMoney(monthSeries[monthSeries.length - 1]?.value || 0, baseSymbol))}
