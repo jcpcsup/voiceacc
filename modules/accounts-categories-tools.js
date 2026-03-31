@@ -475,7 +475,29 @@ export function createAccountsCategoriesTools(api) {
       <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
         <div class="flash-card-top">
           <div class="card-icon">${iconRegistry[account.icon] || iconRegistry.wallet}</div>
-          <span class="meta-pill neutral">${escapeHtml(accountSymbol)} | ${escapeHtml(titleCase(account.type))}</span>
+          ${
+            manageMode
+              ? `<div class="account-top-controls">
+                  <div class="account-order-row">
+                    <span class="meta-pill neutral">${escapeHtml(accountSymbol)} | ${escapeHtml(titleCase(account.type))}</span>
+                    <button class="ghost-button account-order-pill" type="button" data-action="move-account-up" data-id="${escapeHtml(account.id)}" ${canMoveUp ? "" : "disabled"} aria-label="Move account up">
+                      ${iconRegistry["arrow-up"]}
+                    </button>
+                    <button class="ghost-button account-order-pill" type="button" data-action="move-account-down" data-id="${escapeHtml(account.id)}" ${canMoveDown ? "" : "disabled"} aria-label="Move account down">
+                      ${iconRegistry["arrow-down"]}
+                    </button>
+                  </div>
+                  <div class="account-icon-actions">
+                    <button class="icon-button account-manage-icon" type="button" data-action="edit-account" data-id="${escapeHtml(account.id)}" aria-label="Edit account">
+                      ${iconRegistry.pen}
+                    </button>
+                    <button class="icon-button account-manage-icon delete" type="button" data-action="delete-account" data-id="${escapeHtml(account.id)}" aria-label="Delete account">
+                      ${iconRegistry.bin}
+                    </button>
+                  </div>
+                </div>`
+              : `<span class="meta-pill neutral">${escapeHtml(accountSymbol)} | ${escapeHtml(titleCase(account.type))}</span>`
+          }
         </div>
         <h3>${escapeHtml(account.name)}</h3>
         <strong class="money account-balance">${formatMoney(balance, accountSymbol)}</strong>
@@ -498,16 +520,6 @@ export function createAccountsCategoriesTools(api) {
             <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
             <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(flow.outgoing, accountSymbol)}</span></span>
           </div>
-          ${
-            manageMode
-              ? `<div class="card-actions compact-actions account-button-row">
-                  <button class="ghost-button" type="button" data-action="move-account-up" data-id="${escapeHtml(account.id)}" ${canMoveUp ? "" : "disabled"}>Up</button>
-                  <button class="ghost-button" type="button" data-action="move-account-down" data-id="${escapeHtml(account.id)}" ${canMoveDown ? "" : "disabled"}>Down</button>
-                  <button class="ghost-button" type="button" data-action="edit-account" data-id="${escapeHtml(account.id)}">Edit</button>
-                  <button class="secondary-button" type="button" data-action="delete-account" data-id="${escapeHtml(account.id)}">Delete</button>
-                </div>`
-              : ""
-          }
         </div>
       </article>
     `;
