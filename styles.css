@@ -859,9 +859,13 @@ body.app-locked .app-shell {
   border-radius: 999px;
 }
 
-.account-order-pill svg {
-  width: 16px;
-  height: 16px;
+.account-order-pill span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .account-icon-actions {
@@ -3191,9 +3195,12 @@ textarea:focus {
     justify-items: stretch;
   }
 
-  .account-order-row,
-  .account-icon-actions {
+  .account-order-row {
     justify-content: flex-start;
+  }
+
+  .account-icon-actions {
+    justify-content: flex-end;
   }
 
   .budget-legend,

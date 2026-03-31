@@ -481,10 +481,10 @@ export function createAccountsCategoriesTools(api) {
                   <div class="account-order-row">
                     <span class="meta-pill neutral">${escapeHtml(accountSymbol)} | ${escapeHtml(titleCase(account.type))}</span>
                     <button class="ghost-button account-order-pill" type="button" data-action="move-account-up" data-id="${escapeHtml(account.id)}" ${canMoveUp ? "" : "disabled"} aria-label="Move account up">
-                      ${iconRegistry["arrow-up"]}
+                      <span aria-hidden="true">↑</span>
                     </button>
                     <button class="ghost-button account-order-pill" type="button" data-action="move-account-down" data-id="${escapeHtml(account.id)}" ${canMoveDown ? "" : "disabled"} aria-label="Move account down">
-                      ${iconRegistry["arrow-down"]}
+                      <span aria-hidden="true">↓</span>
                     </button>
                   </div>
                   <div class="account-icon-actions">
