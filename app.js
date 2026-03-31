@@ -587,14 +587,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
   }
 
+  function formatDateFilterDisplay(value) {
+    const normalized = normalizeDateInput(value || "");
+    if (!normalized) {
+      return "";
+    }
+    const [year, month, day] = normalized.split("-");
+    return `${month}/${day}/${year}`;
+  }
+
   function syncTransactionFilterInputs() {
     document.getElementById("search-input").value = uiState.filters.search || "";
     document.getElementById("filter-type").value = uiState.filters.type || "all";
     document.getElementById("filter-account").value = uiState.filters.account || "all";
     document.getElementById("filter-category").value = uiState.filters.category || "all";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
-    setInputDateValue("filter-start-date", normalizeDateInput(uiState.filters.startDate || ""));
-    setInputDateValue("filter-end-date", normalizeDateInput(uiState.filters.endDate || ""));
+    setInputDateValue("filter-start-date", formatDateFilterDisplay(uiState.filters.startDate || ""));
+    setInputDateValue("filter-end-date", formatDateFilterDisplay(uiState.filters.endDate || ""));
   }
 
   function isSwipeNavigationAllowed(target) {
@@ -731,7 +740,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function bindFilterInput(id, key) {
     document.getElementById(id).addEventListener("input", (event) => {
-      uiState.filters[key] = event.target.value;
+      uiState.filters[key] = key === "startDate" || key === "endDate" ? normalizeDateInput(event.target.value) : event.target.value;
       renderTransactions();
     });
   }
