@@ -29,6 +29,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     SUPABASE_CONFIGURED && typeof window.supabase?.createClient === "function";
   const toastEl = document.getElementById("toast");
   const defaultState = createDefaultState();
+  const SCREEN_ORDER = ["overview", "transactions", "accounts", "reports", "more"];
 
   const cloudState = {
     client: null,
@@ -44,6 +45,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     transactions: [],
   };
   let pendingConfirmAction = null;
+  let swipeGesture = null;
   let uiState;
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
@@ -410,6 +412,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       button.addEventListener("click", () => setAuthView(button.dataset.authMode || "signin"));
     });
 
+    const appShell = document.querySelector(".app-shell");
+    if (appShell) {
+      appShell.addEventListener("touchstart", handleAppTouchStart, { passive: true });
+      appShell.addEventListener("touchmove", handleAppTouchMove, { passive: true });
+      appShell.addEventListener("touchend", handleAppTouchEnd, { passive: true });
+      appShell.addEventListener("touchcancel", resetSwipeGesture, { passive: true });
+    }
+
     document.addEventListener("click", handleDelegatedClick);
   }
 
@@ -421,6 +431,94 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function handleDownloadImportTemplate() {
     exportImportTemplate(document.getElementById("import-target").value || "transactions");
+  }
+
+  function isSwipeNavigationAllowed(target) {
+    const elementTarget = target instanceof Element ? target : null;
+    if (!window.matchMedia("(max-width: 720px)").matches) {
+      return false;
+    }
+    if (document.getElementById("lock-screen")?.classList.contains("hidden") === false) {
+      return false;
+    }
+    if (document.querySelector(".modal:not(.hidden)")) {
+      return false;
+    }
+    if (elementTarget?.closest("input, textarea, select, button, label, .bottom-nav, .top-bar")) {
+      return false;
+    }
+    return !findHorizontalScrollParent(elementTarget);
+  }
+
+  function findHorizontalScrollParent(target) {
+    let node = target instanceof Element ? target : null;
+    const boundary = document.querySelector(".app-shell");
+    while (node && node !== boundary) {
+      const style = window.getComputedStyle(node);
+      const canScrollX =
+        (style.overflowX === "auto" || style.overflowX === "scroll") && node.scrollWidth > node.clientWidth + 8;
+      if (canScrollX) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function handleAppTouchStart(event) {
+    const touch = event.changedTouches?.[0];
+    if (!touch || !isSwipeNavigationAllowed(event.target)) {
+      swipeGesture = null;
+      return;
+    }
+    swipeGesture = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      endX: touch.clientX,
+      endY: touch.clientY,
+    };
+  }
+
+  function handleAppTouchMove(event) {
+    if (!swipeGesture) {
+      return;
+    }
+    const touch = event.changedTouches?.[0];
+    if (!touch) {
+      return;
+    }
+    swipeGesture.endX = touch.clientX;
+    swipeGesture.endY = touch.clientY;
+  }
+
+  function handleAppTouchEnd(event) {
+    if (!swipeGesture) {
+      return;
+    }
+    const touch = event.changedTouches?.[0];
+    if (touch) {
+      swipeGesture.endX = touch.clientX;
+      swipeGesture.endY = touch.clientY;
+    }
+    const deltaX = swipeGesture.endX - swipeGesture.startX;
+    const deltaY = swipeGesture.endY - swipeGesture.startY;
+    resetSwipeGesture();
+    if (Math.abs(deltaX) < 64 || Math.abs(deltaY) > 42 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+    const currentIndex = SCREEN_ORDER.indexOf(uiState.screen);
+    if (currentIndex === -1) {
+      return;
+    }
+    const nextIndex = deltaX > 0 ? currentIndex + 1 : currentIndex - 1;
+    const nextScreen = SCREEN_ORDER[nextIndex];
+    if (nextScreen) {
+      switchScreen(nextScreen);
+    }
+  }
+
+  function resetSwipeGesture() {
+    swipeGesture = null;
   }
 
   function setTransactionFiltersExpanded(expanded) {
