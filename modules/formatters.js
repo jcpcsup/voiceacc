@@ -1,6 +1,33 @@
 export function createFormatterTools(api) {
   const { state, getAccount } = api;
 
+  function padDatePart(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function toLocalIsoDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+  }
+
+  function toLocalMonthKey(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}`;
+  }
+
+  function parseIsoDate(value, hour = 12) {
+    const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return new Date("");
+    }
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), hour, 0, 0, 0);
+  }
+
   function sumAmounts(transactions) {
     return transactions.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
   }
@@ -72,13 +99,16 @@ export function createFormatterTools(api) {
   }
 
   function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    return toLocalIsoDate(new Date());
   }
 
   function shiftIsoDate(isoDate, amount) {
-    const date = new Date(`${isoDate}T00:00:00`);
+    const date = parseIsoDate(isoDate, 12);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
     date.setDate(date.getDate() + amount);
-    return date.toISOString().slice(0, 10);
+    return toLocalIsoDate(date);
   }
 
   function formatShortDateTime(value) {
@@ -101,6 +131,9 @@ export function createFormatterTools(api) {
     formatCompactPlainAmount,
     withAlpha,
     formatTransactionAmount,
+    toLocalIsoDate,
+    toLocalMonthKey,
+    parseIsoDate,
     todayIso,
     shiftIsoDate,
     formatShortDateTime,

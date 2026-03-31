@@ -17,6 +17,8 @@ export function createReportsTools(api) {
     renderEmpty,
     renderBudgetCard,
     insightCard,
+    parseIsoDate,
+    toLocalIsoDate,
   } = api;
   let lastBreakdownDataset = null;
 
@@ -252,7 +254,7 @@ export function createReportsTools(api) {
   }
 
   function isWithinBudgetPeriod(date, period) {
-    const target = new Date(`${date}T00:00:00`);
+    const target = parseIsoDate(date, 12);
     const now = new Date();
     if (period === "weekly") {
       const start = new Date(now);
@@ -767,9 +769,9 @@ export function createReportsTools(api) {
     if (uiState.reports.range === "last30") {
       const { start, end } = getDateRange("last30");
       const buckets = [];
-      let cursor = new Date(`${start}T00:00:00`);
+      let cursor = parseIsoDate(start, 12);
       let weekIndex = 1;
-      while (cursor.toISOString().slice(0, 10) <= end) {
+      while (toLocalIsoDate(cursor) <= end) {
         const bucketStart = new Date(cursor);
         const bucketEnd = new Date(cursor);
         bucketEnd.setDate(bucketEnd.getDate() + 6);
@@ -829,8 +831,8 @@ export function createReportsTools(api) {
   }
 
   function buildStackedPeriodBucket(transactions, start, end, label, selectedTypes) {
-    const startIso = typeof start === "string" ? start : start.toISOString().slice(0, 10);
-    const endIso = typeof end === "string" ? end : end.toISOString().slice(0, 10);
+    const startIso = typeof start === "string" ? start : toLocalIsoDate(start);
+    const endIso = typeof end === "string" ? end : toLocalIsoDate(end);
     const baseFilters = getBaseReportFilters();
     const categoryMap = new Map();
     transactions
@@ -1211,7 +1213,9 @@ export function createReportsTools(api) {
     }
     const sortedExpenses = transactions.filter((transaction) => transaction.type === "expense").sort((a, b) => b.amount - a.amount);
     const topExpense = sortedExpenses[0];
-    const latest = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+    const latest = [...transactions].sort(
+      (a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
+    )[0];
     const byPayee = new Map();
     transactions.forEach((transaction) => {
       if (transaction.counterparty) {

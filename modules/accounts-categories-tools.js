@@ -11,6 +11,9 @@ export function createAccountsCategoriesTools(api) {
     renderMiniTrendChart,
     sumAmounts,
     getDateRange,
+    toLocalIsoDate,
+    toLocalMonthKey,
+    parseIsoDate,
     todayIso,
   } = api;
 
@@ -57,8 +60,8 @@ export function createAccountsCategoriesTools(api) {
     end.setDate(start.getDate() + 6);
     end.setHours(23, 59, 59, 999);
     return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
+      start: toLocalIsoDate(start),
+      end: toLocalIsoDate(end),
     };
   }
 
@@ -76,7 +79,7 @@ export function createAccountsCategoriesTools(api) {
   }
 
   function getAggregateCacheSignature() {
-    const monthAnchor = new Date().toISOString().slice(0, 7);
+    const monthAnchor = toLocalMonthKey(new Date());
     const accountPart = state.accounts
       .map((account) => `${account.id}:${Number(account.openingBalance || 0)}:${account.includeInTotalBalance !== false ? 1 : 0}`)
       .join("|");
@@ -168,7 +171,7 @@ export function createAccountsCategoriesTools(api) {
       .map((transaction) => transaction.date)
       .filter(Boolean)
       .sort()[0];
-    const allTimeMonths = buildMonthSequence(earliestTransactionDate ? new Date(`${earliestTransactionDate}T00:00:00`) : now, now);
+    const allTimeMonths = buildMonthSequence(earliestTransactionDate ? parseIsoDate(earliestTransactionDate, 12) : now, now);
     const snapshot = {
       months,
       currentMonthDays,
@@ -362,7 +365,7 @@ export function createAccountsCategoriesTools(api) {
   }
 
   function getAccountBalanceAtDate(accountId, date) {
-    const target = date.toISOString().slice(0, 7);
+    const target = toLocalMonthKey(date);
     const snapshot = getAggregateSnapshot();
     const series = snapshot.monthlySeriesByAccount.get(accountId);
     if (!series || !series.length) {

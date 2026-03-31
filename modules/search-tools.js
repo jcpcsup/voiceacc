@@ -22,7 +22,7 @@ export function createSearchTools(api) {
   function getFilteredTransactions() {
     return [...state.transactions]
       .filter(matchesTransactionFilters)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   }
 
   function matchesTransactionFilters(transaction) {

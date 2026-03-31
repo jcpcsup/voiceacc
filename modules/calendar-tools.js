@@ -7,6 +7,7 @@ export function createCalendarTools(api) {
     sumAmounts,
     formatCalendarDisplayMoney,
     formatCompactPlainAmount,
+    toLocalIsoDate,
     switchScreen,
     renderTransactions,
   } = api;
@@ -26,7 +27,7 @@ export function createCalendarTools(api) {
     for (let index = 0; index < totalCells; index += 1) {
       const dayNumber = index - leading + 1;
       const cellDate = new Date(year, month, dayNumber);
-      const iso = cellDate.toISOString().slice(0, 10);
+      const iso = toLocalIsoDate(cellDate);
       const inMonth = cellDate.getMonth() === month;
       const dayTransactions = inMonth ? state.transactions.filter((transaction) => transaction.date === iso) : [];
       const income = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "income"));

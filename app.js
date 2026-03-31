@@ -31,6 +31,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const toastEl = document.getElementById("toast");
   const defaultState = createDefaultState();
   const SCREEN_ORDER = ["overview", "transactions", "accounts", "reports", "more"];
+  const initialNow = new Date();
 
   const cloudState = {
     client: null,
@@ -86,7 +87,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       account: "all",
       types: ["expense"],
       chartStyle: "donut",
-      anchorDate: new Date().toISOString().slice(0, 10),
+      anchorDate: `${initialNow.getFullYear()}-${String(initialNow.getMonth() + 1).padStart(2, "0")}-${String(initialNow.getDate()).padStart(2, "0")}`,
     },
     toastTimer: null,
     recognition: null,
@@ -106,6 +107,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     formatCompactPlainAmount,
     withAlpha,
     formatTransactionAmount,
+    toLocalIsoDate,
+    parseIsoDate,
     todayIso,
     shiftIsoDate,
     formatShortDateTime,
@@ -158,6 +161,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderMiniTrendChart,
     sumAmounts,
     getDateRange,
+    toLocalIsoDate,
+    toLocalMonthKey,
+    parseIsoDate,
     todayIso,
   });
 
@@ -190,6 +196,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     sumAmounts,
     formatCalendarDisplayMoney,
     formatCompactPlainAmount,
+    toLocalIsoDate,
     switchScreen,
     renderTransactions,
   });
@@ -212,6 +219,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderEmpty,
     renderBudgetCard,
     insightCard,
+    parseIsoDate,
+    toLocalIsoDate,
   }));
 
   const {
@@ -460,7 +469,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function getReportRangeLabel(range, anchorIso = uiState.reports.anchorDate || todayIso()) {
-    const reference = new Date(`${anchorIso}T12:00:00`);
+    const reference = parseIsoDate(anchorIso, 12);
     if (range === "thisMonth") {
       return reference.toLocaleDateString("en-US", { month: "long" });
     }
@@ -512,10 +521,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function isReportRangeAtLatest() {
     const range = uiState.reports.range;
-    const anchor = new Date(`${uiState.reports.anchorDate}T12:00:00`);
+    const anchor = parseIsoDate(uiState.reports.anchorDate, 12);
     const now = new Date();
     if (range === "last30") {
-      return anchor.toISOString().slice(0, 10) >= todayIso();
+      return toLocalIsoDate(anchor) >= todayIso();
     }
     if (range === "thisMonth") {
       return anchor.getFullYear() === now.getFullYear() && anchor.getMonth() === now.getMonth();
@@ -537,7 +546,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (range === "all") {
       return;
     }
-    const anchor = new Date(`${uiState.reports.anchorDate}T12:00:00`);
+    const anchor = parseIsoDate(uiState.reports.anchorDate, 12);
     if (range === "last30") {
       anchor.setDate(anchor.getDate() + direction * 30);
     } else if (range === "thisMonth") {
@@ -547,11 +556,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     } else if (range === "thisYear") {
       anchor.setFullYear(anchor.getFullYear() + direction);
     }
-    const today = new Date(`${todayIso()}T12:00:00`);
+    const today = parseIsoDate(todayIso(), 12);
     if (anchor > today) {
       uiState.reports.anchorDate = todayIso();
     } else {
-      uiState.reports.anchorDate = anchor.toISOString().slice(0, 10);
+      uiState.reports.anchorDate = toLocalIsoDate(anchor);
     }
     syncReportRangeOptionLabels();
     syncReportRangeNavigator();
@@ -1253,18 +1262,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function getDateRange(range, anchorOverride = "") {
     const anchorIso = anchorOverride || uiState.reports.anchorDate || todayIso();
-    const reference = range === "all" ? new Date() : new Date(`${anchorIso}T12:00:00`);
+    const reference = range === "all" ? new Date() : parseIsoDate(anchorIso, 12);
     const now = new Date();
     const today = todayIso();
     if (range === "all") {
       return { start: "", end: "" };
     }
     if (range === "last30") {
-      const end = reference > now ? today : reference.toISOString().slice(0, 10);
+      const end = reference > now ? today : toLocalIsoDate(reference);
       return { start: shiftIsoDate(end, -29), end };
     }
     if (range === "thisMonth") {
-      const endOfMonth = new Date(reference.getFullYear(), reference.getMonth() + 1, 0).toISOString().slice(0, 10);
+      const endOfMonth = toLocalIsoDate(new Date(reference.getFullYear(), reference.getMonth() + 1, 0));
       return {
         start: `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, "0")}-01`,
         end:
@@ -1275,7 +1284,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (range === "thisQuarter") {
       const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
-      const quarterEnd = new Date(reference.getFullYear(), quarterStartMonth + 3, 0).toISOString().slice(0, 10);
+      const quarterEnd = toLocalIsoDate(new Date(reference.getFullYear(), quarterStartMonth + 3, 0));
       return {
         start: `${reference.getFullYear()}-${String(quarterStartMonth + 1).padStart(2, "0")}-01`,
         end:
