@@ -556,25 +556,26 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!activeReportDetailFilters) {
       return;
     }
+    const startDate = normalizeDateInput(activeReportDetailFilters.startDate || "");
+    const endDate = normalizeDateInput(activeReportDetailFilters.endDate || "");
     uiState.filters.search = activeReportDetailFilters.search || "";
     uiState.filters.type = activeReportDetailFilters.type || "all";
     uiState.filters.account = activeReportDetailFilters.accountId || "all";
     uiState.filters.category = activeReportDetailFilters.categoryId || "all";
     uiState.filters.tag = activeReportDetailFilters.tag || "";
-    uiState.filters.startDate = activeReportDetailFilters.startDate || "";
-    uiState.filters.endDate = activeReportDetailFilters.endDate || "";
+    uiState.filters.startDate = startDate;
+    uiState.filters.endDate = endDate;
 
+    closeModal("report-detail-modal");
+    setTransactionFiltersExpanded(true);
+    switchScreen("transactions");
     document.getElementById("search-input").value = uiState.filters.search;
     document.getElementById("filter-type").value = uiState.filters.type;
     document.getElementById("filter-account").value = uiState.filters.account;
     document.getElementById("filter-category").value = uiState.filters.category;
     document.getElementById("filter-tag").value = uiState.filters.tag;
-    document.getElementById("filter-start-date").value = uiState.filters.startDate;
-    document.getElementById("filter-end-date").value = uiState.filters.endDate;
-
-    closeModal("report-detail-modal");
-    setTransactionFiltersExpanded(true);
-    switchScreen("transactions");
+    document.getElementById("filter-start-date").value = startDate;
+    document.getElementById("filter-end-date").value = endDate;
     renderTransactions();
   }
 
