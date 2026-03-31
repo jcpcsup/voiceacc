@@ -517,8 +517,8 @@ export function createAccountsCategoriesTools(api) {
         }
         <div class="account-card-footer">
           <div class="transaction-tags compact-tags">
-            <span class="meta-pill neutral meta-pill-icon icon-income">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
-            <span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(flow.outgoing, accountSymbol)}</span></span>
+            <span class="meta-pill neutral meta-pill-icon icon-income account-flow-pill">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
+            <span class="meta-pill neutral meta-pill-icon icon-expense account-flow-pill">${iconRegistry["arrow-down"]}<span>${formatMoney(flow.outgoing, accountSymbol)}</span></span>
           </div>
         </div>
       </article>

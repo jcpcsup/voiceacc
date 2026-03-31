@@ -1501,6 +1501,27 @@ textarea:focus {
   margin-top: 2px;
 }
 
+.account-card-footer .compact-tags {
+  gap: 12px;
+}
+
+.account-flow-pill {
+  padding: 12px 18px;
+  font-size: 1rem;
+  font-weight: 700;
+  gap: 10px;
+}
+
+.account-flow-pill svg {
+  width: 18px;
+  height: 18px;
+}
+
+.account-flow-pill span:last-child {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
 .flash-card-top {
   display: flex;
   align-items: center;
