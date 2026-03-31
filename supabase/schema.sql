@@ -14,6 +14,7 @@ create table if not exists public.accounts (
   user_id uuid not null references auth.users (id) on delete cascade,
   id text not null,
   name text not null,
+  sort_order integer not null default 0,
   type text not null,
   currency_symbol text not null default '$',
   opening_balance numeric(14, 2) not null default 0,
@@ -68,6 +69,9 @@ create index if not exists transactions_user_id_date_idx on public.transactions 
 
 alter table public.accounts
 add column if not exists include_in_total_balance boolean not null default true;
+
+alter table public.accounts
+add column if not exists sort_order integer not null default 0;
 
 drop trigger if exists accounts_set_updated_at on public.accounts;
 create trigger accounts_set_updated_at

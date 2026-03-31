@@ -486,6 +486,14 @@ body.app-locked .app-shell {
   background: rgba(255, 215, 215, 0.18);
 }
 
+.income-chip .inline-icon {
+  color: #1ca866;
+}
+
+.expense-chip .inline-icon {
+  color: #d84d4d;
+}
+
 .period-legend-text {
   display: inline-flex;
   align-items: center;
@@ -1557,6 +1565,30 @@ textarea:focus {
   margin-top: 18px;
 }
 
+.results-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.results-sort-wrap {
+  min-width: 150px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .transaction-pagination {
   margin-top: 14px;
 }
@@ -2259,7 +2291,7 @@ textarea:focus {
 .category-button-row,
 .account-button-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -3086,6 +3118,29 @@ textarea:focus {
   .category-side {
     grid-template-columns: 1fr;
     min-width: 0;
+  }
+
+  .results-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .results-bar-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .results-sort-wrap {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+
+  .results-bar-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+
+  .account-button-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .budget-legend,

@@ -468,6 +468,9 @@ export function createAccountsCategoriesTools(api) {
     const monthSeries = getAccountCurrentMonthBalanceSeries(account.id);
     const accountSeries = getAccountMonthlyBalanceSeries(account.id);
     const allTimeSeries = getAccountAllTimeBalanceSeries(account.id);
+    const accountIndex = state.accounts.findIndex((entry) => entry.id === account.id);
+    const canMoveUp = accountIndex > 0;
+    const canMoveDown = accountIndex >= 0 && accountIndex < state.accounts.length - 1;
     return `
       <article class="account-card" style="--card-color:${escapeHtml(account.color || "#19c6a7")}">
         <div class="flash-card-top">
@@ -498,6 +501,8 @@ export function createAccountsCategoriesTools(api) {
           ${
             manageMode
               ? `<div class="card-actions compact-actions account-button-row">
+                  <button class="ghost-button" type="button" data-action="move-account-up" data-id="${escapeHtml(account.id)}" ${canMoveUp ? "" : "disabled"}>Up</button>
+                  <button class="ghost-button" type="button" data-action="move-account-down" data-id="${escapeHtml(account.id)}" ${canMoveDown ? "" : "disabled"}>Down</button>
                   <button class="ghost-button" type="button" data-action="edit-account" data-id="${escapeHtml(account.id)}">Edit</button>
                   <button class="secondary-button" type="button" data-action="delete-account" data-id="${escapeHtml(account.id)}">Delete</button>
                 </div>`

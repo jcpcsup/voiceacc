@@ -81,6 +81,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       tag: "",
       startDate: "",
       endDate: "",
+      sort: "dateDesc",
     },
     reports: {
       range: "thisMonth",
@@ -397,6 +398,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     bindFilterInput("filter-tag", "tag");
     bindFilterInput("filter-start-date", "startDate");
     bindFilterInput("filter-end-date", "endDate");
+    bindFilterInput("filter-sort", "sort");
 
     document.getElementById("report-range").addEventListener("change", (event) => {
       uiState.reports.range = event.target.value;
@@ -665,6 +667,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-account").value = uiState.filters.account || "all";
     document.getElementById("filter-category").value = uiState.filters.category || "all";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
+    document.getElementById("filter-sort").value = uiState.filters.sort || "dateDesc";
     setInputDateValue("filter-start-date", formatDateFilterDisplay(uiState.filters.startDate || ""));
     setInputDateValue("filter-end-date", formatDateFilterDisplay(uiState.filters.endDate || ""));
   }
@@ -816,8 +819,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function bindFilterInput(id, key) {
-    document.getElementById(id).addEventListener("input", (event) => {
-      uiState.filters[key] = key === "startDate" || key === "endDate" ? normalizeDateInput(event.target.value) : event.target.value;
+    const input = document.getElementById(id);
+    if (!input) {
+      return;
+    }
+    if (key === "startDate" || key === "endDate") {
+      const commitDateFilter = () => {
+        uiState.filters[key] = normalizeDateInput(input.value);
+        uiState.transactionPage = 1;
+        renderTransactions();
+      };
+      input.addEventListener("change", commitDateFilter);
+      input.addEventListener("blur", commitDateFilter);
+      return;
+    }
+    const eventName = input.tagName === "SELECT" ? "change" : "input";
+    input.addEventListener(eventName, (event) => {
+      uiState.filters[key] = event.target.value;
       uiState.transactionPage = 1;
       renderTransactions();
     });
@@ -1006,6 +1024,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "delete-account") {
       deleteAccount(id);
+    }
+    if (action === "move-account-up") {
+      moveAccount(id, -1);
+    }
+    if (action === "move-account-down") {
+      moveAccount(id, 1);
     }
     if (action === "edit-category") {
       openCategoryModal(id);
@@ -1493,6 +1517,26 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         </div>
       </article>
     `;
+  }
+
+  function moveAccount(id, direction) {
+    const currentIndex = state.accounts.findIndex((account) => account.id === id);
+    if (currentIndex === -1) {
+      return;
+    }
+    const targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= state.accounts.length) {
+      return;
+    }
+    const nextAccounts = [...state.accounts];
+    const [movedAccount] = nextAccounts.splice(currentIndex, 1);
+    nextAccounts.splice(targetIndex, 0, movedAccount);
+    state.accounts = nextAccounts.map((account, index) => ({
+      ...account,
+      sortOrder: index,
+    }));
+    persistAndRefresh();
+    showToast(`Moved ${movedAccount.name} ${direction < 0 ? "up" : "down"}.`);
   }
 
 

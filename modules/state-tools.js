@@ -17,11 +17,18 @@ export function createStateTools(api) {
   function normalizeState(parsed) {
     const normalizedAccounts =
       Array.isArray(parsed.accounts) && parsed.accounts.length
-        ? parsed.accounts.map((account) => ({
-            currencySymbol: "$",
-            includeInTotalBalance: true,
-            ...account,
-          }))
+        ? parsed.accounts
+            .map((account, index) => ({
+              currencySymbol: "$",
+              includeInTotalBalance: true,
+              sortOrder: index,
+              ...account,
+            }))
+            .sort((a, b) => Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER))
+            .map((account, index) => ({
+              ...account,
+              sortOrder: index,
+            }))
         : structuredClone(defaultState.accounts);
     return {
       accounts: normalizedAccounts,

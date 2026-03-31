@@ -213,7 +213,20 @@
 
             <div class="results-bar">
               <p id="transaction-result-count">0 matching transactions</p>
-              <button class="ghost-button" type="button" id="clear-filters-button">Clear Filters</button>
+              <div class="results-bar-actions">
+                <div class="results-sort-wrap">
+                  <label class="field-label sr-only" for="filter-sort">Sort Order</label>
+                  <select id="filter-sort">
+                    <option value="dateDesc">Date Desc</option>
+                    <option value="dateAsc">Date Asc</option>
+                    <option value="addedAsc">Added Asc</option>
+                    <option value="addedDesc">Added Dsc</option>
+                    <option value="editedAsc">Edited Asc</option>
+                    <option value="editedDesc">Edited Dsc</option>
+                  </select>
+                </div>
+                <button class="ghost-button" type="button" id="clear-filters-button">Clear Filters</button>
+              </div>
             </div>
 
             <div class="transaction-list full-list" id="transaction-list"></div>

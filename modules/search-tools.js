@@ -22,7 +22,38 @@ export function createSearchTools(api) {
   function getFilteredTransactions() {
     return [...state.transactions]
       .filter(matchesTransactionFilters)
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      .sort(compareTransactionsBySelectedSort);
+  }
+
+  function compareTextDate(left, right, ascending = true) {
+    return ascending ? left.localeCompare(right) : right.localeCompare(left);
+  }
+
+  function compareTransactionsBySelectedSort(a, b) {
+    const sortOrder = uiState.filters.sort || "dateDesc";
+    const createdA = String(a.createdAt || a.date || "");
+    const createdB = String(b.createdAt || b.date || "");
+    const updatedA = String(a.updatedAt || a.createdAt || a.date || "");
+    const updatedB = String(b.updatedAt || b.createdAt || b.date || "");
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+
+    if (sortOrder === "dateAsc") {
+      return compareTextDate(dateA, dateB, true) || compareTextDate(createdA, createdB, true);
+    }
+    if (sortOrder === "addedAsc") {
+      return compareTextDate(createdA, createdB, true) || compareTextDate(dateA, dateB, true);
+    }
+    if (sortOrder === "addedDesc") {
+      return compareTextDate(createdA, createdB, false) || compareTextDate(dateA, dateB, false);
+    }
+    if (sortOrder === "editedAsc") {
+      return compareTextDate(updatedA, updatedB, true) || compareTextDate(dateA, dateB, true);
+    }
+    if (sortOrder === "editedDesc") {
+      return compareTextDate(updatedA, updatedB, false) || compareTextDate(dateA, dateB, false);
+    }
+    return compareTextDate(dateA, dateB, false) || compareTextDate(createdA, createdB, false);
   }
 
   function matchesTransactionFilters(transaction) {
@@ -83,6 +114,7 @@ export function createSearchTools(api) {
       tag: "",
       startDate: "",
       endDate: "",
+      sort: "dateDesc",
     };
     uiState.transactionPage = 1;
     document.getElementById("search-input").value = "";
@@ -92,6 +124,7 @@ export function createSearchTools(api) {
     document.getElementById("filter-tag").value = "";
     document.getElementById("filter-start-date").value = "";
     document.getElementById("filter-end-date").value = "";
+    document.getElementById("filter-sort").value = "dateDesc";
     renderTransactions();
   }
 

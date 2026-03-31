@@ -6,6 +6,7 @@ export function createDefaultState() {
       {
         id: uid("acc"),
         name: "Cash",
+        sortOrder: 0,
         type: "cash",
         currencySymbol: "$",
         openingBalance: 0,
@@ -17,6 +18,7 @@ export function createDefaultState() {
       {
         id: uid("acc"),
         name: "Main Bank",
+        sortOrder: 1,
         type: "bank",
         currencySymbol: "$",
         openingBalance: 0,
@@ -28,6 +30,7 @@ export function createDefaultState() {
       {
         id: uid("acc"),
         name: "Savings",
+        sortOrder: 2,
         type: "savings",
         currencySymbol: "$",
         openingBalance: 0,

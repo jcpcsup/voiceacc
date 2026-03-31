@@ -161,7 +161,7 @@ export function createSupabaseTools(api) {
       const userId = cloudState.session.user.id;
       await syncSupabaseTable(
         SUPABASE_ACCOUNTS_TABLE,
-        state.accounts.map((account) => serializeAccountForSupabase(account, userId, syncedAt))
+        state.accounts.map((account, index) => serializeAccountForSupabase(account, userId, syncedAt, index))
       );
       await syncSupabaseTable(
         SUPABASE_CATEGORIES_TABLE,
@@ -200,7 +200,8 @@ export function createSupabaseTools(api) {
         .from(SUPABASE_ACCOUNTS_TABLE)
         .select("*")
         .eq("user_id", userId)
-        .order("name", { ascending: true }),
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
       cloudState.client
         .from(SUPABASE_CATEGORIES_TABLE)
         .select("*")
@@ -274,11 +275,12 @@ export function createSupabaseTools(api) {
     }
   }
 
-  function serializeAccountForSupabase(account, userId, syncedAt) {
+  function serializeAccountForSupabase(account, userId, syncedAt, sortOrder = 0) {
     return {
       user_id: userId,
       id: account.id,
       name: account.name,
+      sort_order: Number(account.sortOrder ?? sortOrder ?? 0),
       type: account.type,
       currency_symbol: account.currencySymbol || "$",
       opening_balance: Number(account.openingBalance || 0),
@@ -330,6 +332,7 @@ export function createSupabaseTools(api) {
     return {
       id: row.id,
       name: row.name,
+      sortOrder: Number(row.sort_order ?? 0),
       type: row.type,
       currencySymbol: row.currency_symbol || "$",
       openingBalance: Number(row.opening_balance || 0),

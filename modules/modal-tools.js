@@ -210,9 +210,11 @@ export function createModalTools(api) {
 
   function handleAccountSubmit(event) {
     event.preventDefault();
+    const existingAccount = getAccount(document.getElementById("account-id").value);
     const payload = {
       id: document.getElementById("account-id").value || uid("acc"),
       name: document.getElementById("account-name").value.trim(),
+      sortOrder: existingAccount?.sortOrder ?? state.accounts.length,
       type: document.getElementById("account-type").value,
       currencySymbol: document.getElementById("account-currency-symbol").value.trim() || "$",
       openingBalance: Number(document.getElementById("account-opening-balance").value || 0),
@@ -227,7 +229,10 @@ export function createModalTools(api) {
     }
     const existingIndex = state.accounts.findIndex((account) => account.id === payload.id);
     if (existingIndex >= 0) {
-      state.accounts[existingIndex] = payload;
+      state.accounts[existingIndex] = {
+        ...state.accounts[existingIndex],
+        ...payload,
+      };
       showToast("Account updated.");
     } else {
       state.accounts.push(payload);
@@ -399,6 +404,7 @@ export function createModalTools(api) {
       const payload = {
         id: row.id || uid("acc"),
         name: row.name || "Imported Account",
+        sortOrder: Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : state.accounts.length,
         type: row.type || "cash",
         currencySymbol: row.currencySymbol || "$",
         openingBalance: Number(row.openingBalance || 0),

@@ -30,6 +30,7 @@ export function createCsvTools(api) {
     const rows = state.accounts.map((account) => ({
       id: account.id,
       name: account.name,
+      sortOrder: account.sortOrder ?? "",
       type: account.type,
       currencySymbol: account.currencySymbol || "$",
       openingBalance: account.openingBalance || 0,
@@ -68,6 +69,7 @@ export function createCsvTools(api) {
         {
           id: "acc-cash",
           name: "Cash",
+          sortOrder: 0,
           type: "cash",
           currencySymbol: "$",
           openingBalance: 500,
@@ -219,6 +221,7 @@ export function createCsvTools(api) {
     const payload = {
       id: row.id || slugify(normalizedName) || uid("acc"),
       name: normalizedName,
+      sortOrder: Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : state.accounts.length,
       type: normalizedType,
       currencySymbol: String(row.currencySymbol || "$").trim() || "$",
       openingBalance: Number(row.openingBalance || 0),
