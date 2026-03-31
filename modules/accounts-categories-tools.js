@@ -551,17 +551,15 @@ export function createAccountsCategoriesTools(api) {
     return `
       <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
         <div class="category-main">
-          <div class="category-copy">
-            <div class="flash-card-top">
-              <div class="category-icon">${renderCategoryIcon(category.icon)}</div>
-            </div>
-            <h3>${escapeHtml(category.name)}</h3>
-          </div>
-          <div class="category-side">
+          <div class="category-top-line">
+            <div class="category-icon">${renderCategoryIcon(category.icon)}</div>
             <div class="category-meta-row">
               <span class="meta-pill neutral">${escapeHtml(titleCase(category.type))}</span>
               ${budgetPill}
             </div>
+          </div>
+          <div class="category-title-line">
+            <h3>${escapeHtml(category.name)}</h3>
             <div class="category-icon-actions">
               <button class="icon-button category-manage-icon" type="button" data-action="edit-category" data-id="${escapeHtml(category.id)}" aria-label="Edit category">
                 ${iconRegistry.pen}
@@ -570,8 +568,8 @@ export function createAccountsCategoriesTools(api) {
                 ${iconRegistry.bin}
               </button>
             </div>
-            ${usage ? `<div class="category-usage-row"><span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span></div>` : ""}
           </div>
+          ${usage ? `<div class="category-usage-row"><span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span></div>` : ""}
         </div>
         <div class="category-subs">
           ${(category.subcategories || []).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}

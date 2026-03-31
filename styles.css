@@ -2338,20 +2338,23 @@ textarea:focus {
 
 .category-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-}
-
-.category-copy {
-  display: grid;
   gap: 10px;
 }
 
-.category-side {
-  display: grid;
-  gap: 14px;
-  min-width: 274px;
+.category-top-line,
+.category-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.category-top-line {
+  align-items: flex-start;
+}
+
+.category-title-line h3 {
+  margin: 0;
 }
 
 .category-meta-row {
@@ -2359,6 +2362,7 @@ textarea:focus {
   flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 10px;
+  min-width: 0;
 }
 
 .category-button-row,
@@ -3217,19 +3221,9 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
-  .budget-card-head,
-  .category-side {
+  .budget-card-head {
     grid-template-columns: 1fr;
     min-width: 0;
-  }
-
-  .category-side {
-    order: -1;
-    gap: 8px;
-  }
-
-  .category-copy {
-    order: 1;
   }
 
   .category-meta-row {
