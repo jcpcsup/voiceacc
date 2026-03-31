@@ -569,14 +569,32 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     closeModal("report-detail-modal");
     setTransactionFiltersExpanded(true);
     switchScreen("transactions");
-    document.getElementById("search-input").value = uiState.filters.search;
-    document.getElementById("filter-type").value = uiState.filters.type;
-    document.getElementById("filter-account").value = uiState.filters.account;
-    document.getElementById("filter-category").value = uiState.filters.category;
-    document.getElementById("filter-tag").value = uiState.filters.tag;
-    document.getElementById("filter-start-date").value = startDate;
-    document.getElementById("filter-end-date").value = endDate;
+    syncTransactionFilterInputs();
+    window.requestAnimationFrame(() => syncTransactionFilterInputs());
     renderTransactions();
+  }
+
+  function setInputDateValue(id, value) {
+    const input = document.getElementById(id);
+    if (!input) {
+      return;
+    }
+    input.value = value || "";
+    if (value) {
+      input.setAttribute("value", value);
+    } else {
+      input.removeAttribute("value");
+    }
+  }
+
+  function syncTransactionFilterInputs() {
+    document.getElementById("search-input").value = uiState.filters.search || "";
+    document.getElementById("filter-type").value = uiState.filters.type || "all";
+    document.getElementById("filter-account").value = uiState.filters.account || "all";
+    document.getElementById("filter-category").value = uiState.filters.category || "all";
+    document.getElementById("filter-tag").value = uiState.filters.tag || "";
+    setInputDateValue("filter-start-date", normalizeDateInput(uiState.filters.startDate || ""));
+    setInputDateValue("filter-end-date", normalizeDateInput(uiState.filters.endDate || ""));
   }
 
   function isSwipeNavigationAllowed(target) {
@@ -1009,6 +1027,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function renderTransactions() {
+    syncTransactionFilterInputs();
     const matches = getFilteredTransactions();
     document.getElementById("transaction-result-count").textContent = `${matches.length} matching transaction${
       matches.length === 1 ? "" : "s"
