@@ -541,32 +541,39 @@ export function createAccountsCategoriesTools(api) {
     const baseSymbol = getPrimaryCurrencySymbol();
     const monthSeries = getCategoryCurrentMonthSeries(category.id);
     const categorySeries = getCategoryMonthlySeries(category.id);
+    const budgetPill =
+      category.type === "expense" && Number(category.budgetLimit) > 0
+        ? `<span class="meta-pill meta-pill-icon">${category.budgetPeriod === "weekly" ? iconRegistry.week : iconRegistry.month}<span>${formatMoney(
+            category.budgetLimit,
+            baseSymbol
+          )}</span></span>`
+        : `<span class="meta-pill neutral">No budget limit</span>`;
     return `
       <article class="category-item" style="--card-color:${escapeHtml(category.color || "#19c6a7")}">
         <div class="category-main">
           <div class="category-copy">
             <div class="flash-card-top">
               <div class="category-icon">${renderCategoryIcon(category.icon)}</div>
-              <span class="meta-pill neutral">${escapeHtml(titleCase(category.type))}</span>
             </div>
             <h3>${escapeHtml(category.name)}</h3>
             <div class="category-subs">
-              ${(category.subcategories || []).slice(0, 2).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
+              ${(category.subcategories || []).map((item) => `<span class="meta-pill neutral">${escapeHtml(item)}</span>`).join("")}
             </div>
           </div>
           <div class="category-side">
             <div class="category-meta-row">
-              ${
-                category.type === "expense" && Number(category.budgetLimit) > 0
-                  ? `<span class="meta-pill meta-pill-icon">${category.budgetPeriod === "weekly" ? iconRegistry.week : iconRegistry.month}<span>${formatMoney(category.budgetLimit, baseSymbol)}</span></span>`
-                  : `<span class="meta-pill neutral">No budget limit</span>`
-              }
-              ${usage ? `<span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span>` : ""}
+              <span class="meta-pill neutral">${escapeHtml(titleCase(category.type))}</span>
+              ${budgetPill}
             </div>
-            <div class="category-button-row">
-              <button class="ghost-button" type="button" data-action="edit-category" data-id="${escapeHtml(category.id)}">Edit</button>
-              <button class="secondary-button" type="button" data-action="delete-category" data-id="${escapeHtml(category.id)}">Delete</button>
+            <div class="category-icon-actions">
+              <button class="icon-button category-manage-icon" type="button" data-action="edit-category" data-id="${escapeHtml(category.id)}" aria-label="Edit category">
+                ${iconRegistry.pen}
+              </button>
+              <button class="icon-button category-manage-icon delete" type="button" data-action="delete-category" data-id="${escapeHtml(category.id)}" aria-label="Delete category">
+                ${iconRegistry.bin}
+              </button>
             </div>
+            ${usage ? `<div class="category-usage-row"><span class="meta-pill neutral meta-pill-icon icon-expense">${iconRegistry["arrow-down"]}<span>${formatMoney(usage.spent, baseSymbol)}</span></span></div>` : ""}
           </div>
         </div>
         <div class="category-chart-row">
