@@ -1257,6 +1257,26 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.transaction-inline-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.transaction-inline-meta::-webkit-scrollbar,
+.transaction-top-meta::-webkit-scrollbar {
+  display: none;
+}
+
+.transaction-secondary-meta-mobile {
+  display: none;
+}
+
 .transaction-date-inline,
 .transaction-header-separator {
   color: var(--muted);
@@ -1328,8 +1348,27 @@ textarea:focus {
   min-width: 140px;
 }
 
+.danger-outline {
+  color: #d35350;
+  border: 1px solid rgba(211, 83, 80, 0.24);
+  background: rgba(239, 100, 97, 0.08);
+}
+
 .transaction-card-actions .transaction-amount-desktop {
   justify-self: end;
+}
+
+@media (min-width: 721px) {
+  .transaction-item[data-action="edit-transaction-card"] {
+    cursor: pointer;
+  }
+
+  .transaction-top-meta {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
 }
 
 .transaction-card-actions .ghost-button,
@@ -2888,6 +2927,10 @@ textarea:focus {
     align-items: flex-start;
   }
 
+  .transaction-inline-meta {
+    display: none;
+  }
+
   .transaction-tags-header {
     order: 1;
     margin-right: 0;
@@ -2943,6 +2986,10 @@ textarea:focus {
     display: flex;
     justify-content: flex-end;
     flex-wrap: nowrap;
+  }
+
+  .transaction-secondary-meta-mobile {
+    display: flex;
   }
 
   .transaction-account-strip-desktop {

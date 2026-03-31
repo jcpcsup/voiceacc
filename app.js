@@ -374,6 +374,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
+    document.getElementById("transaction-delete-button").addEventListener("click", handleTransactionModalDelete);
 
     bindFilterInput("search-input", "search");
     bindFilterInput("filter-type", "type");
@@ -739,6 +740,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
   }
 
+  function handleTransactionModalDelete() {
+    const transactionId = document.getElementById("transaction-id").value;
+    if (!transactionId) {
+      return;
+    }
+    closeModal("transaction-modal");
+    deleteTransaction(transactionId);
+  }
+
   function bindFilterInput(id, key) {
     document.getElementById(id).addEventListener("input", (event) => {
       uiState.filters[key] = key === "startDate" || key === "endDate" ? normalizeDateInput(event.target.value) : event.target.value;
@@ -915,6 +925,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const { action, id } = actionTarget.dataset;
     if (action === "edit-transaction") {
       openTransactionModal(id);
+    }
+    if (action === "edit-transaction-card") {
+      if (window.matchMedia("(min-width: 721px)").matches && !event.target.closest("button, a, input, select, textarea, label")) {
+        openTransactionModal(id);
+      }
     }
     if (action === "delete-transaction") {
       deleteTransaction(id);
@@ -1351,7 +1366,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       .filter(Boolean)
       .join("");
     return `
-      <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}">
+      <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}" data-action="edit-transaction-card" data-id="${escapeHtml(
+        transaction.id
+      )}">
         <div class="transaction-top">
           <div class="transaction-main">
             <div class="transaction-rail">
@@ -1374,6 +1391,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                     <div class="transaction-tags transaction-tags-primary transaction-tags-header">
                       ${headerPills}
                     </div>
+                    ${
+                      detailPills
+                        ? `<span class="transaction-header-separator transaction-inline-separator">|</span><div class="transaction-tags transaction-inline-meta">${detailPills}</div>`
+                        : ""
+                    }
                   </div>
                 </div>
                 <div class="transaction-header-side">
@@ -1384,7 +1406,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                   <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
                 </div>
               </div>
-              ${detailPills ? `<div class="transaction-tags transaction-tags-secondary">${detailPills}</div>` : ""}
+              ${detailPills ? `<div class="transaction-tags transaction-tags-secondary transaction-secondary-meta-mobile">${detailPills}</div>` : ""}
               ${
                 transaction.details
                   ? `<div class="transaction-details-note">${escapeHtml(transaction.details)}</div>`
@@ -1398,10 +1420,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
               transactionSymbol
             )}</strong>
             <div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>
-            <div class="transaction-action-row">
-              <button class="ghost-button" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}">Edit</button>
-              <button class="secondary-button" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}">Delete</button>
-            </div>
           </div>
         </div>
       </article>

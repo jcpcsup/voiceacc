@@ -61,6 +61,7 @@ export function createModalTools(api) {
     document.getElementById("transaction-date").value = todayIso();
     document.getElementById("transaction-id").value = transactionId || "";
     document.getElementById("transaction-modal-title").textContent = transactionId ? "Edit Transaction" : "Add Transaction";
+    document.getElementById("transaction-delete-button").classList.toggle("hidden", !transactionId);
     document.getElementById("transaction-parser-notice").classList.add("hidden");
     renderSelectOptions();
     if (transactionId) {
