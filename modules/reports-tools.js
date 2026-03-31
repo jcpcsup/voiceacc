@@ -138,6 +138,17 @@ export function createReportsTools(api) {
     };
   }
 
+  function mergeDateSpan(filters, date) {
+    if (!date) {
+      return filters;
+    }
+    return {
+      ...filters,
+      startDate: !filters.startDate || date < filters.startDate ? date : filters.startDate,
+      endDate: !filters.endDate || date > filters.endDate ? date : filters.endDate,
+    };
+  }
+
   function buildMonthlySeries(transactions, resolver, count = 12) {
     const buckets = new Map(getTrailingMonths(count).map((month) => [month.key, { label: month.label, value: 0 }]));
     transactions.forEach((transaction) => {
@@ -358,6 +369,7 @@ export function createReportsTools(api) {
           };
           current.value += Number(transaction.amount || 0);
           current.count += 1;
+          current.filters = mergeDateSpan(current.filters, transaction.date);
           transferMap.set(key, current);
         });
       return buildPieDataset([...transferMap.values()], "Transfer Routes", "Selected transfers", symbol);
@@ -387,6 +399,7 @@ export function createReportsTools(api) {
           };
           current.value += Number(transaction.amount || 0);
           current.count += 1;
+          current.filters = mergeDateSpan(current.filters, transaction.date);
           const account = getAccount(transaction.accountId);
           const accountKey = transaction.accountId || account?.name || "unknown-account";
           const accountCurrent = current.accounts.get(accountKey) || {
@@ -403,6 +416,7 @@ export function createReportsTools(api) {
           };
           accountCurrent.value += Number(transaction.amount || 0);
           accountCurrent.count += 1;
+          accountCurrent.filters = mergeDateSpan(accountCurrent.filters, transaction.date);
           current.accounts.set(accountKey, accountCurrent);
           categoryMap.set(key, current);
         });
@@ -418,16 +432,23 @@ export function createReportsTools(api) {
     }
 
     const typeSegments = selectedTypes
-      .map((type) => ({
-        label: titleCase(type === "expense" ? "expenses" : type),
-        value: sumAmounts(transactions.filter((transaction) => transaction.type === type)),
-        count: transactions.filter((transaction) => transaction.type === type).length,
-        color: type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff",
-        filters: {
-          ...getBaseReportFilters(),
-          type,
-        },
-      }))
+      .map((type) => {
+        const matching = transactions.filter((transaction) => transaction.type === type);
+        const filters = matching.reduce(
+          (current, transaction) => mergeDateSpan(current, transaction.date),
+          {
+            ...getBaseReportFilters(),
+            type,
+          }
+        );
+        return {
+          label: titleCase(type === "expense" ? "expenses" : type),
+          value: sumAmounts(matching),
+          count: matching.length,
+          color: type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff",
+          filters,
+        };
+      })
       .filter((segment) => segment.value > 0);
 
     return buildPieDataset(typeSegments, "Type Mix", "Selected report totals", symbol);
@@ -835,6 +856,7 @@ export function createReportsTools(api) {
         };
         current.value += Number(transaction.amount || 0);
         current.count += 1;
+        current.filters = mergeDateSpan(current.filters, transaction.date);
         categoryMap.set(key, current);
       });
     const segments = [...categoryMap.values()].sort((a, b) => b.value - a.value);
@@ -1009,12 +1031,21 @@ export function createReportsTools(api) {
     const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
     const remainderCount = cleaned.slice(5).reduce((sum, row) => sum + Number(row.count || 0), 0);
     if (remainder > 0) {
+      const otherFilters = cleaned.slice(5).reduce(
+        (current, row) => ({
+          ...current,
+          startDate:
+            row.filters?.startDate && (!current.startDate || row.filters.startDate < current.startDate) ? row.filters.startDate : current.startDate,
+          endDate: row.filters?.endDate && (!current.endDate || row.filters.endDate > current.endDate) ? row.filters.endDate : current.endDate,
+        }),
+        getBaseReportFilters()
+      );
       topRows.push({
         label: "Others",
         value: remainder,
         color: "#8aa8b3",
         count: remainderCount,
-        filters: getBaseReportFilters(),
+        filters: otherFilters,
         accounts: [],
       });
     }

@@ -556,8 +556,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!activeReportDetailFilters) {
       return;
     }
-    const startDate = normalizeDateInput(activeReportDetailFilters.startDate || "");
-    const endDate = normalizeDateInput(activeReportDetailFilters.endDate || "");
+    const fallbackRange = getDateRange(uiState.reports.range);
+    const startDate = normalizeDateInput(activeReportDetailFilters.startDate || fallbackRange.start || "");
+    const endDate = normalizeDateInput(activeReportDetailFilters.endDate || fallbackRange.end || startDate || "");
     uiState.filters.search = activeReportDetailFilters.search || "";
     uiState.filters.type = activeReportDetailFilters.type || "all";
     uiState.filters.account = activeReportDetailFilters.accountId || "all";
