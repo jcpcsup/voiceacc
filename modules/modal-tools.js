@@ -27,6 +27,10 @@ export function createModalTools(api) {
     persistAndRefresh,
   } = api;
 
+  const TRANSACTION_IMPORT_SOFT_LIMIT = 1000;
+  const TRANSACTION_IMPORT_HARD_LIMIT = 5000;
+  const IMPORT_CHUNK_SIZE = 200;
+
   function syncTransactionTypeFields() {
     const type = document.getElementById("transaction-type").value;
     const isTransfer = type === "transfer";
@@ -53,6 +57,44 @@ export function createModalTools(api) {
     const modal = document.getElementById(id);
     modal.classList.add("hidden");
     modal.setAttribute("aria-hidden", "true");
+  }
+
+  function setImportProgress(visible, message = "", percent = 0) {
+    const progress = document.getElementById("import-progress");
+    const text = document.getElementById("import-progress-text");
+    const fill = document.getElementById("import-progress-fill");
+    if (!progress || !text || !fill) {
+      return;
+    }
+    progress.classList.toggle("hidden", !visible);
+    text.textContent = message || "";
+    fill.style.width = `${Math.max(0, Math.min(100, percent || 0))}%`;
+  }
+
+  function setImportBusy(isBusy) {
+    const submitButton = document.getElementById("import-submit-button");
+    const targetField = document.getElementById("import-target");
+    const fileField = document.getElementById("import-file");
+    const templateButton = document.getElementById("download-import-template-button");
+    if (submitButton) {
+      submitButton.disabled = isBusy;
+      submitButton.textContent = isBusy ? "Importing..." : "Import CSV";
+    }
+    if (targetField) {
+      targetField.disabled = isBusy;
+    }
+    if (fileField) {
+      fileField.disabled = isBusy;
+    }
+    if (templateButton) {
+      templateButton.disabled = isBusy;
+    }
+  }
+
+  function yieldToUi() {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
   }
 
   function openTransactionModal(transactionId, parserResult) {
@@ -285,34 +327,64 @@ export function createModalTools(api) {
       showToast("Select a CSV file first.");
       return;
     }
-    const text = await file.text();
-    const rows = parseCsv(text);
-    if (!rows.length) {
-      showToast("The CSV file appears to be empty.");
-      return;
+    setImportBusy(true);
+    setImportProgress(true, "Reading CSV file...", 4);
+    try {
+      const text = await file.text();
+      setImportProgress(true, "Parsing CSV rows...", 10);
+      const rows = parseCsv(text);
+      if (!rows.length) {
+        showToast("The CSV file appears to be empty.");
+        return;
+      }
+      if (target === "transactions" && rows.length > TRANSACTION_IMPORT_HARD_LIMIT) {
+        showToast(`Please split large transaction imports into files of ${TRANSACTION_IMPORT_HARD_LIMIT} rows or fewer.`);
+        return;
+      }
+      let importSummary = null;
+      if (target === "transactions") {
+        importSummary = await importTransactionsInChunks(rows);
+      }
+      if (target === "accounts") {
+        importSummary = await importAccountsInChunks(rows);
+      }
+      if (target === "categories") {
+        importSummary = await importCategoriesInChunks(rows);
+      }
+      setImportProgress(true, "Saving imported data and starting sync...", 100);
+      persistAndRefresh();
+      closeModal("import-modal");
+      showToast(buildImportToast(rows.length, target, importSummary));
+    } finally {
+      setImportBusy(false);
+      setImportProgress(false, "", 0);
     }
-    let importSummary = null;
-    if (target === "transactions") {
-      importSummary = importTransactions(rows);
-    }
-    if (target === "accounts") {
-      importSummary = importAccounts(rows);
-    }
-    if (target === "categories") {
-      importSummary = importCategories(rows);
-    }
-    persistAndRefresh();
-    closeModal("import-modal");
-    showToast(buildImportToast(rows.length, target, importSummary));
   }
 
-  function importTransactions(rows) {
+  async function importTransactionsInChunks(rows) {
     const summary = {
       createdAccounts: 0,
       createdCategories: 0,
       appendedSubcategories: 0,
     };
-    rows.forEach((row) => {
+    if (rows.length > TRANSACTION_IMPORT_SOFT_LIMIT) {
+      setImportProgress(true, `Large file detected. Processing ${rows.length} transactions in batches...`, 12);
+      await yieldToUi();
+    }
+    for (let index = 0; index < rows.length; index += IMPORT_CHUNK_SIZE) {
+      const chunk = rows.slice(index, index + IMPORT_CHUNK_SIZE);
+      chunk.forEach((row) => {
+        importTransactionRow(row, summary);
+      });
+      const processed = Math.min(index + chunk.length, rows.length);
+      const percent = 12 + (processed / Math.max(rows.length, 1)) * 78;
+      setImportProgress(true, `Imported ${processed} of ${rows.length} transactions...`, percent);
+      await yieldToUi();
+    }
+    return summary;
+  }
+
+  function importTransactionRow(row, summary) {
       const type = normalizeImportTransactionType(row.type);
       const accountId =
         type === "transfer"
@@ -394,13 +466,24 @@ export function createModalTools(api) {
         updatedAt: new Date().toISOString(),
       };
       upsertById(state.transactions, payload);
-    });
+  }
+
+  async function importAccountsInChunks(rows) {
+    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
+    for (let index = 0; index < rows.length; index += IMPORT_CHUNK_SIZE) {
+      const chunk = rows.slice(index, index + IMPORT_CHUNK_SIZE);
+      chunk.forEach((row) => {
+        importAccountRow(row, summary);
+      });
+      const processed = Math.min(index + chunk.length, rows.length);
+      const percent = 12 + (processed / Math.max(rows.length, 1)) * 78;
+      setImportProgress(true, `Imported ${processed} of ${rows.length} accounts...`, percent);
+      await yieldToUi();
+    }
     return summary;
   }
 
-  function importAccounts(rows) {
-    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
-    rows.forEach((row) => {
+  function importAccountRow(row, summary) {
       const payload = {
         id: row.id || uid("acc"),
         name: row.name || "Imported Account",
@@ -417,13 +500,24 @@ export function createModalTools(api) {
         summary.createdAccounts += 1;
       }
       upsertById(state.accounts, payload);
-    });
+  }
+
+  async function importCategoriesInChunks(rows) {
+    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
+    for (let index = 0; index < rows.length; index += IMPORT_CHUNK_SIZE) {
+      const chunk = rows.slice(index, index + IMPORT_CHUNK_SIZE);
+      chunk.forEach((row) => {
+        importCategoryRow(row, summary);
+      });
+      const processed = Math.min(index + chunk.length, rows.length);
+      const percent = 12 + (processed / Math.max(rows.length, 1)) * 78;
+      setImportProgress(true, `Imported ${processed} of ${rows.length} categories...`, percent);
+      await yieldToUi();
+    }
     return summary;
   }
 
-  function importCategories(rows) {
-    const summary = { createdAccounts: 0, createdCategories: 0, appendedSubcategories: 0 };
-    rows.forEach((row) => {
+  function importCategoryRow(row, summary) {
       const payload = {
         id: row.id || slugify(row.name || "") || uid("cat"),
         name: row.name || "Imported Category",
@@ -438,8 +532,6 @@ export function createModalTools(api) {
         summary.createdCategories += 1;
       }
       upsertById(state.categories, payload);
-    });
-    return summary;
   }
 
   function buildImportToast(rowCount, target, summary) {

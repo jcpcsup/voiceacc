@@ -752,6 +752,67 @@ export function createReportsTools(api) {
 
   function buildStackedPeriods(transactions) {
     const selectedTypes = getSelectedReportTypes();
+    if (uiState.reports.range === "custom") {
+      const { start, end } = getDateRange("custom");
+      if (!start || !end) {
+        return [];
+      }
+      const startDate = parseIsoDate(start, 12);
+      const endDate = parseIsoDate(end, 12);
+      const daySpan = Math.max(1, Math.floor((endDate - startDate) / 86400000) + 1);
+      if (daySpan <= 45) {
+        const buckets = [];
+        let cursor = new Date(startDate);
+        let weekIndex = 1;
+        while (cursor <= endDate) {
+          const bucketStart = new Date(cursor);
+          const bucketEnd = new Date(cursor);
+          bucketEnd.setDate(bucketEnd.getDate() + 6);
+          if (bucketEnd > endDate) {
+            bucketEnd.setTime(endDate.getTime());
+          }
+          buckets.push(buildStackedPeriodBucket(transactions, bucketStart, bucketEnd, `Week ${weekIndex}`, selectedTypes));
+          cursor.setDate(cursor.getDate() + 7);
+          weekIndex += 1;
+        }
+        return buckets;
+      }
+      if (startDate.getFullYear() === endDate.getFullYear() && daySpan <= 366) {
+        const buckets = [];
+        let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        const finalMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        while (cursor <= finalMonth) {
+          const monthStart = new Date(cursor);
+          const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+          buckets.push(
+            buildStackedPeriodBucket(
+              transactions,
+              monthStart < startDate ? startDate : monthStart,
+              monthEnd > endDate ? endDate : monthEnd,
+              cursor.toLocaleDateString("en-US", { month: "short" }),
+              selectedTypes
+            )
+          );
+          cursor.setMonth(cursor.getMonth() + 1);
+        }
+        return buckets;
+      }
+      const buckets = [];
+      for (let year = startDate.getFullYear(); year <= endDate.getFullYear(); year += 1) {
+        const yearStart = parseIsoDate(`${year}-01-01`, 12);
+        const yearEnd = parseIsoDate(`${year}-12-31`, 12);
+        buckets.push(
+          buildStackedPeriodBucket(
+            transactions,
+            yearStart < startDate ? startDate : yearStart,
+            yearEnd > endDate ? endDate : yearEnd,
+            String(year),
+            selectedTypes
+          )
+        );
+      }
+      return buckets;
+    }
     if (uiState.reports.range === "thisMonth") {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

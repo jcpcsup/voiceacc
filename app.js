@@ -89,6 +89,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       types: ["expense"],
       chartStyle: "donut",
       anchorDate: `${initialNow.getFullYear()}-${String(initialNow.getMonth() + 1).padStart(2, "0")}-${String(initialNow.getDate()).padStart(2, "0")}`,
+      customStartDate: "",
+      customEndDate: "",
     },
     toastTimer: null,
     recognition: null,
@@ -333,6 +335,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   wireStaticIcons();
   seedStaticContent();
   syncImportTemplateUi();
+  syncCustomReportRangeUi();
   initializeSpeechRecognition();
   bindEvents();
   renderAll();
@@ -402,11 +405,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
     document.getElementById("report-range").addEventListener("change", (event) => {
       uiState.reports.range = event.target.value;
-      uiState.reports.anchorDate = todayIso();
+      if (uiState.reports.range !== "custom") {
+        uiState.reports.anchorDate = todayIso();
+      }
+      syncCustomReportRangeUi();
       syncReportRangeOptionLabels();
       syncReportRangeNavigator();
       renderReports();
     });
+    document.getElementById("report-custom-start").addEventListener("change", syncCustomReportRangeFromInputs);
+    document.getElementById("report-custom-end").addEventListener("change", syncCustomReportRangeFromInputs);
     document.getElementById("report-account").addEventListener("change", (event) => {
       uiState.reports.account = event.target.value;
       renderReports();
@@ -452,10 +460,44 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const target = document.getElementById("import-target").value || "transactions";
     document.getElementById("download-import-template-button").textContent = `Download ${titleCase(target)} Template`;
     document.getElementById("import-template-help").textContent = getImportTemplateMessage(target);
+    const limitNote = document.getElementById("import-limit-note");
+    if (limitNote) {
+      limitNote.textContent =
+        target === "transactions"
+          ? "For best results, import transactions in batches of about 500 to 1000 rows. Very large files are processed in chunks."
+          : "Large imports are processed in chunks to keep the app responsive while data is being added.";
+    }
   }
 
   function handleDownloadImportTemplate() {
     exportImportTemplate(document.getElementById("import-target").value || "transactions");
+  }
+
+  function syncCustomReportRangeUi() {
+    const wrapper = document.getElementById("report-custom-range-fields");
+    if (!wrapper) {
+      return;
+    }
+    const isCustom = uiState.reports.range === "custom";
+    wrapper.classList.toggle("hidden", !isCustom);
+    setInputDateValue("report-custom-start", uiState.reports.customStartDate || "");
+    setInputDateValue("report-custom-end", uiState.reports.customEndDate || "");
+  }
+
+  function syncCustomReportRangeFromInputs() {
+    const startValue = normalizeDateInput(document.getElementById("report-custom-start").value || "");
+    const endValue = normalizeDateInput(document.getElementById("report-custom-end").value || "");
+    let startDate = startValue;
+    let endDate = endValue;
+    if (startDate && endDate && startDate > endDate) {
+      [startDate, endDate] = [endDate, startDate];
+    }
+    uiState.reports.customStartDate = startDate;
+    uiState.reports.customEndDate = endDate;
+    setInputDateValue("report-custom-start", startDate);
+    setInputDateValue("report-custom-end", endDate);
+    syncReportRangeOptionLabels();
+    renderReports();
   }
 
   function syncReportTypeButtons() {
@@ -473,6 +515,20 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function getReportRangeLabel(range, anchorIso = uiState.reports.anchorDate || todayIso()) {
     const reference = parseIsoDate(anchorIso, 12);
+    if (range === "custom") {
+      const start = uiState.reports.customStartDate || "";
+      const end = uiState.reports.customEndDate || "";
+      if (start && end) {
+        return `${formatReportRangeDate(start)} - ${formatReportRangeDate(end)}`;
+      }
+      if (start) {
+        return `${formatReportRangeDate(start)} - ${formatReportRangeDate(start)}`;
+      }
+      if (end) {
+        return `${formatReportRangeDate(end)} - ${formatReportRangeDate(end)}`;
+      }
+      return "Custom Range";
+    }
     if (range === "thisMonth") {
       return reference.toLocaleDateString("en-US", { month: "long" });
     }
@@ -502,6 +558,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       ["last30", getReportRangeLabel("last30")],
       ["thisQuarter", getReportRangeLabel("thisQuarter")],
       ["thisYear", getReportRangeLabel("thisYear")],
+      ["custom", getReportRangeLabel("custom")],
       ["all", "All Time"],
     ].forEach(([value, label]) => {
       const option = reportRange.querySelector(`option[value="${value}"]`);
@@ -517,7 +574,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!prevButton || !nextButton) {
       return;
     }
-    const disabled = uiState.reports.range === "all";
+    const disabled = uiState.reports.range === "all" || uiState.reports.range === "custom";
     prevButton.disabled = disabled;
     nextButton.disabled = disabled || isReportRangeAtLatest();
   }
@@ -546,7 +603,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function shiftReportRange(direction) {
     const range = uiState.reports.range;
-    if (range === "all") {
+    if (range === "all" || range === "custom") {
       return;
     }
     const anchor = parseIsoDate(uiState.reports.anchorDate, 12);
@@ -1292,6 +1349,20 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const today = todayIso();
     if (range === "all") {
       return { start: "", end: "" };
+    }
+    if (range === "custom") {
+      let start = normalizeDateInput(uiState.reports.customStartDate || "");
+      let end = normalizeDateInput(uiState.reports.customEndDate || "");
+      if (start && end && start > end) {
+        [start, end] = [end, start];
+      }
+      if (start && !end) {
+        end = start;
+      }
+      if (end && !start) {
+        start = end;
+      }
+      return { start, end };
     }
     if (range === "last30") {
       const end = reference > now ? today : toLocalIsoDate(reference);

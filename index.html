@@ -271,6 +271,7 @@
                     <option value="last30">Last 30 Days</option>
                     <option value="thisQuarter">This Quarter</option>
                     <option value="thisYear">This Year</option>
+                    <option value="custom">Custom Range</option>
                     <option value="all">All Time</option>
                   </select>
                   <button class="ghost-button report-range-nav" type="button" id="report-range-next-button" aria-label="Next date range">&#8250;</button>
@@ -286,6 +287,13 @@
                   <button class="report-type-chip report-type-chip-active" type="button" data-report-type-value="expense">Expense</button>
                   <button class="report-type-chip" type="button" data-report-type-value="income">Income</button>
                   <button class="report-type-chip" type="button" data-report-type-value="transfer">Transfer</button>
+                </div>
+              </div>
+              <div class="field-group field-span-2 hidden" id="report-custom-range-fields">
+                <label class="field-label">Custom Date Range</label>
+                <div class="report-custom-range">
+                  <input id="report-custom-start" type="date" aria-label="Custom report start date" />
+                  <input id="report-custom-end" type="date" aria-label="Custom report end date" />
                 </div>
               </div>
             </div>
@@ -724,9 +732,16 @@
           <p class="supporting-text">
             Existing rows with matching IDs will be updated. New rows will be added automatically.
           </p>
+          <p class="supporting-text" id="import-limit-note">
+            For best results, import transactions in batches of about 500 to 1000 rows. Very large files are processed in chunks.
+          </p>
+          <div class="import-progress hidden" id="import-progress" aria-live="polite">
+            <div class="import-progress-track"><span id="import-progress-fill"></span></div>
+            <p class="supporting-text" id="import-progress-text">Preparing import...</p>
+          </div>
           <div class="modal-actions">
             <button class="secondary-button" type="button" data-close-modal="import-modal">Cancel</button>
-            <button class="primary-button" type="submit">Import CSV</button>
+            <button class="primary-button" type="submit" id="import-submit-button">Import CSV</button>
           </div>
         </form>
       </div>
