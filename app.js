@@ -24,7 +24,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const STORAGE_KEY = "ledgerflow-voice-v1";
-  const TRANSACTIONS_PAGE_SIZE = 50;
+  const TRANSACTIONS_PAGE_SIZE = 20;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
     SUPABASE_CONFIGURED && typeof window.supabase?.createClient === "function";
