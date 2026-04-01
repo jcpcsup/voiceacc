@@ -369,6 +369,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("export-transactions-button").addEventListener("click", exportTransactionsCsv);
     document.getElementById("export-accounts-button").addEventListener("click", exportAccountsCsv);
     document.getElementById("export-categories-button").addEventListener("click", exportCategoriesCsv);
+    document.getElementById("clear-transactions-button").addEventListener("click", clearAllTransactions);
 
     document.querySelectorAll("[data-open-account-modal]").forEach((button) => {
       button.addEventListener("click", () => openAccountModal());
@@ -1409,6 +1410,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
         persistAndRefresh();
         showToast("Transaction deleted.");
+      },
+    });
+  }
+
+  function clearAllTransactions() {
+    openConfirmModal({
+      eyebrow: "Reset",
+      title: "Clear all transactions?",
+      message: "This will remove every transaction from your ledger and Supabase, but it will keep your accounts and categories.",
+      submitLabel: "Clear All",
+      onConfirm: () => {
+        state.transactions = [];
+        uiState.transactionPage = 1;
+        clearFilters();
+        persistAndRefresh();
+        showToast("All transactions cleared.");
       },
     });
   }
