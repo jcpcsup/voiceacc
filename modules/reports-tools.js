@@ -322,7 +322,7 @@ export function createReportsTools(api) {
         current.value += Number(transaction.amount || 0);
         map.set(key, current);
       });
-    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 6);
+    const rows = [...map.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 10);
     if (!rows.length) {
       return renderEmpty("No expense data for this report selection.");
     }
@@ -998,7 +998,9 @@ export function createReportsTools(api) {
         map.set(key, current);
       });
 
-    const rows = [...map.values()].sort((a, b) => b.value - a.value).slice(0, 5);
+    const rows = [...map.values()]
+      .filter((row) => Number(row.value || 0) >= 1)
+      .sort((a, b) => b.value - a.value);
     const total = rows.reduce((sum, row) => sum + row.value, 0);
     return rows.map((row) => ({
       ...row,
@@ -1083,7 +1085,7 @@ export function createReportsTools(api) {
       return { title, subtitle, symbol, total: 0, segments: [] };
     }
 
-    const topRows = cleaned.slice(0, 5).map((row) => ({
+    const topRows = cleaned.slice(0, 10).map((row) => ({
       label: row.label,
       value: Number(row.value || 0),
       color: row.color || "#00a6c7",
@@ -1091,27 +1093,6 @@ export function createReportsTools(api) {
       filters: row.filters || null,
       accounts: Array.isArray(row.accounts) ? row.accounts : [],
     }));
-    const remainder = cleaned.slice(5).reduce((sum, row) => sum + Number(row.value || 0), 0);
-    const remainderCount = cleaned.slice(5).reduce((sum, row) => sum + Number(row.count || 0), 0);
-    if (remainder > 0) {
-      const otherFilters = cleaned.slice(5).reduce(
-        (current, row) => ({
-          ...current,
-          startDate:
-            row.filters?.startDate && (!current.startDate || row.filters.startDate < current.startDate) ? row.filters.startDate : current.startDate,
-          endDate: row.filters?.endDate && (!current.endDate || row.filters.endDate > current.endDate) ? row.filters.endDate : current.endDate,
-        }),
-        getBaseReportFilters()
-      );
-      topRows.push({
-        label: "Others",
-        value: remainder,
-        color: "#8aa8b3",
-        count: remainderCount,
-        filters: otherFilters,
-        accounts: [],
-      });
-    }
 
     const total = topRows.reduce((sum, row) => sum + row.value, 0);
     return {

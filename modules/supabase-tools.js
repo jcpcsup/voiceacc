@@ -27,6 +27,7 @@ export function createSupabaseTools(api) {
     SUPABASE_CONFIGURED,
     SUPABASE_AVAILABLE,
   } = constants;
+  const SUPABASE_FETCH_BATCH_SIZE = 1000;
 
   async function initializeSupabase() {
     if (!SUPABASE_AVAILABLE) {
@@ -195,36 +196,54 @@ export function createSupabaseTools(api) {
   }
 
   async function loadNormalizedStateFromSupabase(userId) {
-    const [accountsResult, categoriesResult, transactionsResult] = await Promise.all([
-      cloudState.client
-        .from(SUPABASE_ACCOUNTS_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
-      cloudState.client
-        .from(SUPABASE_CATEGORIES_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("name", { ascending: true }),
-      cloudState.client
-        .from(SUPABASE_TRANSACTIONS_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("transaction_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+    const [accounts, categories, transactions] = await Promise.all([
+      fetchAllSupabaseRows(SUPABASE_ACCOUNTS_TABLE, userId, [
+        { column: "sort_order", ascending: true },
+        { column: "created_at", ascending: true },
+      ]),
+      fetchAllSupabaseRows(SUPABASE_CATEGORIES_TABLE, userId, [{ column: "name", ascending: true }]),
+      fetchAllSupabaseRows(SUPABASE_TRANSACTIONS_TABLE, userId, [
+        { column: "transaction_date", ascending: false },
+        { column: "created_at", ascending: false },
+      ]),
     ]);
 
-    const firstError = [accountsResult.error, categoriesResult.error, transactionsResult.error].find(Boolean);
-    if (firstError) {
-      throw firstError;
+    return normalizeState({
+      accounts: accounts.map(deserializeSupabaseAccount),
+      categories: categories.map(deserializeSupabaseCategory),
+      transactions: transactions.map(deserializeSupabaseTransaction),
+    });
+  }
+
+  async function fetchAllSupabaseRows(tableName, userId, orderings = []) {
+    const rows = [];
+    let offset = 0;
+
+    while (true) {
+      let query = cloudState.client
+        .from(tableName)
+        .select("*")
+        .eq("user_id", userId);
+
+      orderings.forEach((ordering) => {
+        query = query.order(ordering.column, { ascending: ordering.ascending });
+      });
+
+      const { data, error } = await query.range(offset, offset + SUPABASE_FETCH_BATCH_SIZE - 1);
+      if (error) {
+        throw error;
+      }
+
+      const chunk = data || [];
+      rows.push(...chunk);
+
+      if (chunk.length < SUPABASE_FETCH_BATCH_SIZE) {
+        break;
+      }
+      offset += SUPABASE_FETCH_BATCH_SIZE;
     }
 
-    return normalizeState({
-      accounts: (accountsResult.data || []).map(deserializeSupabaseAccount),
-      categories: (categoriesResult.data || []).map(deserializeSupabaseCategory),
-      transactions: (transactionsResult.data || []).map(deserializeSupabaseTransaction),
-    });
+    return rows;
   }
 
   async function loadLegacySnapshotState(userId) {
@@ -246,14 +265,7 @@ export function createSupabaseTools(api) {
 
   async function syncSupabaseTable(tableName, rows) {
     const userId = cloudState.session.user.id;
-    const { data: existingRows, error: existingError } = await cloudState.client
-      .from(tableName)
-      .select("id")
-      .eq("user_id", userId);
-
-    if (existingError) {
-      throw existingError;
-    }
+    const existingRows = await fetchAllSupabaseRows(tableName, userId, [{ column: "id", ascending: true }]);
 
     if (rows.length) {
       const { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
