@@ -536,34 +536,36 @@ export function createModalTools(api) {
 
   function parseStatement(statement) {
     const normalized = statement.toLowerCase();
+    const tokens = tokenizeStatement(statement);
     const transaction = {
       id: "",
       type: detectTransactionType(normalized),
-      amount: extractAmount(normalized),
-      date: extractDate(normalized) || todayIso(),
+      amount: extractAmount(statement),
+      date: todayIso(),
       accountId: "",
       fromAccountId: "",
       toAccountId: "",
       categoryId: "",
       subcategory: "",
-      counterparty: extractCounterparty(normalized),
-      project: extractProject(normalized),
-      tags: extractTags(statement),
+      counterparty: "",
+      project: "",
+      tags: [],
       details: statement,
     };
 
-    const accountHints = extractAccounts(normalized);
-    if (transaction.type === "transfer") {
-      transaction.fromAccountId = accountHints.from || "";
-      transaction.toAccountId = accountHints.to || "";
-    } else {
-      transaction.accountId = accountHints.primary || accountHints.from || accountHints.to || "";
-    }
+    const parsed = parseStatementSegments(tokens, statement, transaction.type);
+    transaction.date = parsed.date || todayIso();
+    transaction.project = parsed.project || "";
+    transaction.tags = parsed.tags || [];
 
-    const category = detectCategory(normalized, transaction.type);
-    if (category) {
-      transaction.categoryId = category.id;
-      transaction.subcategory = detectSubcategory(normalized, category) || "";
+    if (transaction.type === "transfer") {
+      transaction.fromAccountId = parsed.fromAccountId || "";
+      transaction.toAccountId = parsed.toAccountId || "";
+    } else {
+      transaction.accountId = parsed.accountId || "";
+      transaction.counterparty = parsed.counterparty || "";
+      transaction.categoryId = parsed.categoryId || "";
+      transaction.subcategory = parsed.subcategory || "";
     }
 
     const missing = [];
@@ -581,7 +583,7 @@ export function createModalTools(api) {
       if (!transaction.accountId) {
         missing.push("account");
       }
-      if (!transaction.categoryId && transaction.type !== "income") {
+      if (!transaction.categoryId) {
         missing.push("category");
       }
     }
@@ -589,107 +591,303 @@ export function createModalTools(api) {
     return { transaction, missing };
   }
 
+  const RESERVED_STATEMENT_MARKERS = new Set(["with", "on", "from", "to", "project", "tag", "tags"]);
+
   function detectTransactionType(text) {
-    if (/(transfer|moved?|sent|shifted)/.test(text)) {
+    if (/\b(?:transfer|moved?|sent|shifted)\b/.test(text)) {
       return "transfer";
     }
-    if (/(received|income|earned|salary|sold|bonus|got paid|deposit)/.test(text)) {
+    if (/\b(?:received|got|income|earned|salary|sold|bonus|got paid|deposit)\b/.test(text)) {
       return "income";
+    }
+    if (/\b(?:spent|paid)\b/.test(text)) {
+      return "expense";
     }
     return "expense";
   }
 
-  function extractAmount(text) {
-    const match = text.match(/(?:\$|usd\s*)?(\d+(?:\.\d{1,2})?)/);
-    return match ? Number(match[1]) : 0;
+  function tokenizeStatement(statement) {
+    return String(statement || "")
+      .trim()
+      .match(/\S+/g)
+      ?.map((raw) => ({
+        raw,
+        normalized: normalizeStatementToken(raw),
+      })) || [];
   }
 
-  function extractDate(text) {
-    if (text.includes("today")) {
-      return todayIso();
+  function normalizeStatementToken(token) {
+    return String(token || "")
+      .trim()
+      .replace(/^[,.;:!?()"“”]+|[,.;:!?()"“”]+$/g, "")
+      .toLowerCase();
+  }
+
+  function cleanStatementToken(token) {
+    return String(token || "")
+      .trim()
+      .replace(/^[,.;:!?()"“”]+|[,.;:!?()"“”]+$/g, "");
+  }
+
+  function normalizeStatementMarker(token) {
+    return token === "tag" ? "tags" : token;
+  }
+
+  function isSegmentMarker(token) {
+    return RESERVED_STATEMENT_MARKERS.has(normalizeStatementMarker(token));
+  }
+
+  function matchRelativeDate(tokens, index) {
+    if (tokens[index]?.normalized === "day" && tokens[index + 1]?.normalized === "before" && tokens[index + 2]?.normalized === "yesterday") {
+      return { value: shiftIsoDate(todayIso(), -2), length: 3 };
     }
-    if (text.includes("yesterday")) {
-      return shiftIsoDate(todayIso(), -1);
+    if (tokens[index]?.normalized === "today") {
+      return { value: todayIso(), length: 1 };
     }
-    if (text.includes("tomorrow")) {
-      return shiftIsoDate(todayIso(), 1);
+    if (tokens[index]?.normalized === "yesterday") {
+      return { value: shiftIsoDate(todayIso(), -1), length: 1 };
     }
-    const isoMatch = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
-    if (isoMatch) {
-      return isoMatch[1];
+    if (tokens[index]?.normalized === "tomorrow") {
+      return { value: shiftIsoDate(todayIso(), 1), length: 1 };
     }
-    const usMatch = text.match(/\b(\d{1,2}\/\d{1,2}\/\d{4})\b/);
-    if (usMatch) {
-      return normalizeDateInput(usMatch[1]);
+    return null;
+  }
+
+  function normalizeExplicitDateToken(token) {
+    const cleaned = cleanStatementToken(token);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+      return cleaned;
+    }
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleaned)) {
+      return normalizeDateInput(cleaned);
     }
     return "";
   }
 
-  function extractCounterparty(text) {
-    const expenseMatch = text.match(/\b(?:at|to)\s+([a-z0-9&.' -]+?)(?=\s+(?:from|on|for|category|project|tag|tags)\b|$)/i);
-    const incomeMatch = text.match(/\bfrom\s+([a-z0-9&.' -]+?)(?=\s+(?:into|on|project|tag|tags)\b|$)/i);
-    const match = incomeMatch || expenseMatch;
-    return match ? titleCase(match[1].trim()) : "";
+  function tokenLooksLikeDate(token) {
+    return Boolean(normalizeExplicitDateToken(token));
   }
 
-  function extractProject(text) {
-    const match = text.match(/\bproject\s+([a-z0-9&.' -]+?)(?=\s+(?:tag|tags|from|to|on|into)\b|$)/i);
-    return match ? titleCase(match[1].trim()) : "";
-  }
-
-  function extractTags(statement) {
-    const explicit = [];
-    const lower = statement.toLowerCase();
-    const tagPhraseMatch = lower.match(/\btags?\s+([a-z0-9,\s-]+)/);
-    if (tagPhraseMatch) {
-      explicit.push(...splitTags(tagPhraseMatch[1]));
+  function consumeSegment(tokens, startIndex) {
+    const words = [];
+    let index = startIndex;
+    while (index < tokens.length) {
+      if (matchRelativeDate(tokens, index) || tokenLooksLikeDate(tokens[index].raw) || isSegmentMarker(tokens[index].normalized)) {
+        break;
+      }
+      words.push(tokens[index]);
+      index += 1;
     }
-    const hashTags = statement.match(/#([a-zA-Z0-9_-]+)/g) || [];
-    hashTags.forEach((item) => explicit.push(item.replace("#", "").toLowerCase()));
-    return [...new Set(explicit)];
+    return {
+      words,
+      nextIndex: index,
+      original: words.map((token) => cleanStatementToken(token.raw)).join(" ").trim(),
+      normalized: words.map((token) => token.normalized).join(" ").trim(),
+    };
   }
 
-  function extractAccounts(text) {
-    const loweredAccounts = state.accounts.map((account) => ({
-      id: account.id,
-      name: account.name.toLowerCase(),
-    }));
-    const matches = { primary: "", from: "", to: "" };
-    loweredAccounts.forEach((account) => {
-      if (!matches.primary && text.includes(account.name)) {
-        matches.primary = account.id;
-      }
-      if (!matches.from && new RegExp(`\\b(?:from|via|using)\\s+${escapeRegExp(account.name)}\\b`, "i").test(text)) {
-        matches.from = account.id;
-      }
-      if (!matches.to && new RegExp(`\\b(?:to|into|in)\\s+${escapeRegExp(account.name)}\\b`, "i").test(text)) {
-        matches.to = account.id;
-      }
-    });
-    return matches;
+  function resolveAccountSegment(segmentText) {
+    const normalized = String(segmentText || "").trim().toLowerCase();
+    if (!normalized) {
+      return "";
+    }
+    const accounts = [...state.accounts]
+      .map((account) => ({
+        id: account.id,
+        name: account.name.toLowerCase(),
+      }))
+      .sort((left, right) => right.name.length - left.name.length);
+    const match = accounts.find((account) => new RegExp(`(^|\\b)${escapeRegExp(account.name)}(\\b|$)`, "i").test(normalized));
+    return match ? match.id : "";
   }
 
-  function detectCategory(text, type) {
-    if (type === "transfer") {
+  function resolveCategoryToken(token, type) {
+    if (!token || type === "transfer") {
       return null;
     }
-    const exact = state.categories.find((category) => text.includes(category.name.toLowerCase()) && category.type === type);
+    const normalized = normalizeStatementToken(token);
+    const exact = state.categories.find(
+      (category) => category.type === type && normalizeStatementToken(category.name) === normalized
+    );
     if (exact) {
       return exact;
     }
+    const leadingWord = state.categories.find(
+      (category) => category.type === type && normalizeStatementToken(category.name).split(" ")[0] === normalized
+    );
+    if (leadingWord) {
+      return leadingWord;
+    }
     for (const [categoryId, keywords] of Object.entries(categoryKeywordMap)) {
-      if (keywords.some((keyword) => text.includes(keyword))) {
+      if (keywords.some((keyword) => normalizeStatementToken(keyword) === normalized)) {
         const category = getCategory(categoryId);
         if (category && category.type === type) {
           return category;
         }
       }
     }
-    return state.categories.find((category) => category.type === type) || null;
+    return null;
   }
 
-  function detectSubcategory(text, category) {
-    return (category.subcategories || []).find((subcategory) => text.includes(subcategory.toLowerCase())) || "";
+  function resolveSubcategoryText(text, category) {
+    const cleaned = String(text || "").trim();
+    if (!cleaned) {
+      return "";
+    }
+    const exact = (category?.subcategories || []).find((item) => item.toLowerCase() === cleaned.toLowerCase());
+    return exact || titleCase(cleaned);
+  }
+
+  function extractAmount(statement) {
+    const tokens = String(statement || "").match(/\S+/g) || [];
+    for (const token of tokens) {
+      const cleaned = String(token || "")
+        .trim()
+        .replace(/^[^\d]+/, "")
+        .replace(/[^\d.,/-]+$/, "");
+      if (!cleaned || cleaned.includes("/") || /^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+        continue;
+      }
+      if (/^\d[\d,]*(?:\.\d{1,2})?$/.test(cleaned)) {
+        return Number(cleaned.replace(/,/g, ""));
+      }
+    }
+    return 0;
+  }
+
+  function extractHashTags(statement) {
+    return [...new Set((statement.match(/#([a-zA-Z0-9_-]+)/g) || []).map((item) => item.replace("#", "").toLowerCase()))];
+  }
+
+  function extractSegmentTags(segmentText) {
+    return [...new Set(
+      String(segmentText || "")
+        .split(/[,\s]+/)
+        .map((item) => item.trim().replace(/^#/, "").toLowerCase())
+        .filter(Boolean)
+    )];
+  }
+
+  function pickCounterparty(parsed, transactionType) {
+    if (transactionType === "income") {
+      return parsed.counterpartyFrom || parsed.counterpartyTo || "";
+    }
+    if (transactionType === "expense") {
+      return parsed.counterpartyTo || parsed.counterpartyFrom || "";
+    }
+    return "";
+  }
+
+  function parseStatementSegments(tokens, statement, transactionType) {
+    const parsed = {
+      date: "",
+      accountId: "",
+      fromAccountId: "",
+      toAccountId: "",
+      counterpartyFrom: "",
+      counterpartyTo: "",
+      categoryId: "",
+      subcategory: "",
+      project: "",
+      tags: [],
+    };
+
+    let index = 0;
+    while (index < tokens.length) {
+      const relativeDate = matchRelativeDate(tokens, index);
+      if (relativeDate) {
+        parsed.date = relativeDate.value;
+        index += relativeDate.length;
+        continue;
+      }
+
+      const explicitDate = normalizeExplicitDateToken(tokens[index].raw);
+      if (explicitDate) {
+        parsed.date = explicitDate;
+        index += 1;
+        continue;
+      }
+
+      const token = normalizeStatementMarker(tokens[index].normalized);
+      if (token === "with") {
+        const segment = consumeSegment(tokens, index + 1);
+        parsed.accountId = resolveAccountSegment(segment.normalized) || parsed.accountId;
+        index = segment.nextIndex;
+        continue;
+      }
+
+      if (token === "on") {
+        const relativeDateAfterOn = matchRelativeDate(tokens, index + 1);
+        if (relativeDateAfterOn) {
+          parsed.date = relativeDateAfterOn.value;
+          index += 1 + relativeDateAfterOn.length;
+          continue;
+        }
+        const explicitDateAfterOn = tokens[index + 1] ? normalizeExplicitDateToken(tokens[index + 1].raw) : "";
+        if (explicitDateAfterOn) {
+          parsed.date = explicitDateAfterOn;
+          index += 2;
+          continue;
+        }
+        const segment = consumeSegment(tokens, index + 1);
+        if (segment.words.length && transactionType !== "transfer") {
+          const [categoryToken, ...subcategoryTokens] = segment.words;
+          const category = resolveCategoryToken(categoryToken.normalized, transactionType);
+          if (category) {
+            parsed.categoryId = category.id;
+            parsed.subcategory = resolveSubcategoryText(
+              subcategoryTokens.map((item) => cleanStatementToken(item.raw)).join(" "),
+              category
+            );
+          }
+        }
+        index = segment.nextIndex;
+        continue;
+      }
+
+      if (token === "from" || token === "to") {
+        const segment = consumeSegment(tokens, index + 1);
+        const segmentText = segment.original;
+        if (transactionType === "transfer") {
+          const accountId = resolveAccountSegment(segment.normalized);
+          if (accountId) {
+            if (token === "from") {
+              parsed.fromAccountId = accountId;
+            } else {
+              parsed.toAccountId = accountId;
+            }
+          }
+        } else if (segmentText) {
+          if (token === "from") {
+            parsed.counterpartyFrom = titleCase(segmentText);
+          } else {
+            parsed.counterpartyTo = titleCase(segmentText);
+          }
+        }
+        index = segment.nextIndex;
+        continue;
+      }
+
+      if (token === "project") {
+        const segment = consumeSegment(tokens, index + 1);
+        parsed.project = titleCase(segment.original);
+        index = segment.nextIndex;
+        continue;
+      }
+
+      if (token === "tags") {
+        const segment = consumeSegment(tokens, index + 1);
+        parsed.tags = [...new Set([...parsed.tags, ...extractSegmentTags(segment.original)])];
+        index = segment.nextIndex;
+        continue;
+      }
+
+      index += 1;
+    }
+
+    parsed.tags = [...new Set([...parsed.tags, ...extractHashTags(statement)])];
+    parsed.counterparty = pickCounterparty(parsed, transactionType);
+    return parsed;
   }
 
   function parseCsv(text) {

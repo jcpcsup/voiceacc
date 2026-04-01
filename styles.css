@@ -1099,12 +1099,82 @@ textarea:focus {
   margin-top: 16px;
 }
 
+.example-group {
+  display: grid;
+  gap: 10px;
+}
+
+.example-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.example-group-title {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.example-group-cue {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.example-group--expense .example-group-cue {
+  color: #d35350;
+  background: rgba(239, 100, 97, 0.12);
+}
+
+.example-group--income .example-group-cue {
+  color: #129f70;
+  background: rgba(18, 159, 112, 0.12);
+}
+
+.example-group--transfer .example-group-cue {
+  color: #0f8eab;
+  background: rgba(15, 142, 171, 0.12);
+}
+
+.example-chips--group,
+.example-list--group {
+  margin-top: 0;
+}
+
+#voice-examples,
+#more-examples {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
 .example-chip {
   padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid rgba(18, 200, 164, 0.18);
   background: rgba(255, 255, 255, 0.88);
   color: var(--text);
+}
+
+.example-group--expense .example-chip {
+  border-color: rgba(239, 100, 97, 0.2);
+}
+
+.example-group--income .example-chip {
+  border-color: rgba(18, 159, 112, 0.18);
+}
+
+.example-group--transfer .example-chip {
+  border-color: rgba(15, 142, 171, 0.2);
 }
 
 .budget-item {

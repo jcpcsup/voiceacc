@@ -5,7 +5,7 @@ import { createAccountsCategoriesTools } from "./modules/accounts-categories-too
 import { createCsvTools } from "./modules/csv-tools.js";
 import { createFormatterTools } from "./modules/formatters.js";
 import { createModalTools } from "./modules/modal-tools.js";
-import { captureFields, categoryKeywordMap, dictationExamples } from "./modules/reference-data.js";
+import { captureFields, categoryKeywordMap, dictationExampleGroups } from "./modules/reference-data.js";
 import { createReportsTools } from "./modules/reports-tools.js";
 import { createRenderSharedTools } from "./modules/render-shared.js";
 import { createSearchTools } from "./modules/search-tools.js";
@@ -1541,24 +1541,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
 
   function seedStaticContent() {
-    document.getElementById("voice-examples").innerHTML = dictationExamples
-      .map(
-        (example) =>
-          `<button class="example-chip" type="button" data-action="use-example" data-statement="${escapeAttribute(example)}">${escapeHtml(
-            example
-          )}</button>`
-      )
-      .join("");
-    document.getElementById("more-examples").innerHTML = dictationExamples
-      .map(
-        (example) => `
-          <button class="example-card ghost-button" type="button" data-action="use-example" data-statement="${escapeAttribute(example)}">
-            <strong>${escapeHtml(example)}</strong>
-            <span class="supporting-text">Tap to load this example into voice dictation.</span>
-          </button>
-        `
-      )
-      .join("");
+    document.getElementById("voice-examples").innerHTML = renderDictationExampleGroups("chips");
+    document.getElementById("more-examples").innerHTML = renderDictationExampleGroups("cards");
     document.getElementById("capture-fields").innerHTML = captureFields
       .map(
         (field) => `
@@ -1568,6 +1552,42 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
           </article>
         `
       )
+      .join("");
+  }
+
+  function renderDictationExampleGroups(variant) {
+    return dictationExampleGroups
+      .map((group) => {
+        const items =
+          variant === "cards"
+            ? `<div class="example-list example-list--group">${group.examples
+                .map(
+                  (example) => `
+                    <button class="example-card ghost-button" type="button" data-action="use-example" data-statement="${escapeAttribute(example)}">
+                      <strong>${escapeHtml(example)}</strong>
+                      <span class="supporting-text">Tap to load this example into voice dictation.</span>
+                    </button>
+                  `
+                )
+                .join("")}</div>`
+            : `<div class="example-chips example-chips--group">${group.examples
+                .map(
+                  (example) =>
+                    `<button class="example-chip" type="button" data-action="use-example" data-statement="${escapeAttribute(example)}">${escapeHtml(
+                      example
+                    )}</button>`
+                )
+                .join("")}</div>`;
+        return `
+          <section class="example-group example-group--${escapeAttribute(group.id)}">
+            <div class="example-group-head">
+              <span class="example-group-title">${escapeHtml(group.title)}</span>
+              <span class="example-group-cue">${escapeHtml(group.cue)}</span>
+            </div>
+            ${items}
+          </section>
+        `;
+      })
       .join("");
   }
 
