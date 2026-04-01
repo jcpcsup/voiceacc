@@ -704,6 +704,17 @@ body.app-locked .app-shell {
   margin-top: 20px;
 }
 
+.more-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.more-categories-panel {
+  margin-top: 20px;
+}
+
 .account-grid,
 .metric-grid,
 .chip-grid {
@@ -2430,6 +2441,12 @@ textarea:focus {
   gap: 14px;
 }
 
+@media (min-width: 721px) {
+  .more-categories-panel .category-group-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .category-item {
   padding: 16px 18px;
 }
@@ -2794,6 +2811,7 @@ textarea:focus {
 @media (max-width: 900px) {
   .two-column,
   .report-grid,
+  .more-tools-grid,
   .reports-panel {
     grid-template-columns: 1fr;
   }
