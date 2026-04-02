@@ -255,6 +255,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     syncTransactionTemplateUi: () => {
       renderTransactionTemplateOptions();
       syncTransactionTemplateControls();
+      setTransactionTemplatePanelExpanded(false);
     },
     getTransaction,
     getAccount,
@@ -411,6 +412,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("save-transaction-template-button").addEventListener("click", saveCurrentTransactionTemplate);
     document.getElementById("delete-transaction-template-button").addEventListener("click", deleteSelectedTransactionTemplate);
     document.getElementById("transaction-template-select").addEventListener("change", syncTransactionTemplateControls);
+    document.getElementById("toggle-transaction-templates-button").addEventListener("click", toggleTransactionTemplatePanel);
 
     bindFilterInput("search-input", "search");
     bindFilterInput("filter-type", "type");
@@ -747,6 +749,24 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     setInputDateValue("filter-end-date", formatDateFilterDisplay(uiState.filters.endDate || ""));
   }
 
+  function setTransactionTemplatePanelExpanded(expanded) {
+    const body = document.getElementById("transaction-template-body");
+    const button = document.getElementById("toggle-transaction-templates-button");
+    const shell = document.querySelector(".transaction-template-tools");
+    if (!body || !button || !shell) {
+      return;
+    }
+    body.classList.toggle("hidden", !expanded);
+    shell.classList.toggle("is-expanded", expanded);
+    button.textContent = expanded ? "Hide Templates" : "Show Templates";
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+  }
+
+  function toggleTransactionTemplatePanel() {
+    const body = document.getElementById("transaction-template-body");
+    setTransactionTemplatePanelExpanded(body?.classList.contains("hidden"));
+  }
+
   function loadTransactionTemplates() {
     try {
       const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
@@ -856,6 +876,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-details").value = draft.details || "";
     syncTransactionTypeFields();
     renderTransactionSmartFieldOptions();
+    setTransactionTemplatePanelExpanded(false);
   }
 
   function saveCurrentTransactionTemplate() {

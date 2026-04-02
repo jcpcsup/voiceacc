@@ -506,19 +506,30 @@
           <input id="transaction-id" type="hidden" />
           <div class="inline-notice hidden" id="transaction-parser-notice"></div>
           <div class="transaction-template-tools">
-            <div class="transaction-template-row">
-              <div class="field-group">
-                <label class="field-label" for="transaction-template-select">Templates</label>
-                <select id="transaction-template-select">
-                  <option value="">Choose template</option>
-                </select>
+            <div class="transaction-template-header">
+              <div>
+                <p class="eyebrow">Templates</p>
+                <strong>Save or reuse common entries</strong>
               </div>
-              <button class="secondary-button transaction-template-apply" type="button" id="apply-transaction-template-button">Apply</button>
+              <button class="ghost-button transaction-template-toggle" type="button" id="toggle-transaction-templates-button" aria-expanded="false">
+                Show Templates
+              </button>
             </div>
-            <div class="transaction-template-row transaction-template-row-save">
-              <input id="transaction-template-name" type="text" placeholder="Template name" />
-              <button class="ghost-button" type="button" id="save-transaction-template-button">Save as Template</button>
-              <button class="ghost-button danger-outline hidden" type="button" id="delete-transaction-template-button">Delete Template</button>
+            <div class="transaction-template-body hidden" id="transaction-template-body">
+              <div class="transaction-template-row">
+                <div class="field-group">
+                  <label class="field-label" for="transaction-template-select">Templates</label>
+                  <select id="transaction-template-select">
+                    <option value="">Choose template</option>
+                  </select>
+                </div>
+                <button class="secondary-button transaction-template-apply" type="button" id="apply-transaction-template-button">Apply</button>
+              </div>
+              <div class="transaction-template-row transaction-template-row-save">
+                <input id="transaction-template-name" type="text" placeholder="Template name" />
+                <button class="ghost-button" type="button" id="save-transaction-template-button">Save as Template</button>
+                <button class="ghost-button danger-outline hidden" type="button" id="delete-transaction-template-button">Delete Template</button>
+              </div>
             </div>
           </div>
           <div class="form-grid">

@@ -1753,6 +1753,55 @@ textarea:focus {
   color: var(--accent-strong);
 }
 
+.transaction-template-tools {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.06), rgba(0, 166, 199, 0.05));
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  display: grid;
+  gap: 14px;
+}
+
+.transaction-template-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.transaction-template-header strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
+.transaction-template-toggle {
+  min-width: 150px;
+}
+
+.transaction-template-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.transaction-template-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.transaction-template-row-save {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.transaction-template-tools.is-expanded {
+  box-shadow: 0 12px 28px rgba(18, 59, 70, 0.06);
+}
+
 .snapshot-shell {
   display: grid;
   gap: 14px;
@@ -2982,6 +3031,21 @@ textarea:focus {
 
   .transaction-filter-chip {
     font-size: 0.8rem;
+  }
+
+  .transaction-template-tools {
+    padding: 14px 14px;
+  }
+
+  .transaction-template-row,
+  .transaction-template-row-save {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .transaction-template-toggle {
+    min-width: 0;
+    width: 100%;
   }
 
   .report-pie-layout {
