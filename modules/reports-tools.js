@@ -501,6 +501,7 @@ export function createReportsTools(api) {
             )
             .join("")}
         </div>
+        <div class="report-chart-tooltip hidden" id="report-chart-tooltip" aria-live="polite"></div>
       </div>
     `;
   }
@@ -560,9 +561,9 @@ export function createReportsTools(api) {
         const visibleEnd = endAngle - padding;
         detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
         currentAngle = endAngle;
-        return `<path class="report-chart-slice" d="${buildArcPath(110, 110, 92, visibleStart, visibleEnd, 24)}" fill="${escapeHtml(
+        return `<path class="report-chart-slice report-chart-hit" d="${buildArcPath(110, 110, 92, visibleStart, visibleEnd, 24)}" fill="${escapeHtml(
           segment.color
-        )}" data-action="open-report-segment" data-index="segment:${index}"></path>`;
+        )}" data-action="show-report-chart-tooltip" data-index="segment:${index}"></path>`;
       })
       .join("");
     currentAngle = -90;
@@ -587,14 +588,14 @@ export function createReportsTools(api) {
             const accountEnd = childAngle + accountAngle;
             childAngle = accountEnd;
             detailMap.set(`account:${segmentIndex}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
-            return `<path class="report-chart-slice report-chart-slice-secondary" d="${buildArcPath(
+            return `<path class="report-chart-slice report-chart-slice-secondary report-chart-hit" d="${buildArcPath(
               110,
               110,
               106,
               accountStart,
               accountEnd,
               94
-            )}" fill="${escapeHtml(account.color)}" data-action="open-report-segment" data-index="account:${segmentIndex}:${accountIndex}"></path>`;
+            )}" fill="${escapeHtml(account.color)}" data-action="show-report-chart-tooltip" data-index="account:${segmentIndex}:${accountIndex}"></path>`;
           })
           .join("");
       })
@@ -625,7 +626,7 @@ export function createReportsTools(api) {
               detailMap.set(`segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
               return `
                 <div class="report-breakdown-bar-group">
-                  <button class="report-breakdown-bar-button" type="button" data-action="open-report-segment" data-index="segment:${index}">
+                  <button class="report-breakdown-bar-button report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="segment:${index}">
                     <span class="report-breakdown-bar-label">${escapeHtml(segment.label)}</span>
                     <span class="report-breakdown-bar-track">
                       <span class="report-breakdown-bar-fill" style="width:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
@@ -642,9 +643,9 @@ export function createReportsTools(api) {
                               detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
                               return `
                                 <button
-                                  class="report-breakdown-account-button"
+                                  class="report-breakdown-account-button report-chart-hit"
                                   type="button"
-                                  data-action="open-report-segment"
+                                  data-action="show-report-chart-tooltip"
                                   data-index="account:${index}:${accountIndex}"
                                   aria-label="${escapeHtml(`${account.label} ${formatMoney(account.value, dataset.symbol)} ${accountShare.toFixed(2)}%`)}"
                                   style="width:${accountShare}%; background:${escapeHtml(account.color)}"
@@ -676,7 +677,7 @@ export function createReportsTools(api) {
               return `
                 <div class="report-breakdown-column-group">
                   <div class="report-breakdown-column-cluster">
-                    <button class="report-breakdown-column-button" type="button" data-action="open-report-segment" data-index="segment:${index}">
+                    <button class="report-breakdown-column-button report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="segment:${index}">
                       <span class="report-breakdown-column-fill" style="height:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
                         segment.color
                       )}"></span>
@@ -687,7 +688,7 @@ export function createReportsTools(api) {
                             .map((account, accountIndex) => {
                               detailMap.set(`account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
                               return `
-                                <button class="report-breakdown-column-button report-breakdown-column-button-sub" type="button" data-action="open-report-segment" data-index="account:${index}:${accountIndex}">
+                                <button class="report-breakdown-column-button report-breakdown-column-button-sub report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="account:${index}:${accountIndex}">
                                   <span class="report-breakdown-column-fill" style="height:${(account.value / maxValue) * 100}%; background:${escapeHtml(
                                     account.color
                                   )}"></span>
@@ -731,9 +732,9 @@ export function createReportsTools(api) {
                         detailMap.set(`stack:${periodIndex}:${segmentIndex}`, buildStackedDetail(period, segment));
                         return `
                           <button
-                            class="report-stacked-segment"
+                            class="report-stacked-segment report-chart-hit"
                             type="button"
-                            data-action="open-report-segment"
+                            data-action="show-report-chart-tooltip"
                             data-index="stack:${periodIndex}:${segmentIndex}"
                             style="width:${segmentWidth}%; background:${escapeHtml(segment.color)}"
                           ></button>

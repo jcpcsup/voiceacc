@@ -2073,10 +2073,11 @@ textarea:focus {
 
 .report-pie-layout {
   display: grid;
-  grid-template-columns: minmax(420px, 1.2fr) minmax(220px, 0.8fr);
+  grid-template-columns: minmax(520px, 1.45fr) minmax(180px, 0.55fr);
   gap: 18px;
-  align-items: center;
+  align-items: start;
   margin-top: 12px;
+  position: relative;
 }
 
 .report-type-multi,
@@ -2160,6 +2161,7 @@ textarea:focus {
   display: flex;
   justify-content: center;
   min-width: 0;
+  align-items: center;
 }
 
 .report-pie-visual-wrap-wide {
@@ -2170,10 +2172,14 @@ textarea:focus {
 .report-pie-visual,
 .report-breakdown-visual {
   position: relative;
-  width: min(100%, 340px);
+  width: min(100%, 380px);
   aspect-ratio: 1;
   border-radius: 50%;
   box-shadow: inset 0 2px 18px rgba(255, 255, 255, 0.36), 0 18px 36px rgba(14, 87, 99, 0.14);
+}
+
+.report-breakdown-visual-donut {
+  width: min(100%, 470px);
 }
 
 .report-pie-visual::after,
@@ -2201,6 +2207,10 @@ textarea:focus {
   cursor: pointer;
   transform-origin: 110px 110px;
   transition: transform 140ms ease, opacity 140ms ease, filter 140ms ease;
+}
+
+.report-chart-hit {
+  cursor: pointer;
 }
 
 .report-chart-slice:hover,
@@ -2295,7 +2305,7 @@ textarea:focus {
   gap: 14px;
   width: 100%;
   max-width: none;
-  min-height: 220px;
+  min-height: 360px;
 }
 
 .report-breakdown-column-group {
@@ -2310,7 +2320,7 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 180px;
+  height: 320px;
   width: 100%;
   justify-content: center;
 }
@@ -2401,6 +2411,80 @@ textarea:focus {
 .report-pie-legend {
   display: grid;
   gap: 10px;
+}
+
+.report-chart-tooltip {
+  position: absolute;
+  width: min(280px, calc(100% - 24px));
+  z-index: 3;
+  pointer-events: none;
+}
+
+.report-chart-tooltip-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  box-shadow: 0 18px 42px rgba(14, 87, 99, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.report-chart-tooltip-head {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.report-chart-tooltip-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.report-chart-tooltip-copy {
+  min-width: 0;
+}
+
+.report-chart-tooltip-copy strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-chart-tooltip-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-strong);
+}
+
+.report-chart-tooltip-percent {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.report-chart-tooltip-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.report-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(18, 200, 164, 0.06);
+}
+
+.report-chart-tooltip-row span {
+  color: var(--muted);
 }
 
 .report-pie-legend-item {

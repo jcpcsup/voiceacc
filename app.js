@@ -50,6 +50,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let pendingConfirmAction = null;
   let activeReportDetailFilters = null;
   let swipeGesture = null;
+  let reportChartTooltipState = {
+    index: "",
+    pinned: false,
+  };
   let smartFieldPickerState = {
     field: "",
     targetId: "",
@@ -443,6 +447,47 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.querySelectorAll('[data-close-modal="smart-field-picker-modal"]').forEach((button) => {
       button.addEventListener("click", resetSmartFieldPicker);
     });
+    document.addEventListener("mouseover", (event) => {
+      if (reportChartTooltipState.pinned) {
+        return;
+      }
+      const hit = event.target.closest(".report-chart-hit");
+      if (!hit) {
+        return;
+      }
+      showReportChartTooltip(hit.dataset.index || "", hit, false, event.clientX, event.clientY);
+    });
+    document.addEventListener("mousemove", (event) => {
+      if (reportChartTooltipState.pinned) {
+        return;
+      }
+      const hit = event.target.closest(".report-chart-hit");
+      if (!hit) {
+        return;
+      }
+      positionReportChartTooltip(hit, event.clientX, event.clientY);
+    });
+    document.addEventListener("mouseout", (event) => {
+      if (reportChartTooltipState.pinned) {
+        return;
+      }
+      const hit = event.target.closest(".report-chart-hit");
+      if (!hit) {
+        return;
+      }
+      const next = event.relatedTarget;
+      if (next && (hit.contains(next) || next.closest?.("#report-chart-tooltip"))) {
+        return;
+      }
+      hideReportChartTooltip(true);
+    });
+    document.addEventListener("click", (event) => {
+      const hit = event.target.closest(".report-chart-hit");
+      if (hit || event.target.closest("#report-chart-tooltip")) {
+        return;
+      }
+      hideReportChartTooltip(true);
+    });
 
     bindFilterInput("search-input", "search");
     bindFilterInput("filter-type", "type");
@@ -720,6 +765,90 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       )
       .join("");
     openModal("report-detail-modal");
+  }
+
+  function buildReportChartTooltipMarkup(detail) {
+    if (!detail) {
+      return "";
+    }
+    return `
+      <div class="report-chart-tooltip-card">
+        <div class="report-chart-tooltip-head">
+          <span class="report-chart-tooltip-swatch" style="background:${escapeAttribute(detail.color || "#19c6a7")}"></span>
+          <div class="report-chart-tooltip-copy">
+            <p class="eyebrow">${escapeHtml(detail.eyebrow || "Chart Detail")}</p>
+            <strong>${escapeHtml(detail.label || "Segment")}</strong>
+          </div>
+        </div>
+        <div class="report-chart-tooltip-value">${escapeHtml(detail.value || "")}</div>
+        <div class="report-chart-tooltip-percent">${escapeHtml(detail.percent || "")}</div>
+        <div class="report-chart-tooltip-meta">
+          ${(detail.meta || [])
+            .map(
+              (item) => `
+                <div class="report-chart-tooltip-row">
+                  <span>${escapeHtml(item.label || "")}</span>
+                  <strong>${escapeHtml(item.value || "")}</strong>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function positionReportChartTooltip(anchor, preferredClientX = null, preferredClientY = null) {
+    const tooltip = document.getElementById("report-chart-tooltip");
+    const shell = tooltip?.closest(".report-pie-layout");
+    if (!tooltip || !shell || !anchor) {
+      return;
+    }
+    const shellRect = shell.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const targetX = preferredClientX ?? anchorRect.left + anchorRect.width / 2;
+    const targetY = preferredClientY ?? anchorRect.top + anchorRect.height / 2;
+    const rightCandidate = targetX - shellRect.left + 14;
+    const leftCandidate = targetX - shellRect.left - tooltipRect.width - 14;
+    const preferredLeft = rightCandidate + tooltipRect.width <= shellRect.width - 12 ? rightCandidate : leftCandidate;
+    const clampedLeft = Math.max(12, Math.min(shellRect.width - tooltipRect.width - 12, preferredLeft));
+    const preferredTop = targetY - shellRect.top - tooltipRect.height / 2;
+    const clampedTop = Math.max(12, Math.min(shellRect.height - tooltipRect.height - 12, preferredTop));
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.style.top = `${clampedTop}px`;
+  }
+
+  function showReportChartTooltip(index, anchor, pinned = false, clientX = null, clientY = null) {
+    const tooltip = document.getElementById("report-chart-tooltip");
+    const detail = getReportChartSegmentDetail(index);
+    if (!tooltip || !detail || !anchor) {
+      return;
+    }
+    reportChartTooltipState = {
+      index,
+      pinned,
+    };
+    tooltip.innerHTML = buildReportChartTooltipMarkup(detail);
+    tooltip.classList.remove("hidden");
+    positionReportChartTooltip(anchor, clientX, clientY);
+  }
+
+  function hideReportChartTooltip(force = false) {
+    if (!force && reportChartTooltipState.pinned) {
+      return;
+    }
+    const tooltip = document.getElementById("report-chart-tooltip");
+    if (tooltip) {
+      tooltip.classList.add("hidden");
+      tooltip.innerHTML = "";
+      tooltip.style.left = "";
+      tooltip.style.top = "";
+    }
+    reportChartTooltipState = {
+      index: "",
+      pinned: false,
+    };
   }
 
   function openReportEntriesFromDetail() {
@@ -1532,6 +1661,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "open-report-segment") {
       openReportDetailModal(getReportChartSegmentDetail(actionTarget.dataset.index || ""));
+    }
+    if (action === "show-report-chart-tooltip") {
+      const index = actionTarget.dataset.index || "";
+      if (reportChartTooltipState.pinned && reportChartTooltipState.index === index) {
+        hideReportChartTooltip(true);
+        return;
+      }
+      showReportChartTooltip(index, actionTarget, true);
     }
     if (action === "open-report-detail-entries") {
       openReportEntriesFromDetail();
