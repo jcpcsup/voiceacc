@@ -157,6 +157,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let getBudgetStatus = () => [];
   let renderReports = () => {};
   let getReportChartSegmentDetail = () => null;
+  let renderReportDrilldown = () => "";
 
   const {
     getAccountBalance,
@@ -219,7 +220,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderTransactions,
   });
 
-  ({ renderReports, getBudgetStatus, getReportChartSegmentDetail } = createReportsTools({
+  ({ renderReports, getBudgetStatus, getReportChartSegmentDetail, renderReportDrilldown } = createReportsTools({
     state,
     uiState,
     iconRegistry,
@@ -476,14 +477,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         return;
       }
       const next = event.relatedTarget;
-      if (next && (hit.contains?.(next) || (typeof next.closest === "function" && next.closest("#report-chart-tooltip")))) {
+      if (next && (hit.contains?.(next) || (typeof next.closest === "function" && next.closest(".report-chart-tooltip")))) {
         return;
       }
       hideReportChartTooltip(true);
     });
     document.addEventListener("click", (event) => {
       const hit = findReportChartHitTarget(event.target);
-      if (hit || (typeof event.target.closest === "function" && event.target.closest("#report-chart-tooltip"))) {
+      if (hit || (typeof event.target.closest === "function" && event.target.closest(".report-chart-tooltip"))) {
         return;
       }
       hideReportChartTooltip(true);
@@ -744,6 +745,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!detail) {
       return;
     }
+    hideReportChartTooltip(true);
     activeReportDetailFilters = detail.filters || null;
     document.getElementById("report-detail-eyebrow").textContent = detail.eyebrow || "Chart Detail";
     document.getElementById("report-detail-title").textContent = detail.label || "Segment";
@@ -764,6 +766,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         `
       )
       .join("");
+    const drilldownMarkup = renderReportDrilldown(detail.drilldownKey || "");
+    const drilldownShell = document.getElementById("report-detail-chart-shell");
+    if (drilldownMarkup) {
+      drilldownShell.innerHTML = drilldownMarkup;
+      drilldownShell.classList.remove("hidden");
+    } else {
+      drilldownShell.innerHTML = "";
+      drilldownShell.classList.add("hidden");
+    }
     openModal("report-detail-modal");
   }
 
@@ -799,8 +810,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function positionReportChartTooltip(anchor, preferredClientX = null, preferredClientY = null) {
-    const tooltip = document.getElementById("report-chart-tooltip");
-    const shell = tooltip?.closest(".report-pie-layout");
+    const shell = anchor.closest?.(".report-pie-layout");
+    const tooltip = shell?.querySelector(".report-chart-tooltip");
     if (!tooltip || !shell || !anchor) {
       return;
     }
@@ -820,7 +831,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function showReportChartTooltip(index, anchor, pinned = false, clientX = null, clientY = null) {
-    const tooltip = document.getElementById("report-chart-tooltip");
+    const shell = anchor.closest?.(".report-pie-layout");
+    const tooltip = shell?.querySelector(".report-chart-tooltip");
     const detail = getReportChartSegmentDetail(index);
     if (!tooltip || !detail || !anchor) {
       return;
@@ -838,13 +850,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!force && reportChartTooltipState.pinned) {
       return;
     }
-    const tooltip = document.getElementById("report-chart-tooltip");
-    if (tooltip) {
+    document.querySelectorAll(".report-chart-tooltip").forEach((tooltip) => {
       tooltip.classList.add("hidden");
       tooltip.innerHTML = "";
       tooltip.style.left = "";
       tooltip.style.top = "";
-    }
+    });
     reportChartTooltipState = {
       index: "",
       pinned: false,

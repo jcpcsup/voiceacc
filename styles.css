@@ -2543,6 +2543,10 @@ textarea:focus {
   border: 1px solid rgba(13, 47, 61, 0.08);
 }
 
+.report-detail-modal-card {
+  width: min(100%, 980px);
+}
+
 .report-detail-swatch {
   width: 26px;
   height: 26px;
@@ -2567,6 +2571,20 @@ textarea:focus {
   display: grid;
   gap: 10px;
   margin-top: 14px;
+}
+
+.report-detail-chart-shell {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.report-detail-chart-shell .report-pie-layout {
+  margin-top: 0;
+}
+
+.report-pie-layout-drilldown {
+  grid-template-columns: minmax(420px, 1.25fr) minmax(200px, 0.75fr);
 }
 
 .report-detail-meta-row {
