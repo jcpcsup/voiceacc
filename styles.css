@@ -1719,6 +1719,161 @@ textarea:focus {
   margin-top: 18px;
 }
 
+.transaction-filter-snapshot {
+  margin-top: 4px;
+}
+
+.transaction-filter-chips {
+  margin-top: 12px;
+}
+
+.transaction-filter-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.transaction-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.transaction-filter-chip:hover,
+.transaction-filter-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(18, 200, 164, 0.24);
+  box-shadow: 0 10px 22px rgba(18, 59, 70, 0.08);
+}
+
+.transaction-filter-chip strong {
+  font-size: 0.82rem;
+  color: var(--accent-strong);
+}
+
+.snapshot-shell {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.06), rgba(0, 166, 199, 0.05));
+  border: 1px solid rgba(18, 59, 70, 0.08);
+}
+
+.transaction-snapshot-heading h4 {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+}
+
+.transaction-snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.transaction-snapshot-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(13, 47, 61, 0.06);
+  display: grid;
+  gap: 6px;
+}
+
+.transaction-snapshot-card strong {
+  font-size: 1.32rem;
+  line-height: 1.05;
+}
+
+.transaction-snapshot-card p:last-child {
+  margin: 0;
+  color: var(--muted);
+}
+
+.transaction-snapshot-card-income strong {
+  color: #129f70;
+}
+
+.transaction-snapshot-card-expense strong {
+  color: #d35350;
+}
+
+.transaction-snapshot-card-transfer strong {
+  color: #0f8eab;
+}
+
+.transaction-snapshot-analysis {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 14px;
+}
+
+.transaction-snapshot-panel {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(13, 47, 61, 0.06);
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-snapshot-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.transaction-snapshot-panel-head strong {
+  font-size: 1rem;
+}
+
+.transaction-snapshot-panel-head span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.transaction-snapshot-chart {
+  width: 100%;
+  height: 86px;
+}
+
+.transaction-snapshot-bars {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-snapshot-bar-row {
+  display: grid;
+  gap: 6px;
+}
+
+.transaction-snapshot-bar-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.transaction-snapshot-bar-meta strong,
+.transaction-snapshot-bar-meta span {
+  font-size: 0.92rem;
+}
+
+.transaction-snapshot-bar-fill {
+  margin-top: 0;
+}
+
+.transaction-snapshot-empty {
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .results-bar-actions {
   display: flex;
   align-items: center;
@@ -2814,6 +2969,19 @@ textarea:focus {
   .more-tools-grid,
   .reports-panel {
     grid-template-columns: 1fr;
+  }
+
+  .transaction-snapshot-grid,
+  .transaction-snapshot-analysis {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-filter-chip-list {
+    gap: 8px;
+  }
+
+  .transaction-filter-chip {
+    font-size: 0.8rem;
   }
 
   .report-pie-layout {

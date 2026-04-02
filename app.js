@@ -24,6 +24,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const STORAGE_KEY = "ledgerflow-voice-v1";
+  const TEMPLATE_STORAGE_KEY = `${STORAGE_KEY}-templates`;
   const TRANSACTIONS_PAGE_SIZE = 20;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
@@ -50,6 +51,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let activeReportDetailFilters = null;
   let swipeGesture = null;
   let uiState;
+  let transactionTemplates = loadTransactionTemplates();
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
     storageKey: STORAGE_KEY,
@@ -250,6 +252,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     iconRegistry,
     renderSelectOptions,
     renderSubcategoryOptions,
+    syncTransactionTemplateUi: () => {
+      renderTransactionTemplateOptions();
+      syncTransactionTemplateControls();
+    },
     getTransaction,
     getAccount,
     getCategory,
@@ -336,6 +342,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   seedStaticContent();
   syncImportTemplateUi();
   syncCustomReportRangeUi();
+  renderTransactionTemplateOptions();
   initializeSpeechRecognition();
   bindEvents();
   renderAll();
@@ -399,6 +406,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
     document.getElementById("transaction-delete-button").addEventListener("click", handleTransactionModalDelete);
+    document.getElementById("transaction-duplicate-button").addEventListener("click", handleTransactionModalDuplicate);
+    document.getElementById("apply-transaction-template-button").addEventListener("click", applySelectedTransactionTemplate);
+    document.getElementById("save-transaction-template-button").addEventListener("click", saveCurrentTransactionTemplate);
+    document.getElementById("delete-transaction-template-button").addEventListener("click", deleteSelectedTransactionTemplate);
+    document.getElementById("transaction-template-select").addEventListener("change", syncTransactionTemplateControls);
 
     bindFilterInput("search-input", "search");
     bindFilterInput("filter-type", "type");
@@ -735,6 +747,196 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     setInputDateValue("filter-end-date", formatDateFilterDisplay(uiState.filters.endDate || ""));
   }
 
+  function loadTransactionTemplates() {
+    try {
+      const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({
+          id: item.id || uid("tpl"),
+          name: String(item.name || "").trim(),
+          type: item.type || "expense",
+          amount: Number(item.amount || 0),
+          accountId: item.accountId || "",
+          fromAccountId: item.fromAccountId || "",
+          toAccountId: item.toAccountId || "",
+          categoryId: item.categoryId || "",
+          subcategory: item.subcategory || "",
+          counterparty: item.counterparty || "",
+          project: item.project || "",
+          tags: Array.isArray(item.tags) ? item.tags : splitTags(item.tags || ""),
+          details: item.details || "",
+          updatedAt: item.updatedAt || item.createdAt || "",
+        }))
+        .filter((item) => item.name);
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }
+
+  function persistTransactionTemplates() {
+    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(transactionTemplates));
+  }
+
+  function renderTransactionTemplateOptions() {
+    const select = document.getElementById("transaction-template-select");
+    if (!select) {
+      return;
+    }
+    const current = select.value;
+    const options = ['<option value="">Choose template</option>'];
+    transactionTemplates
+      .slice()
+      .sort((left, right) => {
+        if ((right.updatedAt || "") !== (left.updatedAt || "")) {
+          return String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""));
+        }
+        return left.name.localeCompare(right.name);
+      })
+      .forEach((template) => {
+        options.push(`<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`);
+      });
+    select.innerHTML = options.join("");
+    if ([...select.options].some((option) => option.value === current)) {
+      select.value = current;
+    }
+    syncTransactionTemplateControls();
+  }
+
+  function syncTransactionTemplateControls() {
+    const selectedId = document.getElementById("transaction-template-select").value || "";
+    const selected = transactionTemplates.find((template) => template.id === selectedId);
+    document.getElementById("transaction-template-name").value = selected?.name || "";
+    document.getElementById("delete-transaction-template-button").classList.toggle("hidden", !selected);
+  }
+
+  function getTransactionFormDraft() {
+    const type = document.getElementById("transaction-type").value || "expense";
+    return {
+      type,
+      amount: Number(document.getElementById("transaction-amount").value || 0),
+      accountId: type === "transfer" ? "" : document.getElementById("transaction-account").value || "",
+      fromAccountId: type === "transfer" ? document.getElementById("transaction-from-account").value || "" : "",
+      toAccountId: type === "transfer" ? document.getElementById("transaction-to-account").value || "" : "",
+      categoryId: type === "transfer" ? "" : document.getElementById("transaction-category").value || "",
+      subcategory: type === "transfer" ? "" : document.getElementById("transaction-subcategory").value.trim(),
+      counterparty: document.getElementById("transaction-counterparty").value.trim(),
+      project: document.getElementById("transaction-project").value.trim(),
+      tags: splitTags(document.getElementById("transaction-tags").value),
+      details: document.getElementById("transaction-details").value.trim(),
+    };
+  }
+
+  function applyTransactionDraftToForm(draft, options = {}) {
+    const preserveDate = options.preserveDate !== false;
+    const currentDate = document.getElementById("transaction-date").value || todayIso();
+    document.getElementById("transaction-id").value = "";
+    document.getElementById("transaction-modal-title").textContent = options.title || "Add Transaction";
+    document.getElementById("transaction-delete-button").classList.add("hidden");
+    document.getElementById("transaction-duplicate-button").classList.add("hidden");
+    document.getElementById("transaction-type").value = draft.type || "expense";
+    document.getElementById("transaction-amount").value = draft.amount ? String(draft.amount) : "";
+    document.getElementById("transaction-date").value = preserveDate ? currentDate : todayIso();
+    document.getElementById("transaction-account").value = draft.accountId || "";
+    document.getElementById("transaction-from-account").value = draft.fromAccountId || "";
+    document.getElementById("transaction-to-account").value = draft.toAccountId || "";
+    document.getElementById("transaction-category").value = draft.categoryId || "";
+    document.getElementById("transaction-subcategory").value = draft.subcategory || "";
+    document.getElementById("transaction-counterparty").value = draft.counterparty || "";
+    document.getElementById("transaction-project").value = draft.project || "";
+    document.getElementById("transaction-tags").value = Array.isArray(draft.tags) ? draft.tags.join(", ") : "";
+    document.getElementById("transaction-details").value = draft.details || "";
+    syncTransactionTypeFields();
+    renderTransactionSmartFieldOptions();
+  }
+
+  function saveCurrentTransactionTemplate() {
+    const name = document.getElementById("transaction-template-name").value.trim();
+    if (!name) {
+      showToast("Give the template a name first.");
+      return;
+    }
+    const draft = getTransactionFormDraft();
+    if (draft.type === "transfer") {
+      if (!draft.fromAccountId || !draft.toAccountId) {
+        showToast("Transfer templates need both accounts.");
+        return;
+      }
+    } else {
+      if (!draft.accountId) {
+        showToast("Transaction templates need an account.");
+        return;
+      }
+      if (!draft.categoryId) {
+        showToast("Transaction templates need a category.");
+        return;
+      }
+    }
+    const selectedId = document.getElementById("transaction-template-select").value || "";
+    const existing =
+      transactionTemplates.find((template) => template.id === selectedId) ||
+      transactionTemplates.find((template) => template.name.toLowerCase() === name.toLowerCase());
+    const payload = {
+      id: existing?.id || uid("tpl"),
+      name,
+      ...draft,
+      updatedAt: new Date().toISOString(),
+    };
+    if (existing) {
+      transactionTemplates = transactionTemplates.map((template) => (template.id === existing.id ? payload : template));
+      showToast("Template updated.");
+    } else {
+      transactionTemplates.push(payload);
+      showToast("Template saved.");
+    }
+    persistTransactionTemplates();
+    renderTransactionTemplateOptions();
+    document.getElementById("transaction-template-select").value = payload.id;
+    syncTransactionTemplateControls();
+  }
+
+  function applySelectedTransactionTemplate() {
+    const selectedId = document.getElementById("transaction-template-select").value || "";
+    const selected = transactionTemplates.find((template) => template.id === selectedId);
+    if (!selected) {
+      showToast("Choose a template first.");
+      return;
+    }
+    applyTransactionDraftToForm(selected, { preserveDate: true, title: "Add Transaction" });
+    document.getElementById("transaction-template-select").value = selected.id;
+    syncTransactionTemplateControls();
+    showToast(`Applied template: ${selected.name}.`);
+  }
+
+  function deleteSelectedTransactionTemplate() {
+    const selectedId = document.getElementById("transaction-template-select").value || "";
+    const selected = transactionTemplates.find((template) => template.id === selectedId);
+    if (!selected) {
+      return;
+    }
+    openConfirmModal({
+      eyebrow: "Template",
+      title: "Delete this template?",
+      message: `The template "${selected.name}" will be removed from this browser.`,
+      submitLabel: "Delete",
+      onConfirm: () => {
+        transactionTemplates = transactionTemplates.filter((template) => template.id !== selected.id);
+        persistTransactionTemplates();
+        renderTransactionTemplateOptions();
+        document.getElementById("transaction-template-name").value = "";
+        showToast("Template deleted.");
+      },
+    });
+  }
+
   function isSwipeNavigationAllowed(target) {
     const elementTarget = target instanceof Element ? target : null;
     if (!window.matchMedia("(max-width: 720px)").matches) {
@@ -874,6 +1076,19 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     closeModal("transaction-modal");
     deleteTransaction(transactionId);
+  }
+
+  function handleTransactionModalDuplicate() {
+    const transactionId = document.getElementById("transaction-id").value;
+    if (!transactionId) {
+      return;
+    }
+    const draft = getTransactionFormDraft();
+    applyTransactionDraftToForm(draft, { preserveDate: false, title: "Duplicate Transaction" });
+    document.getElementById("transaction-parser-notice").classList.add("hidden");
+    document.getElementById("transaction-template-select").value = "";
+    syncTransactionTemplateControls();
+    showToast("Transaction duplicated. Review and save.");
   }
 
   function changeTransactionPage(direction) {
@@ -1122,6 +1337,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (action === "open-report-detail-entries") {
       openReportEntriesFromDetail();
     }
+    if (action === "remove-transaction-filter") {
+      removeTransactionFilter(actionTarget.dataset.key || "");
+    }
   }
 
   function setAuthView(mode) {
@@ -1203,6 +1421,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-result-count").textContent = `${matches.length} matching transaction${
       matches.length === 1 ? "" : "s"
     }`;
+    document.getElementById("transaction-filter-snapshot").innerHTML = renderTransactionFilterSnapshot(matches);
+    renderTransactionFilterChips();
     document.getElementById("transaction-list").innerHTML = matches.length
       ? visibleMatches.map(renderTransactionItem).join("")
       : renderEmpty("No transactions match your search yet.");
@@ -1214,6 +1434,237 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     pageLabel.textContent = `Page ${uiState.transactionPage} of ${totalPages}`;
     prevButton.disabled = uiState.transactionPage <= 1;
     nextButton.disabled = uiState.transactionPage >= totalPages;
+  }
+
+  function renderTransactionFilterChips() {
+    const container = document.getElementById("transaction-filter-chips");
+    if (!container) {
+      return;
+    }
+    const chips = [];
+    if (uiState.filters.search) {
+      chips.push(renderTransactionFilterChip("search", `Search: ${uiState.filters.search}`));
+    }
+    if (uiState.filters.type && uiState.filters.type !== "all") {
+      chips.push(renderTransactionFilterChip("type", `Type: ${titleCase(uiState.filters.type)}`));
+    }
+    if (uiState.filters.account && uiState.filters.account !== "all") {
+      const account = getAccount(uiState.filters.account);
+      chips.push(renderTransactionFilterChip("account", `Account: ${account?.name || "Unknown"}`));
+    }
+    if (uiState.filters.category && uiState.filters.category !== "all") {
+      const category = getCategory(uiState.filters.category);
+      chips.push(renderTransactionFilterChip("category", `Category: ${category?.name || "Unknown"}`));
+    }
+    if (uiState.filters.tag) {
+      chips.push(renderTransactionFilterChip("tag", `Tag: ${uiState.filters.tag}`));
+    }
+    if (uiState.filters.startDate || uiState.filters.endDate) {
+      const start = formatDateFilterDisplay(uiState.filters.startDate || "");
+      const end = formatDateFilterDisplay(uiState.filters.endDate || "");
+      const label =
+        start && end ? `Date: ${start} - ${end}` : start ? `From: ${start}` : `To: ${end}`;
+      chips.push(renderTransactionFilterChip("date", label));
+    }
+
+    container.classList.toggle("hidden", chips.length === 0);
+    container.innerHTML = chips.length ? `<div class="transaction-filter-chip-list">${chips.join("")}</div>` : "";
+  }
+
+  function renderTransactionFilterChip(key, label) {
+    return `
+      <button class="meta-pill neutral transaction-filter-chip" type="button" data-action="remove-transaction-filter" data-key="${escapeAttribute(key)}">
+        <span>${escapeHtml(label)}</span>
+        <strong aria-hidden="true">X</strong>
+      </button>
+    `;
+  }
+
+  function removeTransactionFilter(key) {
+    if (!key) {
+      return;
+    }
+    if (key === "search") {
+      uiState.filters.search = "";
+    }
+    if (key === "type") {
+      uiState.filters.type = "all";
+    }
+    if (key === "account") {
+      uiState.filters.account = "all";
+    }
+    if (key === "category") {
+      uiState.filters.category = "all";
+    }
+    if (key === "tag") {
+      uiState.filters.tag = "";
+    }
+    if (key === "date") {
+      uiState.filters.startDate = "";
+      uiState.filters.endDate = "";
+    }
+    uiState.transactionPage = 1;
+    renderTransactions();
+  }
+
+  function renderTransactionFilterSnapshot(transactions) {
+    const baseSymbol = getPrimaryCurrencySymbol();
+    const income = sumAmounts(transactions.filter((transaction) => transaction.type === "income"));
+    const expense = sumAmounts(transactions.filter((transaction) => transaction.type === "expense"));
+    const transfer = sumAmounts(transactions.filter((transaction) => transaction.type === "transfer"));
+    const net = income - expense;
+    const average = transactions.length ? sumAmounts(transactions) / transactions.length : 0;
+    const largest = transactions.reduce((best, transaction) => (!best || Number(transaction.amount || 0) > Number(best.amount || 0) ? transaction : best), null);
+    const trendSeries = buildTransactionSnapshotSeries(transactions);
+    const topCategories = getTransactionSnapshotTopCategories(transactions);
+
+    return `
+      <div class="snapshot-shell">
+        <div class="section-heading compact transaction-snapshot-heading">
+          <div>
+            <p class="eyebrow">Filtered Snapshot</p>
+            <h4>Live Search Summary</h4>
+          </div>
+          <span class="meta-pill neutral">${transactions.length} match${transactions.length === 1 ? "" : "es"}</span>
+        </div>
+        <div class="transaction-snapshot-grid">
+          ${renderTransactionSnapshotCard("Matches", String(transactions.length), "Current filtered rows")}
+          ${renderTransactionSnapshotCard("Income", formatMoney(income, baseSymbol), "Filtered income", "income")}
+          ${renderTransactionSnapshotCard("Expenses", formatMoney(expense, baseSymbol), "Filtered expense", "expense")}
+          ${renderTransactionSnapshotCard("Transfers", formatMoney(transfer, baseSymbol), "Transfer volume", "transfer")}
+          ${renderTransactionSnapshotCard("Net", formatMoney(net, baseSymbol), "Income minus expense", net >= 0 ? "income" : "expense")}
+          ${renderTransactionSnapshotCard(
+            "Average",
+            formatMoney(average, baseSymbol),
+            largest ? `Largest ${formatTransactionAmount(largest.amount, largest)}` : "No transactions yet"
+          )}
+        </div>
+        <div class="transaction-snapshot-analysis">
+          <article class="transaction-snapshot-panel">
+            <div class="transaction-snapshot-panel-head">
+              <strong>Daily Trend</strong>
+              <span>${escapeHtml(trendSeries[0]?.label || "")}${trendSeries.length > 1 ? ` - ${escapeHtml(trendSeries[trendSeries.length - 1]?.label || "")}` : ""}</span>
+            </div>
+            ${renderTransactionSnapshotTrend(trendSeries)}
+          </article>
+          <article class="transaction-snapshot-panel">
+            <div class="transaction-snapshot-panel-head">
+              <strong>Top Categories</strong>
+              <span>${topCategories.length ? "By filtered amount" : "Waiting for categorized entries"}</span>
+            </div>
+            ${renderTransactionSnapshotCategories(topCategories, baseSymbol)}
+          </article>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderTransactionSnapshotCard(label, value, note, tone = "") {
+    return `
+      <article class="transaction-snapshot-card ${tone ? `transaction-snapshot-card-${tone}` : ""}">
+        <p class="eyebrow">${escapeHtml(label)}</p>
+        <strong class="money">${escapeHtml(value)}</strong>
+        <p>${escapeHtml(note)}</p>
+      </article>
+    `;
+  }
+
+  function buildTransactionSnapshotSeries(transactions) {
+    const grouped = new Map();
+    transactions.forEach((transaction) => {
+      const key = String(transaction.date || "").trim();
+      if (!key) {
+        return;
+      }
+      const current = grouped.get(key) || { income: 0, expense: 0, transfer: 0 };
+      current[transaction.type] += Number(transaction.amount || 0);
+      grouped.set(key, current);
+    });
+    const rows = [...grouped.entries()]
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-14)
+      .map(([date, totals]) => ({
+        key: date,
+        label: date.slice(5).replace("-", "/"),
+        value: Number(totals.income || 0) - Number(totals.expense || 0),
+        income: Number(totals.income || 0),
+        expense: Number(totals.expense || 0),
+        transfer: Number(totals.transfer || 0),
+      }));
+    return rows.length ? rows : [{ key: "", label: "No data", value: 0, income: 0, expense: 0, transfer: 0 }];
+  }
+
+  function renderTransactionSnapshotTrend(series) {
+    const points = series.map((item) => Number(item.value || 0));
+    const hasActivity = points.some((value) => value !== 0);
+    if (!hasActivity) {
+      return `<div class="mini-trend-empty transaction-snapshot-empty">No filtered movement yet</div>`;
+    }
+    const width = 320;
+    const height = 78;
+    const padding = 6;
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const range = max - min || 1;
+    const coords = points.map((value, index) => {
+      const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
+      const normalized = (value - min) / range;
+      const y = height - padding - normalized * (height - padding * 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point) => `L ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
+    return `
+      <svg class="transaction-snapshot-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+        <path d="${areaPath}" fill="rgba(18, 200, 164, 0.14)"></path>
+        <polyline points="${coords.join(" ")}" fill="none" stroke="#12c8a4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      </svg>
+    `;
+  }
+
+  function getTransactionSnapshotTopCategories(transactions) {
+    const map = new Map();
+    transactions
+      .filter((transaction) => transaction.type !== "transfer")
+      .forEach((transaction) => {
+        const category = getCategory(transaction.categoryId);
+        const key = category?.id || `uncategorized-${transaction.type}`;
+        const current = map.get(key) || {
+          label: category?.name || "Uncategorized",
+          color: category?.color || (transaction.type === "income" ? "#1ca866" : "#d35a5a"),
+          value: 0,
+        };
+        current.value += Number(transaction.amount || 0);
+        map.set(key, current);
+      });
+    return [...map.values()]
+      .sort((left, right) => right.value - left.value)
+      .slice(0, 3);
+  }
+
+  function renderTransactionSnapshotCategories(rows, baseSymbol) {
+    if (!rows.length) {
+      return `<div class="mini-trend-empty transaction-snapshot-empty">No categorized entries in this filtered set</div>`;
+    }
+    const max = Math.max(...rows.map((row) => row.value), 1);
+    return `
+      <div class="transaction-snapshot-bars">
+        ${rows
+          .map(
+            (row) => `
+              <div class="transaction-snapshot-bar-row">
+                <div class="transaction-snapshot-bar-meta">
+                  <strong>${escapeHtml(row.label)}</strong>
+                  <span>${formatMoney(row.value, baseSymbol)}</span>
+                </div>
+                <div class="bar-fill transaction-snapshot-bar-fill">
+                  <span style="width:${(row.value / max) * 100}%; background:${escapeHtml(row.color)};"></span>
+                </div>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
   }
 
   function renderAccounts() {

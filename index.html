@@ -208,8 +208,13 @@
                   <label class="field-label" for="filter-end-date">To</label>
                   <input id="filter-end-date" type="text" inputmode="numeric" autocomplete="off" placeholder="mm/dd/yyyy" />
                 </div>
+                <div class="field-group field-span-2">
+                  <div class="transaction-filter-snapshot" id="transaction-filter-snapshot"></div>
+                </div>
               </div>
             </div>
+
+            <div class="transaction-filter-chips hidden" id="transaction-filter-chips"></div>
 
             <div class="results-bar">
               <p id="transaction-result-count">0 matching transactions</p>
@@ -500,6 +505,22 @@
         <form id="transaction-form">
           <input id="transaction-id" type="hidden" />
           <div class="inline-notice hidden" id="transaction-parser-notice"></div>
+          <div class="transaction-template-tools">
+            <div class="transaction-template-row">
+              <div class="field-group">
+                <label class="field-label" for="transaction-template-select">Templates</label>
+                <select id="transaction-template-select">
+                  <option value="">Choose template</option>
+                </select>
+              </div>
+              <button class="secondary-button transaction-template-apply" type="button" id="apply-transaction-template-button">Apply</button>
+            </div>
+            <div class="transaction-template-row transaction-template-row-save">
+              <input id="transaction-template-name" type="text" placeholder="Template name" />
+              <button class="ghost-button" type="button" id="save-transaction-template-button">Save as Template</button>
+              <button class="ghost-button danger-outline hidden" type="button" id="delete-transaction-template-button">Delete Template</button>
+            </div>
+          </div>
           <div class="form-grid">
             <div class="field-group">
               <label class="field-label" for="transaction-type">Type</label>
@@ -558,6 +579,7 @@
             </div>
           </div>
           <div class="modal-actions">
+            <button class="ghost-button hidden" type="button" id="transaction-duplicate-button">Duplicate</button>
             <button class="ghost-button danger-outline hidden" type="button" id="transaction-delete-button">Delete</button>
             <button class="secondary-button" type="button" data-close-modal="transaction-modal">Cancel</button>
             <button class="primary-button" type="submit">Save Transaction</button>

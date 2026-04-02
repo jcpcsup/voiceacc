@@ -6,6 +6,7 @@ export function createModalTools(api) {
     iconRegistry,
     renderSelectOptions,
     renderSubcategoryOptions,
+    syncTransactionTemplateUi,
     getTransaction,
     getAccount,
     getCategory,
@@ -104,6 +105,7 @@ export function createModalTools(api) {
     document.getElementById("transaction-id").value = transactionId || "";
     document.getElementById("transaction-modal-title").textContent = transactionId ? "Edit Transaction" : "Add Transaction";
     document.getElementById("transaction-delete-button").classList.toggle("hidden", !transactionId);
+    document.getElementById("transaction-duplicate-button").classList.toggle("hidden", !transactionId);
     document.getElementById("transaction-parser-notice").classList.add("hidden");
     renderSelectOptions();
     if (transactionId) {
@@ -122,6 +124,7 @@ export function createModalTools(api) {
       }
     }
     syncTransactionTypeFields();
+    syncTransactionTemplateUi();
     openModal("transaction-modal");
   }
 
