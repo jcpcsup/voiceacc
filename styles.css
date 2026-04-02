@@ -2182,6 +2182,11 @@ textarea:focus {
   width: min(100%, 470px);
 }
 
+.report-breakdown-visual-donut::after,
+.report-pie-center {
+  pointer-events: none;
+}
+
 .report-pie-visual::after,
 .report-breakdown-visual-donut::after,
 .report-breakdown-visual-polar::after {

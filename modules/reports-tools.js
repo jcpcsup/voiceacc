@@ -753,6 +753,7 @@ export function createReportsTools(api) {
 
   function buildStackedPeriods(transactions) {
     const selectedTypes = getSelectedReportTypes();
+    const activeRange = getDateRange(uiState.reports.range);
     if (uiState.reports.range === "custom") {
       const { start, end } = getDateRange("custom");
       if (!start || !end) {
@@ -815,14 +816,17 @@ export function createReportsTools(api) {
       return buckets;
     }
     if (uiState.reports.range === "thisMonth") {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfMonth = parseIsoDate(activeRange.start, 12);
+      const endOfMonth = parseIsoDate(activeRange.end, 12);
       const weeks = [];
       let cursor = new Date(startOfMonth);
-      while (cursor.getMonth() === startOfMonth.getMonth()) {
+      while (cursor <= endOfMonth) {
         const weekStart = new Date(cursor);
         const weekEnd = new Date(cursor);
         weekEnd.setDate(weekEnd.getDate() + 6);
+        if (weekEnd > endOfMonth) {
+          weekEnd.setTime(endOfMonth.getTime());
+        }
         weeks.push(buildStackedPeriodBucket(transactions, weekStart, weekEnd, `Week ${weeks.length + 1}`, selectedTypes));
         cursor.setDate(cursor.getDate() + 7);
       }
@@ -844,10 +848,9 @@ export function createReportsTools(api) {
       return buckets;
     }
     if (uiState.reports.range === "thisQuarter") {
-      const now = new Date();
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const startDate = parseIsoDate(activeRange.start, 12);
       return Array.from({ length: 3 }, (_, offset) => {
-        const monthDate = new Date(now.getFullYear(), quarterStartMonth + offset, 1);
+        const monthDate = new Date(startDate.getFullYear(), startDate.getMonth() + offset, 1);
         const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
         const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
         return buildStackedPeriodBucket(
@@ -868,9 +871,9 @@ export function createReportsTools(api) {
         .filter((period) => period.segments.length);
     }
     if (uiState.reports.range === "thisYear") {
-      const now = new Date();
+      const startDate = parseIsoDate(activeRange.start, 12);
       return Array.from({ length: 12 }, (_, monthIndex) => {
-        const monthDate = new Date(now.getFullYear(), monthIndex, 1);
+        const monthDate = new Date(startDate.getFullYear(), monthIndex, 1);
         const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
         const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
         return buildStackedPeriodBucket(

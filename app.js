@@ -451,7 +451,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (reportChartTooltipState.pinned) {
         return;
       }
-      const hit = event.target.closest(".report-chart-hit");
+      const hit = findReportChartHitTarget(event.target);
       if (!hit) {
         return;
       }
@@ -461,7 +461,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (reportChartTooltipState.pinned) {
         return;
       }
-      const hit = event.target.closest(".report-chart-hit");
+      const hit = findReportChartHitTarget(event.target);
       if (!hit) {
         return;
       }
@@ -471,19 +471,19 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (reportChartTooltipState.pinned) {
         return;
       }
-      const hit = event.target.closest(".report-chart-hit");
+      const hit = findReportChartHitTarget(event.target);
       if (!hit) {
         return;
       }
       const next = event.relatedTarget;
-      if (next && (hit.contains(next) || next.closest?.("#report-chart-tooltip"))) {
+      if (next && (hit.contains?.(next) || (typeof next.closest === "function" && next.closest("#report-chart-tooltip")))) {
         return;
       }
       hideReportChartTooltip(true);
     });
     document.addEventListener("click", (event) => {
-      const hit = event.target.closest(".report-chart-hit");
-      if (hit || event.target.closest("#report-chart-tooltip")) {
+      const hit = findReportChartHitTarget(event.target);
+      if (hit || (typeof event.target.closest === "function" && event.target.closest("#report-chart-tooltip"))) {
         return;
       }
       hideReportChartTooltip(true);
@@ -849,6 +849,28 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       index: "",
       pinned: false,
     };
+  }
+
+  function findReportChartHitTarget(target) {
+    let node = target;
+    while (node) {
+      if (node.classList?.contains("report-chart-hit")) {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function findActionTarget(target) {
+    let node = target;
+    while (node) {
+      if (typeof node.getAttribute === "function" && node.getAttribute("data-action")) {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return null;
   }
 
   function openReportEntriesFromDetail() {
@@ -1609,7 +1631,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!event.target.closest(".top-bar")) {
       hideGlobalSearchResults();
     }
-    const actionTarget = event.target.closest("[data-action]");
+    const actionTarget = findActionTarget(event.target);
     if (!actionTarget) {
       return;
     }
