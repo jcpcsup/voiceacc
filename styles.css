@@ -2861,6 +2861,88 @@ textarea:focus {
   width: min(100%, 360px);
 }
 
+.suggestion-picker-card {
+  width: min(100%, 760px);
+}
+
+#smart-field-picker-modal {
+  z-index: 260;
+}
+
+.suggestion-picker-body {
+  display: grid;
+  gap: 14px;
+}
+
+.suggestion-picker-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.suggestion-picker-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.suggestion-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  max-height: min(48vh, 420px);
+  overflow-y: auto;
+  padding-right: 4px;
+  align-content: start;
+  scrollbar-gutter: stable;
+}
+
+.suggestion-picker-option {
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.suggestion-picker-option:hover,
+.suggestion-picker-option:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(18, 200, 164, 0.24);
+  box-shadow: 0 12px 24px rgba(18, 59, 70, 0.08);
+}
+
+.suggestion-picker-option.active {
+  background: linear-gradient(135deg, rgba(18, 200, 164, 0.18), rgba(0, 166, 199, 0.16));
+  border-color: rgba(18, 200, 164, 0.3);
+  color: var(--accent-strong);
+  box-shadow: 0 14px 28px rgba(18, 59, 70, 0.08);
+}
+
+.suggestion-picker-empty {
+  min-height: 120px;
+}
+
+input[data-smart-picker-field][readonly] {
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(13, 47, 61, 0.45) 50%),
+    linear-gradient(135deg, rgba(13, 47, 61, 0.45) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
 .inline-notice {
   margin-bottom: 14px;
   padding: 14px 16px;

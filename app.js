@@ -50,6 +50,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let pendingConfirmAction = null;
   let activeReportDetailFilters = null;
   let swipeGesture = null;
+  let smartFieldPickerState = {
+    field: "",
+    targetId: "",
+    options: [],
+    selectedValue: "",
+    lastTapValue: "",
+    lastTapAt: 0,
+  };
   let uiState;
   let transactionTemplates = loadTransactionTemplates();
 
@@ -394,6 +402,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-category").addEventListener("change", renderTransactionSmartFieldOptions);
     document.getElementById("transaction-subcategory").addEventListener("input", renderTransactionLinkedSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("change", renderTransactionLinkedSuggestions);
+    document.querySelectorAll("[data-smart-picker-field]").forEach((input) => {
+      input.addEventListener("click", () => openSmartFieldPicker(input.dataset.smartPickerField || ""));
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+          event.preventDefault();
+          openSmartFieldPicker(input.dataset.smartPickerField || "");
+        }
+      });
+    });
     document.getElementById("category-type").addEventListener("change", syncCategoryBudgetState);
     document.getElementById("import-target").addEventListener("change", syncImportTemplateUi);
     document.getElementById("download-import-template-button").addEventListener("click", handleDownloadImportTemplate);
@@ -413,6 +430,19 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("delete-transaction-template-button").addEventListener("click", deleteSelectedTransactionTemplate);
     document.getElementById("transaction-template-select").addEventListener("change", syncTransactionTemplateControls);
     document.getElementById("toggle-transaction-templates-button").addEventListener("click", toggleTransactionTemplatePanel);
+    document.getElementById("smart-field-picker-input").addEventListener("input", renderSmartFieldPickerOptions);
+    document.getElementById("smart-field-picker-apply-button").addEventListener("click", applySmartFieldPickerValue);
+    document.getElementById("smart-field-picker-clear-button").addEventListener("click", clearSmartFieldPickerValue);
+    document.getElementById("smart-field-picker-list").addEventListener("dblclick", (event) => {
+      const option = event.target.closest('[data-action="select-smart-field-option"]');
+      if (!option) {
+        return;
+      }
+      applySmartFieldPickerValue(option.dataset.value || "");
+    });
+    document.querySelectorAll('[data-close-modal="smart-field-picker-modal"]').forEach((button) => {
+      button.addEventListener("click", resetSmartFieldPicker);
+    });
 
     bindFilterInput("search-input", "search");
     bindFilterInput("filter-type", "type");
@@ -958,6 +988,154 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
+  function getSmartFieldPickerConfig(field) {
+    const categoryId = document.getElementById("transaction-category").value || "";
+    const type = document.getElementById("transaction-type").value || "expense";
+    const subcategory = document.getElementById("transaction-subcategory").value.trim();
+    if (field === "subcategory") {
+      const category = getCategory(categoryId);
+      return {
+        title: "Choose Subcategory",
+        label: "Subcategory",
+        targetId: "transaction-subcategory",
+        currentValue: document.getElementById("transaction-subcategory").value.trim(),
+        options: getRankedSubcategorySuggestions(categoryId),
+        placeholder: category ? "Type a new subcategory or choose a ranked one" : "Type a new subcategory",
+        note: category
+          ? "Ranked by usage for the selected category. You can still type a new one."
+          : "Select a category first for ranked suggestions, or type a new subcategory.",
+      };
+    }
+    if (field === "counterparty") {
+      return {
+        title: type === "income" ? "Choose Payer" : "Choose Payee",
+        label: type === "income" ? "Payer" : "Payee",
+        targetId: "transaction-counterparty",
+        currentValue: document.getElementById("transaction-counterparty").value.trim(),
+        options: getRankedTransactionValueSuggestions("counterparty", type, categoryId, subcategory),
+        placeholder: "Type a new payee / payer or choose a ranked one",
+        note: "Ranked from similar transactions first, with category-level fallback.",
+      };
+    }
+    if (field === "project") {
+      return {
+        title: "Choose Project",
+        label: "Project",
+        targetId: "transaction-project",
+        currentValue: document.getElementById("transaction-project").value.trim(),
+        options: getRankedTransactionValueSuggestions("project", type, categoryId, subcategory),
+        placeholder: "Type a new project or choose a ranked one",
+        note: "Ranked from similar transactions first, with category-level fallback.",
+      };
+    }
+    return null;
+  }
+
+  function openSmartFieldPicker(field) {
+    const config = getSmartFieldPickerConfig(field);
+    if (!config) {
+      return;
+    }
+    smartFieldPickerState = {
+      field,
+      targetId: config.targetId,
+      options: config.options,
+      selectedValue: config.currentValue || "",
+      lastTapValue: "",
+      lastTapAt: 0,
+    };
+    document.getElementById("smart-field-picker-title").textContent = config.title;
+    document.getElementById("smart-field-picker-label").textContent = config.label;
+    document.getElementById("smart-field-picker-note").textContent = `${config.note} Single tap selects, then double tap the same value or use "Use Value" to apply it.`;
+    document.getElementById("smart-field-picker-input").value = config.currentValue || "";
+    document.getElementById("smart-field-picker-input").placeholder = config.placeholder;
+    renderSmartFieldPickerOptions();
+    openModal("smart-field-picker-modal");
+    window.setTimeout(() => {
+      document.getElementById("smart-field-picker-input").focus();
+      document.getElementById("smart-field-picker-input").select();
+    }, 20);
+  }
+
+  function renderSmartFieldPickerOptions() {
+    const input = document.getElementById("smart-field-picker-input");
+    const list = document.getElementById("smart-field-picker-list");
+    const count = document.getElementById("smart-field-picker-count");
+    const query = String(input.value || "").trim().toLowerCase();
+    const filteredOptions = smartFieldPickerState.options.filter((option) => option.toLowerCase().includes(query));
+    count.textContent = `${filteredOptions.length} ranked value${filteredOptions.length === 1 ? "" : "s"}`;
+    if (!filteredOptions.length) {
+      list.innerHTML = `
+        <div class="empty-state compact-empty suggestion-picker-empty">
+          No ranked matches. Use the typed value above to save something new.
+        </div>
+      `;
+      return;
+    }
+    list.innerHTML = filteredOptions
+      .map(
+        (option) => `
+          <button class="suggestion-picker-option ${option === smartFieldPickerState.selectedValue ? "active" : ""}" type="button" data-action="select-smart-field-option" data-value="${escapeAttribute(option)}" aria-pressed="${option === smartFieldPickerState.selectedValue ? "true" : "false"}">
+            ${escapeHtml(option)}
+          </button>
+        `
+      )
+      .join("");
+  }
+
+  function syncSmartFieldPickerActiveOption(activeValue = "") {
+    document.querySelectorAll("#smart-field-picker-list .suggestion-picker-option").forEach((button) => {
+      const isActive = (button.dataset.value || "") === activeValue;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function applySmartFieldPickerValue(valueOverride = null) {
+    const field = smartFieldPickerState.field;
+    const target = document.getElementById(smartFieldPickerState.targetId);
+    if (!field || !target) {
+      return;
+    }
+    const value = String(valueOverride ?? document.getElementById("smart-field-picker-input").value ?? "").trim();
+    target.value = value;
+    target.setAttribute("value", value);
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+    closeModal("smart-field-picker-modal");
+    resetSmartFieldPicker();
+    if (field === "subcategory") {
+      renderTransactionLinkedSuggestions();
+    }
+  }
+
+  function clearSmartFieldPickerValue() {
+    document.getElementById("smart-field-picker-input").value = "";
+    applySmartFieldPickerValue("");
+  }
+
+  function resetSmartFieldPicker() {
+    smartFieldPickerState = {
+      field: "",
+      targetId: "",
+      options: [],
+      selectedValue: "",
+      lastTapValue: "",
+      lastTapAt: 0,
+    };
+    document.getElementById("smart-field-picker-input").value = "";
+    document.getElementById("smart-field-picker-list").innerHTML = "";
+  }
+
+  function shouldCommitSmartFieldDoubleTap(value) {
+    const now = Date.now();
+    const sameValue = smartFieldPickerState.lastTapValue === value;
+    const withinWindow = now - Number(smartFieldPickerState.lastTapAt || 0) <= 420;
+    smartFieldPickerState.lastTapValue = value;
+    smartFieldPickerState.lastTapAt = now;
+    return sameValue && withinWindow;
+  }
+
   function isSwipeNavigationAllowed(target) {
     const elementTarget = target instanceof Element ? target : null;
     if (!window.matchMedia("(max-width: 720px)").matches) {
@@ -1357,6 +1535,17 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "open-report-detail-entries") {
       openReportEntriesFromDetail();
+    }
+    if (action === "select-smart-field-option") {
+      const value = actionTarget.dataset.value || "";
+      const wasSelected = smartFieldPickerState.selectedValue === value;
+      smartFieldPickerState.selectedValue = value;
+      document.getElementById("smart-field-picker-input").value = value;
+      syncSmartFieldPickerActiveOption(value);
+      if (wasSelected && shouldCommitSmartFieldDoubleTap(value)) {
+        applySmartFieldPickerValue(value);
+        return;
+      }
     }
     if (action === "remove-transaction-filter") {
       removeTransactionFilter(actionTarget.dataset.key || "");

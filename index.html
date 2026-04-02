@@ -567,17 +567,17 @@
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-subcategory">Subcategory</label>
-              <input id="transaction-subcategory" type="text" list="transaction-subcategory-options" placeholder="Choose or type a subcategory" />
+              <input id="transaction-subcategory" type="text" list="transaction-subcategory-options" placeholder="Tap to choose or type a subcategory" readonly data-smart-picker-field="subcategory" />
               <datalist id="transaction-subcategory-options"></datalist>
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-counterparty">Payee / Payer</label>
-              <input id="transaction-counterparty" type="text" list="transaction-counterparty-options" placeholder="Choose or type a payee / payer" />
+              <input id="transaction-counterparty" type="text" list="transaction-counterparty-options" placeholder="Tap to choose or type a payee / payer" readonly data-smart-picker-field="counterparty" />
               <datalist id="transaction-counterparty-options"></datalist>
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-project">Project</label>
-              <input id="transaction-project" type="text" list="transaction-project-options" placeholder="Choose or type a project" />
+              <input id="transaction-project" type="text" list="transaction-project-options" placeholder="Tap to choose or type a project" readonly data-smart-picker-field="project" />
               <datalist id="transaction-project-options"></datalist>
             </div>
             <div class="field-group field-span-2">
@@ -596,6 +596,37 @@
             <button class="primary-button" type="submit">Save Transaction</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal modal-elevated hidden" id="smart-field-picker-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="smart-field-picker-modal"></div>
+      <div class="modal-card suggestion-picker-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Suggestions</p>
+            <h2 id="smart-field-picker-title">Choose a value</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="smart-field-picker-modal" aria-label="Close">
+            X
+          </button>
+        </div>
+        <div class="suggestion-picker-body">
+          <div class="field-group">
+            <label class="field-label" for="smart-field-picker-input" id="smart-field-picker-label">Value</label>
+            <input id="smart-field-picker-input" type="text" placeholder="Type a custom value" />
+          </div>
+          <div class="suggestion-picker-meta">
+            <span class="meta-pill neutral" id="smart-field-picker-count">0 ranked values</span>
+            <span class="suggestion-picker-note" id="smart-field-picker-note">Choose one, or type a new value.</span>
+          </div>
+          <div class="suggestion-picker-list" id="smart-field-picker-list"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" id="smart-field-picker-clear-button">Clear</button>
+          <button class="secondary-button" type="button" data-close-modal="smart-field-picker-modal">Cancel</button>
+          <button class="primary-button" type="button" id="smart-field-picker-apply-button">Use Value</button>
+        </div>
       </div>
     </div>
 
