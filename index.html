@@ -535,15 +535,18 @@
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-subcategory">Subcategory</label>
-              <select id="transaction-subcategory"></select>
+              <input id="transaction-subcategory" type="text" list="transaction-subcategory-options" placeholder="Choose or type a subcategory" />
+              <datalist id="transaction-subcategory-options"></datalist>
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-counterparty">Payee / Payer</label>
-              <input id="transaction-counterparty" type="text" placeholder="Walmart, Client, Employer..." />
+              <input id="transaction-counterparty" type="text" list="transaction-counterparty-options" placeholder="Choose or type a payee / payer" />
+              <datalist id="transaction-counterparty-options"></datalist>
             </div>
             <div class="field-group">
               <label class="field-label" for="transaction-project">Project</label>
-              <input id="transaction-project" type="text" placeholder="Home Renovation, Client A..." />
+              <input id="transaction-project" type="text" list="transaction-project-options" placeholder="Choose or type a project" />
+              <datalist id="transaction-project-options"></datalist>
             </div>
             <div class="field-group field-span-2">
               <label class="field-label" for="transaction-tags">Tags</label>

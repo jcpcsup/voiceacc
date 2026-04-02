@@ -193,6 +193,7 @@ export function createModalTools(api) {
     event.preventDefault();
     const type = document.getElementById("transaction-type").value;
     const amount = Number(document.getElementById("transaction-amount").value);
+    const rawSubcategory = document.getElementById("transaction-subcategory").value.trim();
     const payload = {
       id: document.getElementById("transaction-id").value || uid("tx"),
       type,
@@ -202,7 +203,7 @@ export function createModalTools(api) {
       fromAccountId: type === "transfer" ? document.getElementById("transaction-from-account").value : "",
       toAccountId: type === "transfer" ? document.getElementById("transaction-to-account").value : "",
       categoryId: type === "transfer" ? "" : document.getElementById("transaction-category").value,
-      subcategory: type === "transfer" ? "" : document.getElementById("transaction-subcategory").value,
+      subcategory: type === "transfer" ? "" : rawSubcategory,
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
@@ -232,6 +233,10 @@ export function createModalTools(api) {
       return;
     }
 
+    if (payload.categoryId && payload.subcategory) {
+      ensureTransactionSubcategory(payload.categoryId, payload.subcategory);
+    }
+
     const existingIndex = state.transactions.findIndex((tx) => tx.id === payload.id);
     if (existingIndex >= 0) {
       state.transactions[existingIndex] = {
@@ -248,6 +253,19 @@ export function createModalTools(api) {
     }
     persistAndRefresh();
     closeModal("transaction-modal");
+  }
+
+  function ensureTransactionSubcategory(categoryId, subcategory) {
+    const category = getCategory(categoryId);
+    const trimmed = String(subcategory || "").trim();
+    if (!category || !trimmed) {
+      return;
+    }
+    const existing = (category.subcategories || []).find((item) => item.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      return;
+    }
+    category.subcategories = [...(category.subcategories || []), titleCase(trimmed)];
   }
 
   function handleAccountSubmit(event) {

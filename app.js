@@ -379,8 +379,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       button.addEventListener("click", () => closeModal(button.dataset.closeModal));
     });
 
-    document.getElementById("transaction-type").addEventListener("change", syncTransactionTypeFields);
-    document.getElementById("transaction-category").addEventListener("change", renderSubcategoryOptions);
+    document.getElementById("transaction-type").addEventListener("change", () => {
+      syncTransactionTypeFields();
+      renderTransactionSmartFieldOptions();
+    });
+    document.getElementById("transaction-category").addEventListener("change", renderTransactionSmartFieldOptions);
+    document.getElementById("transaction-subcategory").addEventListener("input", renderTransactionLinkedSuggestions);
+    document.getElementById("transaction-subcategory").addEventListener("change", renderTransactionLinkedSuggestions);
     document.getElementById("category-type").addEventListener("change", syncCategoryBudgetState);
     document.getElementById("import-target").addEventListener("change", syncImportTemplateUi);
     document.getElementById("download-import-template-button").addEventListener("click", handleDownloadImportTemplate);
@@ -1273,7 +1278,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     populateAccountSelect(document.getElementById("transaction-to-account"), false, "Select destination");
     populateCategorySelect(document.getElementById("transaction-category"), false, "Optional category");
 
-    renderSubcategoryOptions();
+    renderTransactionSmartFieldOptions();
   }
 
   function populateAccountSelect(select, includeAll, placeholder) {
@@ -1316,21 +1321,157 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
   }
 
+  function renderTransactionSmartFieldOptions() {
+    renderSubcategoryOptions();
+  }
+
   function renderSubcategoryOptions() {
     const categoryId = document.getElementById("transaction-category").value;
-    const select = document.getElementById("transaction-subcategory");
-    const current = select.value;
+    const input = document.getElementById("transaction-subcategory");
+    const datalist = document.getElementById("transaction-subcategory-options");
+    const current = input.value;
     const category = getCategory(categoryId);
-    const options = ['<option value="">Optional subcategory</option>'];
-    if (category && Array.isArray(category.subcategories)) {
+    const ranked = getRankedSubcategorySuggestions(categoryId);
+    const options = [];
+    if (ranked.length) {
+      ranked.forEach((subcategory) => {
+        options.push(`<option value="${escapeHtml(subcategory)}"></option>`);
+      });
+    } else if (category && Array.isArray(category.subcategories)) {
       category.subcategories.forEach((subcategory) => {
-        options.push(`<option value="${escapeHtml(subcategory)}">${escapeHtml(subcategory)}</option>`);
+        options.push(`<option value="${escapeHtml(subcategory)}"></option>`);
       });
     }
-    select.innerHTML = options.join("");
-    if ([...select.options].some((option) => option.value === current)) {
-      select.value = current;
+    datalist.innerHTML = options.join("");
+    input.placeholder = category ? "Choose or type a subcategory" : "Select category first or type a subcategory";
+    if (current) {
+      input.value = current;
     }
+    renderTransactionLinkedSuggestions();
+  }
+
+  function renderTransactionLinkedSuggestions() {
+    const type = document.getElementById("transaction-type").value || "expense";
+    const categoryId = document.getElementById("transaction-category").value || "";
+    const subcategory = document.getElementById("transaction-subcategory").value.trim();
+    populateRankedDatalist(
+      document.getElementById("transaction-counterparty-options"),
+      getRankedTransactionValueSuggestions("counterparty", type, categoryId, subcategory)
+    );
+    populateRankedDatalist(
+      document.getElementById("transaction-project-options"),
+      getRankedTransactionValueSuggestions("project", type, categoryId, subcategory)
+    );
+  }
+
+  function populateRankedDatalist(datalist, values) {
+    if (!datalist) {
+      return;
+    }
+    datalist.innerHTML = values.map((value) => `<option value="${escapeHtml(value)}"></option>`).join("");
+  }
+
+  function getRankedSubcategorySuggestions(categoryId) {
+    const category = getCategory(categoryId);
+    if (!category) {
+      return [];
+    }
+    const counts = new Map();
+    const lastUsed = new Map();
+    state.transactions.forEach((transaction) => {
+      if (transaction.categoryId !== categoryId) {
+        return;
+      }
+      const value = String(transaction.subcategory || "").trim();
+      if (!value) {
+        return;
+      }
+      const key = value.toLowerCase();
+      counts.set(key, (counts.get(key) || 0) + 1);
+      lastUsed.set(key, transaction.updatedAt || transaction.createdAt || transaction.date || "");
+    });
+
+    const entries = new Map();
+    (category.subcategories || []).forEach((subcategory) => {
+      const value = String(subcategory || "").trim();
+      if (!value) {
+        return;
+      }
+      const key = value.toLowerCase();
+      entries.set(key, {
+        value,
+        count: counts.get(key) || 0,
+        lastUsed: lastUsed.get(key) || "",
+      });
+    });
+    state.transactions.forEach((transaction) => {
+      if (transaction.categoryId !== categoryId) {
+        return;
+      }
+      const value = String(transaction.subcategory || "").trim();
+      if (!value) {
+        return;
+      }
+      const key = value.toLowerCase();
+      if (!entries.has(key)) {
+        entries.set(key, {
+          value,
+          count: counts.get(key) || 0,
+          lastUsed: lastUsed.get(key) || "",
+        });
+      }
+    });
+
+    return [...entries.values()]
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.value.localeCompare(right.value);
+      })
+      .map((entry) => entry.value);
+  }
+
+  function getRankedTransactionValueSuggestions(field, type, categoryId, subcategory) {
+    if (!categoryId || type === "transfer") {
+      return [];
+    }
+    const normalizedSubcategory = String(subcategory || "").trim().toLowerCase();
+    const exact = new Map();
+    const fallback = new Map();
+    state.transactions.forEach((transaction) => {
+      if (transaction.type !== type || transaction.categoryId !== categoryId) {
+        return;
+      }
+      const rawValue = String(transaction[field] || "").trim();
+      if (!rawValue) {
+        return;
+      }
+      const key = rawValue.toLowerCase();
+      const targetMap =
+        normalizedSubcategory && String(transaction.subcategory || "").trim().toLowerCase() === normalizedSubcategory ? exact : fallback;
+      const existing = targetMap.get(key) || { value: rawValue, count: 0, lastUsed: "" };
+      existing.count += 1;
+      existing.lastUsed = String(transaction.updatedAt || transaction.createdAt || transaction.date || existing.lastUsed || "");
+      targetMap.set(key, existing);
+    });
+
+    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    return ranked
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.value.localeCompare(right.value);
+      })
+      .map((entry) => entry.value)
+      .slice(0, 20);
   }
 
   function switchScreen(screen) {
