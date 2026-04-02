@@ -2425,6 +2425,10 @@ textarea:focus {
   pointer-events: none;
 }
 
+.report-chart-tooltip-pinned {
+  pointer-events: auto;
+}
+
 .report-chart-tooltip-card {
   display: grid;
   gap: 10px;
@@ -2490,6 +2494,22 @@ textarea:focus {
 
 .report-chart-tooltip-row span {
   color: var(--muted);
+}
+
+.report-chart-tooltip-row-button {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.report-chart-tooltip-row-button:hover,
+.report-chart-tooltip-row-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(14, 87, 99, 0.12);
+  background: rgba(18, 200, 164, 0.12);
 }
 
 .report-pie-legend-item {

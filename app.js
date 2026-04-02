@@ -778,7 +778,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     openModal("report-detail-modal");
   }
 
-  function buildReportChartTooltipMarkup(detail) {
+  function buildReportChartTooltipMarkup(index, detail) {
     if (!detail) {
       return "";
     }
@@ -797,10 +797,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
           ${(detail.meta || [])
             .map(
               (item) => `
-                <div class="report-chart-tooltip-row">
+                <${
+                  item.action === "open-report-entries" && detail.filters ? "button" : "div"
+                } class="report-chart-tooltip-row ${
+                  item.action === "open-report-entries" && detail.filters ? "report-chart-tooltip-row-button" : ""
+                }" ${
+                  item.action === "open-report-entries" && detail.filters
+                    ? `type="button" data-action="open-report-tooltip-entries" data-index="${escapeAttribute(index)}"`
+                    : ""
+                }>
                   <span>${escapeHtml(item.label || "")}</span>
                   <strong>${escapeHtml(item.value || "")}</strong>
-                </div>
+                </${item.action === "open-report-entries" && detail.filters ? "button" : "div"}>
               `
             )
             .join("")}
@@ -841,7 +849,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       index,
       pinned,
     };
-    tooltip.innerHTML = buildReportChartTooltipMarkup(detail);
+    tooltip.innerHTML = buildReportChartTooltipMarkup(index, detail);
+    tooltip.classList.toggle("report-chart-tooltip-pinned", pinned);
     tooltip.classList.remove("hidden");
     positionReportChartTooltip(anchor, clientX, clientY);
   }
@@ -852,6 +861,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     document.querySelectorAll(".report-chart-tooltip").forEach((tooltip) => {
       tooltip.classList.add("hidden");
+      tooltip.classList.remove("report-chart-tooltip-pinned");
       tooltip.innerHTML = "";
       tooltip.style.left = "";
       tooltip.style.top = "";
@@ -884,28 +894,45 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return null;
   }
 
-  function openReportEntriesFromDetail() {
-    if (!activeReportDetailFilters) {
+  function openReportEntriesFromFilters(filters) {
+    if (!filters) {
       return;
     }
     const fallbackRange = getDateRange(uiState.reports.range);
-    const startDate = normalizeDateInput(activeReportDetailFilters.startDate || fallbackRange.start || "");
-    const endDate = normalizeDateInput(activeReportDetailFilters.endDate || fallbackRange.end || startDate || "");
-    uiState.filters.search = activeReportDetailFilters.search || "";
-    uiState.filters.type = activeReportDetailFilters.type || "all";
-    uiState.filters.account = activeReportDetailFilters.accountId || "all";
-    uiState.filters.category = activeReportDetailFilters.categoryId || "all";
-    uiState.filters.tag = activeReportDetailFilters.tag || "";
+    const startDate = normalizeDateInput(filters.startDate || fallbackRange.start || "");
+    const endDate = normalizeDateInput(filters.endDate || fallbackRange.end || startDate || "");
+    uiState.filters.search = filters.search || "";
+    uiState.filters.type = filters.type || "all";
+    uiState.filters.account = filters.accountId || "all";
+    uiState.filters.category = filters.categoryId || "all";
+    uiState.filters.tag = filters.tag || "";
     uiState.filters.startDate = startDate;
     uiState.filters.endDate = endDate;
     uiState.transactionPage = 1;
 
+    hideReportChartTooltip(true);
     closeModal("report-detail-modal");
+    activeReportDetailFilters = filters;
     setTransactionFiltersExpanded(true);
     switchScreen("transactions");
     syncTransactionFilterInputs();
     window.requestAnimationFrame(() => syncTransactionFilterInputs());
     renderTransactions();
+  }
+
+  function openReportEntriesFromDetail() {
+    if (!activeReportDetailFilters) {
+      return;
+    }
+    openReportEntriesFromFilters(activeReportDetailFilters);
+  }
+
+  function openReportEntriesFromTooltip(index) {
+    const detail = getReportChartSegmentDetail(index);
+    if (!detail?.filters) {
+      return;
+    }
+    openReportEntriesFromFilters(detail.filters);
   }
 
   function setInputDateValue(id, value) {
@@ -1705,6 +1732,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "open-report-detail-entries") {
       openReportEntriesFromDetail();
+    }
+    if (action === "open-report-tooltip-entries") {
+      openReportEntriesFromTooltip(actionTarget.dataset.index || "");
     }
     if (action === "select-smart-field-option") {
       const value = actionTarget.dataset.value || "";

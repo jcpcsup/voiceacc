@@ -1100,7 +1100,6 @@ export function createReportsTools(api) {
       drilldownFilters: segment.canDrilldown ? segment.filters : null,
       meta: [
         { label: "Entries", value: String(segment.count || 0), action: "open-report-entries" },
-        { label: "Scope", value: dataset.subtitle },
       ],
     };
   }
