@@ -395,6 +395,7 @@ export function createReportsTools(api) {
             value: 0,
             color: category?.color || fallbackColor,
             count: 0,
+            canDrilldown: true,
             accounts: new Map(),
             filters: {
               ...baseFilters,
@@ -1095,8 +1096,8 @@ export function createReportsTools(api) {
       value: formatMoney(segment.value, dataset.symbol),
       percent: `${segment.percent}% share`,
       filters: segment.filters || getBaseReportFilters(),
-      drilldownKey: segment.filters?.categoryId ? `segment:${segment.index ?? 0}` : "",
-      drilldownFilters: segment.filters?.categoryId ? segment.filters : null,
+      drilldownKey: segment.canDrilldown ? `segment:${segment.index ?? 0}` : "",
+      drilldownFilters: segment.canDrilldown ? segment.filters : null,
       meta: [
         { label: "Entries", value: String(segment.count || 0), action: "open-report-entries" },
         { label: "Scope", value: dataset.subtitle },
@@ -1252,6 +1253,7 @@ export function createReportsTools(api) {
       value: Number(row.value || 0),
       color: row.color || "#00a6c7",
       count: Number(row.count || 0),
+      canDrilldown: Boolean(row.canDrilldown),
       filters: row.filters || null,
       accounts: Array.isArray(row.accounts) ? row.accounts : [],
     }));
