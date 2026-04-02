@@ -171,13 +171,18 @@
                 </button>
               </div>
               <div class="search-panel-body hidden" id="transaction-search-body">
-                <div class="field-group field-span-2">
+                <div class="field-group">
                   <label class="field-label" for="search-input">Search</label>
                   <input
                     id="search-input"
                     type="search"
                     placeholder="Search payee, payer, project, tags, details, account, category..."
                   />
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="filter-tag">Tag</label>
+                  <input id="filter-tag" type="text" list="filter-tag-options" placeholder="Any tag" />
+                  <datalist id="filter-tag-options"></datalist>
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-type">Type</label>
@@ -198,19 +203,18 @@
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-subcategory">Subcategory</label>
-                  <input id="filter-subcategory" type="text" placeholder="Any subcategory" />
+                  <input id="filter-subcategory" type="text" list="filter-subcategory-options" placeholder="Any subcategory" />
+                  <datalist id="filter-subcategory-options"></datalist>
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-counterparty">Payee / Payer</label>
-                  <input id="filter-counterparty" type="text" placeholder="Any payee or payer" />
+                  <input id="filter-counterparty" type="text" list="filter-counterparty-options" placeholder="Any payee or payer" />
+                  <datalist id="filter-counterparty-options"></datalist>
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-project">Project</label>
-                  <input id="filter-project" type="text" placeholder="Any project" />
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="filter-tag">Tag</label>
-                  <input id="filter-tag" type="text" placeholder="Any tag" />
+                  <input id="filter-project" type="text" list="filter-project-options" placeholder="Any project" />
+                  <datalist id="filter-project-options"></datalist>
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-start-date">From</label>

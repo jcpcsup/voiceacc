@@ -408,6 +408,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       renderTransactionSmartFieldOptions();
     });
     document.getElementById("transaction-category").addEventListener("change", renderTransactionSmartFieldOptions);
+    document.getElementById("filter-category").addEventListener("change", renderTransactionFilterSubcategoryOptions);
+    document.getElementById("filter-type").addEventListener("change", renderTransactionFilterValueSuggestions);
+    document.getElementById("filter-subcategory").addEventListener("input", renderTransactionFilterValueSuggestions);
+    document.getElementById("filter-subcategory").addEventListener("change", renderTransactionFilterValueSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("input", renderTransactionLinkedSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("change", renderTransactionLinkedSuggestions);
     document.querySelectorAll("[data-smart-picker-field]").forEach((input) => {
@@ -971,7 +975,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-type").value = uiState.filters.type || "all";
     document.getElementById("filter-account").value = uiState.filters.account || "all";
     document.getElementById("filter-category").value = uiState.filters.category || "all";
+    renderTransactionFilterSubcategoryOptions();
     document.getElementById("filter-subcategory").value = uiState.filters.subcategory || "";
+    renderTransactionFilterValueSuggestions();
     document.getElementById("filter-counterparty").value = uiState.filters.counterparty || "";
     document.getElementById("filter-project").value = uiState.filters.project || "";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
@@ -2216,6 +2222,64 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderSubcategoryOptions();
   }
 
+  function renderTransactionFilterSubcategoryOptions() {
+    const categoryId = document.getElementById("filter-category")?.value || "all";
+    const input = document.getElementById("filter-subcategory");
+    const datalist = document.getElementById("filter-subcategory-options");
+    if (!input || !datalist) {
+      return;
+    }
+    const current = input.value;
+    const normalizedCategoryId = categoryId === "all" ? "" : categoryId;
+    const category = normalizedCategoryId ? getCategory(normalizedCategoryId) : null;
+    const ranked = normalizedCategoryId ? getRankedSubcategorySuggestions(normalizedCategoryId) : [];
+    const options = [];
+    if (ranked.length) {
+      ranked.forEach((subcategory) => {
+        options.push(`<option value="${escapeHtml(subcategory)}"></option>`);
+      });
+    } else if (category && Array.isArray(category.subcategories)) {
+      category.subcategories.forEach((subcategory) => {
+        options.push(`<option value="${escapeHtml(subcategory)}"></option>`);
+      });
+    }
+    datalist.innerHTML = options.join("");
+    input.placeholder = category
+      ? "Ranked subcategories for selected category"
+      : "Select a category for ranked subcategories";
+    if (!normalizedCategoryId && uiState.filters.subcategory) {
+      uiState.filters.subcategory = "";
+    }
+    const allowedValues = new Set(ranked.length ? ranked : category?.subcategories || []);
+    if (current && (!normalizedCategoryId || !allowedValues.size || allowedValues.has(current))) {
+      input.value = current;
+    } else if (current && normalizedCategoryId) {
+      input.value = "";
+      if (uiState.filters.subcategory === current) {
+        uiState.filters.subcategory = "";
+      }
+    }
+    renderTransactionFilterValueSuggestions();
+  }
+
+  function renderTransactionFilterValueSuggestions() {
+    const categoryId = document.getElementById("filter-category")?.value || "all";
+    const type = document.getElementById("filter-type")?.value || "all";
+    const subcategory = document.getElementById("filter-subcategory")?.value.trim() || "";
+    populateRankedDatalist(
+      document.getElementById("filter-counterparty-options"),
+      getRankedFilterTransactionValueSuggestions("counterparty", type, categoryId, subcategory)
+    );
+    populateRankedDatalist(
+      document.getElementById("filter-project-options"),
+      getRankedFilterTransactionValueSuggestions("project", type, categoryId, subcategory)
+    );
+    populateRankedDatalist(
+      document.getElementById("filter-tag-options"),
+      getRankedFilterTagSuggestions(type, categoryId, subcategory)
+    );
+  }
+
   function renderSubcategoryOptions() {
     const categoryId = document.getElementById("transaction-category").value;
     const input = document.getElementById("transaction-subcategory");
@@ -2348,6 +2412,90 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       existing.count += 1;
       existing.lastUsed = String(transaction.updatedAt || transaction.createdAt || transaction.date || existing.lastUsed || "");
       targetMap.set(key, existing);
+    });
+
+    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    return ranked
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.value.localeCompare(right.value);
+      })
+      .map((entry) => entry.value)
+      .slice(0, 20);
+  }
+
+  function getRankedFilterTransactionValueSuggestions(field, type, categoryId, subcategory) {
+    const normalizedType = type && type !== "all" ? type : "";
+    const normalizedCategoryId = categoryId && categoryId !== "all" ? categoryId : "";
+    const normalizedSubcategory = String(subcategory || "").trim().toLowerCase();
+    const exact = new Map();
+    const fallback = new Map();
+    state.transactions.forEach((transaction) => {
+      if (normalizedType && transaction.type !== normalizedType) {
+        return;
+      }
+      if (normalizedCategoryId && transaction.categoryId !== normalizedCategoryId) {
+        return;
+      }
+      const rawValue = String(transaction[field] || "").trim();
+      if (!rawValue) {
+        return;
+      }
+      const key = rawValue.toLowerCase();
+      const targetMap =
+        normalizedSubcategory && String(transaction.subcategory || "").trim().toLowerCase() === normalizedSubcategory ? exact : fallback;
+      const existing = targetMap.get(key) || { value: rawValue, count: 0, lastUsed: "" };
+      existing.count += 1;
+      existing.lastUsed = String(transaction.updatedAt || transaction.createdAt || transaction.date || existing.lastUsed || "");
+      targetMap.set(key, existing);
+    });
+
+    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    return ranked
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.value.localeCompare(right.value);
+      })
+      .map((entry) => entry.value)
+      .slice(0, 20);
+  }
+
+  function getRankedFilterTagSuggestions(type, categoryId, subcategory) {
+    const normalizedType = type && type !== "all" ? type : "";
+    const normalizedCategoryId = categoryId && categoryId !== "all" ? categoryId : "";
+    const normalizedSubcategory = String(subcategory || "").trim().toLowerCase();
+    const exact = new Map();
+    const fallback = new Map();
+    state.transactions.forEach((transaction) => {
+      if (normalizedType && transaction.type !== normalizedType) {
+        return;
+      }
+      if (normalizedCategoryId && transaction.categoryId !== normalizedCategoryId) {
+        return;
+      }
+      (transaction.tags || []).forEach((tag) => {
+        const rawValue = String(tag || "").trim();
+        if (!rawValue) {
+          return;
+        }
+        const key = rawValue.toLowerCase();
+        const targetMap =
+          normalizedSubcategory && String(transaction.subcategory || "").trim().toLowerCase() === normalizedSubcategory ? exact : fallback;
+        const existing = targetMap.get(key) || { value: rawValue, count: 0, lastUsed: "" };
+        existing.count += 1;
+        existing.lastUsed = String(transaction.updatedAt || transaction.createdAt || transaction.date || existing.lastUsed || "");
+        targetMap.set(key, existing);
+      });
     });
 
     const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
