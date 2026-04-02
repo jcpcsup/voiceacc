@@ -940,7 +940,12 @@ body.app-locked .app-shell {
   line-height: 1;
 }
 
-.account-card h3,
+.account-card h3 {
+  margin: 2px 0 0;
+  font-size: 2.16rem;
+  line-height: 1.05;
+}
+
 .category-item h3 {
   margin: 2px 0 0;
   font-size: 1.08rem;
