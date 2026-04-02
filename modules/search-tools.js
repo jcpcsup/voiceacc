@@ -91,6 +91,24 @@ export function createSearchTools(api) {
       return false;
     }
     if (
+      uiState.filters.subcategory &&
+      !String(transaction.subcategory || "").toLowerCase().includes(uiState.filters.subcategory.toLowerCase())
+    ) {
+      return false;
+    }
+    if (
+      uiState.filters.counterparty &&
+      !String(transaction.counterparty || "").toLowerCase().includes(uiState.filters.counterparty.toLowerCase())
+    ) {
+      return false;
+    }
+    if (
+      uiState.filters.project &&
+      !String(transaction.project || "").toLowerCase().includes(uiState.filters.project.toLowerCase())
+    ) {
+      return false;
+    }
+    if (
       uiState.filters.tag &&
       !(transaction.tags || []).some((tag) => tag.toLowerCase().includes(uiState.filters.tag.toLowerCase()))
     ) {
@@ -111,6 +129,9 @@ export function createSearchTools(api) {
       type: "all",
       account: "all",
       category: "all",
+      subcategory: "",
+      counterparty: "",
+      project: "",
       tag: "",
       startDate: "",
       endDate: "",
@@ -121,6 +142,9 @@ export function createSearchTools(api) {
     document.getElementById("filter-type").value = "all";
     document.getElementById("filter-account").value = "all";
     document.getElementById("filter-category").value = "all";
+    document.getElementById("filter-subcategory").value = "";
+    document.getElementById("filter-counterparty").value = "";
+    document.getElementById("filter-project").value = "";
     document.getElementById("filter-tag").value = "";
     document.getElementById("filter-start-date").value = "";
     document.getElementById("filter-end-date").value = "";

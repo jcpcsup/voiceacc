@@ -92,6 +92,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       type: "all",
       account: "all",
       category: "all",
+      subcategory: "",
+      counterparty: "",
+      project: "",
       tag: "",
       startDate: "",
       endDate: "",
@@ -494,6 +497,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     bindFilterInput("filter-type", "type");
     bindFilterInput("filter-account", "account");
     bindFilterInput("filter-category", "category");
+    bindFilterInput("filter-subcategory", "subcategory");
+    bindFilterInput("filter-counterparty", "counterparty");
+    bindFilterInput("filter-project", "project");
     bindFilterInput("filter-tag", "tag");
     bindFilterInput("filter-start-date", "startDate");
     bindFilterInput("filter-end-date", "endDate");
@@ -905,6 +911,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     uiState.filters.type = filters.type || "all";
     uiState.filters.account = filters.accountId || "all";
     uiState.filters.category = filters.categoryId || "all";
+    uiState.filters.subcategory = filters.subcategory || "";
+    uiState.filters.counterparty = filters.counterparty || "";
+    uiState.filters.project = filters.project || "";
     uiState.filters.tag = filters.tag || "";
     uiState.filters.startDate = startDate;
     uiState.filters.endDate = endDate;
@@ -962,6 +971,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-type").value = uiState.filters.type || "all";
     document.getElementById("filter-account").value = uiState.filters.account || "all";
     document.getElementById("filter-category").value = uiState.filters.category || "all";
+    document.getElementById("filter-subcategory").value = uiState.filters.subcategory || "";
+    document.getElementById("filter-counterparty").value = uiState.filters.counterparty || "";
+    document.getElementById("filter-project").value = uiState.filters.project || "";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
     document.getElementById("filter-sort").value = uiState.filters.sort || "dateDesc";
     setInputDateValue("filter-start-date", formatDateFilterDisplay(uiState.filters.startDate || ""));
@@ -1866,6 +1878,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       const category = getCategory(uiState.filters.category);
       chips.push(renderTransactionFilterChip("category", `Category: ${category?.name || "Unknown"}`));
     }
+    if (uiState.filters.subcategory) {
+      chips.push(renderTransactionFilterChip("subcategory", `Subcategory: ${uiState.filters.subcategory}`));
+    }
+    if (uiState.filters.counterparty) {
+      chips.push(renderTransactionFilterChip("counterparty", `Payee/Payer: ${uiState.filters.counterparty}`));
+    }
+    if (uiState.filters.project) {
+      chips.push(renderTransactionFilterChip("project", `Project: ${uiState.filters.project}`));
+    }
     if (uiState.filters.tag) {
       chips.push(renderTransactionFilterChip("tag", `Tag: ${uiState.filters.tag}`));
     }
@@ -1905,6 +1926,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (key === "category") {
       uiState.filters.category = "all";
+    }
+    if (key === "subcategory") {
+      uiState.filters.subcategory = "";
+    }
+    if (key === "counterparty") {
+      uiState.filters.counterparty = "";
+    }
+    if (key === "project") {
+      uiState.filters.project = "";
     }
     if (key === "tag") {
       uiState.filters.tag = "";
