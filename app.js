@@ -48,6 +48,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     transactions: [],
   };
   let pendingConfirmAction = null;
+  let pendingConfirmText = "";
   let activeReportDetailFilters = null;
   let swipeGesture = null;
   let reportChartTooltipState = {
@@ -427,6 +428,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("import-target").addEventListener("change", syncImportTemplateUi);
     document.getElementById("download-import-template-button").addEventListener("click", handleDownloadImportTemplate);
     document.getElementById("confirm-modal-submit").addEventListener("click", handleConfirmModalSubmit);
+    document.getElementById("confirm-modal-text-input").addEventListener("input", syncConfirmModalState);
     document.querySelectorAll('[data-close-modal="confirm-modal"]').forEach((button) => {
       button.addEventListener("click", resetConfirmModal);
     });
@@ -1453,22 +1455,78 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     button.setAttribute("aria-expanded", uiState.transactionsFiltersExpanded ? "true" : "false");
   }
 
-  function openConfirmModal({ eyebrow = "Confirm", title = "Continue?", message = "", submitLabel = "Confirm", onConfirm }) {
+  function openConfirmModal({
+    eyebrow = "Confirm",
+    title = "Continue?",
+    message = "",
+    submitLabel = "Confirm",
+    confirmationText = "",
+    onConfirm,
+  }) {
     pendingConfirmAction = typeof onConfirm === "function" ? onConfirm : null;
+    pendingConfirmText = String(confirmationText || "").trim();
     document.getElementById("confirm-modal-eyebrow").textContent = eyebrow;
     document.getElementById("confirm-modal-title").textContent = title;
     document.getElementById("confirm-modal-message").textContent = message;
     document.getElementById("confirm-modal-submit").textContent = submitLabel;
+    const textShell = document.getElementById("confirm-modal-text-shell");
+    const textLabel = document.getElementById("confirm-modal-text-label");
+    const textHelp = document.getElementById("confirm-modal-text-help");
+    const textInput = document.getElementById("confirm-modal-text-input");
+    textShell.classList.toggle("hidden", !pendingConfirmText);
+    textInput.value = "";
+    if (pendingConfirmText) {
+      textLabel.textContent = `Type "${pendingConfirmText}" to continue`;
+      textHelp.textContent = "Use the exact uppercase phrase.";
+    } else {
+      textLabel.textContent = "Type confirmation text";
+      textHelp.textContent = "Enter the exact phrase to continue.";
+    }
+    syncConfirmModalState();
     openModal("confirm-modal");
+  }
+
+  function syncConfirmModalState() {
+    const submitButton = document.getElementById("confirm-modal-submit");
+    const textInput = document.getElementById("confirm-modal-text-input");
+    if (!submitButton || !textInput) {
+      return;
+    }
+    if (!pendingConfirmText) {
+      submitButton.disabled = false;
+      return;
+    }
+    submitButton.disabled = textInput.value.trim() !== pendingConfirmText;
   }
 
   function resetConfirmModal() {
     pendingConfirmAction = null;
+    pendingConfirmText = "";
+    const textShell = document.getElementById("confirm-modal-text-shell");
+    const textInput = document.getElementById("confirm-modal-text-input");
+    const submitButton = document.getElementById("confirm-modal-submit");
+    if (textShell) {
+      textShell.classList.add("hidden");
+    }
+    if (textInput) {
+      textInput.value = "";
+    }
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
   }
 
   function handleConfirmModalSubmit() {
+    if (pendingConfirmText) {
+      const typedValue = document.getElementById("confirm-modal-text-input").value.trim();
+      if (typedValue !== pendingConfirmText) {
+        syncConfirmModalState();
+        return;
+      }
+    }
     const callback = pendingConfirmAction;
     pendingConfirmAction = null;
+    pendingConfirmText = "";
     closeModal("confirm-modal");
     if (typeof callback === "function") {
       callback();
@@ -2600,6 +2658,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       title: "Clear all transactions?",
       message: "This will remove every transaction from your ledger and Supabase, but it will keep your accounts and categories.",
       submitLabel: "Clear All",
+      confirmationText: "CLEAR ALL TRANSACTIONS",
       onConfirm: () => {
         state.transactions = [];
         uiState.transactionPage = 1;

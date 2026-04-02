@@ -844,6 +844,11 @@
           </button>
         </div>
         <p class="supporting-text" id="confirm-modal-message">This action cannot be undone.</p>
+        <div class="field-group hidden" id="confirm-modal-text-shell">
+          <label class="field-label" for="confirm-modal-text-input" id="confirm-modal-text-label">Type confirmation text</label>
+          <input id="confirm-modal-text-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+          <p class="supporting-text" id="confirm-modal-text-help">Enter the exact phrase to continue.</p>
+        </div>
         <div class="modal-actions">
           <button class="ghost-button" type="button" data-close-modal="confirm-modal">Cancel</button>
           <button class="primary-button danger-button" type="button" id="confirm-modal-submit">Delete</button>
