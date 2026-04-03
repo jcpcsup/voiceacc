@@ -77,6 +77,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     getCurrentUserId: () => uiState?.currentUserId || "",
   });
   replaceState(loadLocalState());
+  const initialDuplicateRepairCount = ensureUniqueTransactionIds();
 
   uiState = {
     screen: "overview",
@@ -120,6 +121,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     transactionsFiltersExpanded: false,
     transactionPage: 1,
   };
+  if (initialDuplicateRepairCount > 0) {
+    persistState();
+  }
 
   const {
     sumAmounts,
@@ -362,6 +366,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     formatShortDateTime,
     showToast,
     todayIso,
+    ensureUniqueTransactionIds,
   });
 
   wireStaticIcons();
@@ -1269,6 +1274,27 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       match = pattern.exec(source);
     }
     return hasMatch ? total : 0;
+  }
+
+  function ensureUniqueTransactionIds() {
+    const seen = new Set();
+    let repairedCount = 0;
+    state.transactions = state.transactions.map((transaction) => {
+      const currentId = String(transaction?.id || "").trim();
+      if (!currentId || seen.has(currentId)) {
+        repairedCount += 1;
+        const nextId = uid("tx");
+        seen.add(nextId);
+        return {
+          ...transaction,
+          id: nextId,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      seen.add(currentId);
+      return transaction;
+    });
+    return repairedCount;
   }
 
   function syncTransactionAmountFromDetails() {

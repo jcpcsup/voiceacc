@@ -15,6 +15,7 @@ export function createSupabaseTools(api) {
     formatShortDateTime,
     showToast,
     todayIso,
+    ensureUniqueTransactionIds,
   } = api;
 
   const {
@@ -158,6 +159,11 @@ export function createSupabaseTools(api) {
     renderCloudStatus();
 
     try {
+      const repairedCount = typeof ensureUniqueTransactionIds === "function" ? ensureUniqueTransactionIds() : 0;
+      if (repairedCount > 0) {
+        persistState();
+        renderAll();
+      }
       const syncedAt = new Date().toISOString();
       const userId = cloudState.session.user.id;
       await syncSupabaseTable(
@@ -177,6 +183,9 @@ export function createSupabaseTools(api) {
       uiState.syncStatus = `Synced ${formatShortDateTime(syncedAt)}`;
       renderCloudStatus();
       if (showFeedback) {
+        if (repairedCount > 0) {
+          showToast(`Repaired ${repairedCount} duplicate transaction ID${repairedCount === 1 ? "" : "s"} before sync.`);
+        }
         showToast(successMessage);
       }
     } catch (error) {
