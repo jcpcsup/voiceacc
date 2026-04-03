@@ -582,6 +582,7 @@ body.app-locked .app-shell {
 }
 
 .calendar-panel {
+  position: relative;
   padding: 20px;
   overflow-x: visible;
 }
@@ -693,6 +694,122 @@ body.app-locked .app-shell {
 
 .calendar-muted {
   opacity: 0.42;
+}
+
+.calendar-tooltip {
+  position: absolute;
+  width: min(440px, calc(100% - 24px));
+  z-index: 5;
+  pointer-events: none;
+}
+
+.calendar-tooltip-pinned {
+  pointer-events: auto;
+}
+
+.calendar-tooltip-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(13, 47, 61, 0.08);
+  box-shadow: 0 18px 42px rgba(14, 87, 99, 0.2);
+  backdrop-filter: blur(12px);
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+}
+
+.calendar-tooltip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-tooltip-copy {
+  min-width: 0;
+}
+
+.calendar-tooltip-copy strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.02rem;
+}
+
+.calendar-tooltip-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-tooltip-balance-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(18, 200, 164, 0.06);
+  border: 1px solid rgba(18, 59, 70, 0.08);
+}
+
+.calendar-tooltip-balance-name {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.calendar-tooltip-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-tooltip-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(18, 59, 70, 0.04);
+}
+
+.calendar-tooltip-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendar-tooltip-group-label {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.calendar-tooltip-lines {
+  display: grid;
+  gap: 6px;
+}
+
+.calendar-tooltip-empty {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(18, 59, 70, 0.04);
+  color: var(--muted);
+  text-align: center;
+}
+
+.calendar-tooltip-line {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(18, 59, 70, 0.08);
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.calendar-tooltip-line span {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .two-column {
@@ -3653,6 +3770,24 @@ input[data-smart-picker-field][readonly] {
     font-size: 0.95rem;
     line-height: 1;
     color: rgba(100, 128, 138, 0.7);
+  }
+
+  .calendar-tooltip {
+    width: min(360px, calc(100% - 20px));
+  }
+
+  .calendar-tooltip-card {
+    max-height: min(68vh, 520px);
+    padding: 14px;
+  }
+
+  .calendar-tooltip-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calendar-tooltip-balance-grid {
+    grid-template-columns: 1fr;
   }
 
   .transaction-top {

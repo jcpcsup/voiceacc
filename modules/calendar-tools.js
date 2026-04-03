@@ -3,8 +3,11 @@ export function createCalendarTools(api) {
     state,
     uiState,
     iconRegistry,
+    getAccount,
+    getCategory,
     getPrimaryCurrencySymbol,
     sumAmounts,
+    formatMoney,
     formatCalendarDisplayMoney,
     formatCompactPlainAmount,
     toLocalIsoDate,
@@ -36,7 +39,7 @@ export function createCalendarTools(api) {
       const hasActivity = income || expense || transfer;
       cells.push(`
         <button class="calendar-cell ${inMonth ? "" : "calendar-muted"}" type="button" ${
-          inMonth ? `data-action="open-calendar-day" data-date="${iso}"` : "disabled"
+          inMonth ? `data-action="show-calendar-tooltip" data-date="${iso}" data-calendar-tooltip="true"` : "disabled"
         }>
           <span class="calendar-day-number">${cellDate.getDate()}</span>
           ${
@@ -79,6 +82,114 @@ export function createCalendarTools(api) {
     document.getElementById("overview-calendar").innerHTML = cells.join("");
   }
 
+  function getCalendarPrimaryAccounts() {
+    const preferredNames = ["cash", "bkash", "citybank"];
+    const selected = [];
+    preferredNames.forEach((name) => {
+      const match = state.accounts.find((account) => String(account.name || "").trim().toLowerCase() === name);
+      if (match && !selected.some((item) => item.id === match.id)) {
+        selected.push(match);
+      }
+    });
+    state.accounts.forEach((account) => {
+      if (selected.length >= 3) {
+        return;
+      }
+      if (!selected.some((item) => item.id === account.id)) {
+        selected.push(account);
+      }
+    });
+    return selected.slice(0, 3);
+  }
+
+  function getHistoricalAccountBalance(accountId, date) {
+    const account = getAccount(accountId);
+    if (!account) {
+      return 0;
+    }
+    let balance = Number(account.openingBalance || 0);
+    state.transactions.forEach((transaction) => {
+      if (!transaction.date || transaction.date > date) {
+        return;
+      }
+      const amount = Number(transaction.amount || 0);
+      if (transaction.type === "transfer") {
+        if (transaction.fromAccountId === accountId) {
+          balance -= amount;
+        }
+        if (transaction.toAccountId === accountId) {
+          balance += amount;
+        }
+        return;
+      }
+      if (transaction.accountId === accountId) {
+        balance += transaction.type === "income" ? amount : -amount;
+      }
+    });
+    return balance;
+  }
+
+  function buildCalendarTransactionSummary(transaction, baseSymbol) {
+    const accountLabel =
+      transaction.type === "transfer"
+        ? [getAccount(transaction.fromAccountId)?.name, getAccount(transaction.toAccountId)?.name].filter(Boolean).join(" -> ")
+        : getAccount(transaction.accountId)?.name || "Unknown";
+    const categoryLabel =
+      transaction.type === "transfer" ? "Transfer" : getCategory(transaction.categoryId)?.name || "Uncategorized";
+    const parts = [
+      accountLabel,
+      categoryLabel,
+      String(transaction.subcategory || "").trim(),
+      String(transaction.counterparty || "").trim(),
+      String(transaction.project || "").trim(),
+    ].filter(Boolean);
+    return {
+      id: transaction.id,
+      text: `${parts.join(" | ")} -> ${formatMoney(transaction.amount || 0, getAccount(transaction.accountId || transaction.toAccountId || transaction.fromAccountId)?.currencySymbol || baseSymbol)}`,
+      amount: formatMoney(transaction.amount || 0, getAccount(transaction.accountId || transaction.toAccountId || transaction.fromAccountId)?.currencySymbol || baseSymbol),
+    };
+  }
+
+  function getCalendarDayDetail(date) {
+    const baseSymbol = getPrimaryCurrencySymbol();
+    const transactions = state.transactions
+      .filter((transaction) => transaction.date === date)
+      .map((transaction) => ({
+        ...transaction,
+        summary: buildCalendarTransactionSummary(transaction, baseSymbol),
+      }));
+    const groupConfig = [
+      { type: "expense", label: "Expenses", color: "#d35a5a" },
+      { type: "income", label: "Income", color: "#1ca866" },
+      { type: "transfer", label: "Transfers", color: "#2f86ff" },
+    ];
+    const groups = groupConfig
+      .map((group) => {
+        const items = transactions.filter((transaction) => transaction.type === group.type);
+        return {
+          ...group,
+          total: sumAmounts(items),
+          items: items.map((transaction) => transaction.summary),
+        };
+      })
+      .filter((group) => group.items.length);
+
+    const balances = getCalendarPrimaryAccounts().map((account) => ({
+      id: account.id,
+      name: account.name,
+      color: account.color || "#19c6a7",
+      value: formatMoney(getHistoricalAccountBalance(account.id, date), account.currencySymbol || baseSymbol),
+    }));
+
+    return {
+      date,
+      label: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(`${date}T12:00:00`)),
+      groups,
+      balances,
+      hasTransactions: transactions.length > 0,
+    };
+  }
+
   function shiftCalendarMonth(direction) {
     uiState.calendarCursor = new Date(uiState.calendarCursor.getFullYear(), uiState.calendarCursor.getMonth() + direction, 1);
     renderCalendarOverview();
@@ -98,5 +209,6 @@ export function createCalendarTools(api) {
     renderCalendarOverview,
     shiftCalendarMonth,
     applyDateFilter,
+    getCalendarDayDetail,
   };
 }

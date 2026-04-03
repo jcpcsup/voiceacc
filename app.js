@@ -55,6 +55,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     index: "",
     pinned: false,
   };
+  let calendarTooltipState = {
+    date: "",
+    pinned: false,
+  };
   let smartFieldPickerState = {
     field: "",
     targetId: "",
@@ -211,12 +215,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     slugify,
   });
 
-  const { renderCalendarOverview, shiftCalendarMonth, applyDateFilter } = createCalendarTools({
+  const { renderCalendarOverview, shiftCalendarMonth, applyDateFilter, getCalendarDayDetail } = createCalendarTools({
     state,
     uiState,
     iconRegistry,
+    getAccount,
+    getCategory,
     getPrimaryCurrencySymbol,
     sumAmounts,
+    formatMoney,
     formatCalendarDisplayMoney,
     formatCompactPlainAmount,
     toLocalIsoDate,
@@ -462,30 +469,80 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     document.addEventListener("mouseover", (event) => {
       if (reportChartTooltipState.pinned) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (calendarHit) {
+            showCalendarTooltip(calendarHit.dataset.date || "", calendarHit, false, event.clientX, event.clientY);
+          }
+        }
         return;
       }
       const hit = findReportChartHitTarget(event.target);
       if (!hit) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (calendarHit) {
+            showCalendarTooltip(calendarHit.dataset.date || "", calendarHit, false, event.clientX, event.clientY);
+          }
+        }
         return;
       }
       showReportChartTooltip(hit.dataset.index || "", hit, false, event.clientX, event.clientY);
     });
     document.addEventListener("mousemove", (event) => {
       if (reportChartTooltipState.pinned) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (!calendarHit) {
+            hideCalendarTooltip();
+          } else {
+            positionCalendarTooltip(calendarHit, event.clientX, event.clientY);
+          }
+        }
         return;
       }
       const hit = findReportChartHitTarget(event.target);
       if (!hit) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (!calendarHit) {
+            hideCalendarTooltip();
+          } else {
+            showCalendarTooltip(calendarHit.dataset.date || "", calendarHit, false, event.clientX, event.clientY);
+          }
+        }
         return;
       }
       positionReportChartTooltip(hit, event.clientX, event.clientY);
     });
     document.addEventListener("mouseout", (event) => {
       if (reportChartTooltipState.pinned) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (!calendarHit) {
+            return;
+          }
+          const next = event.relatedTarget;
+          if (next && (calendarHit.contains?.(next) || (typeof next.closest === "function" && next.closest(".calendar-tooltip")))) {
+            return;
+          }
+          hideCalendarTooltip();
+        }
         return;
       }
       const hit = findReportChartHitTarget(event.target);
       if (!hit) {
+        if (!calendarTooltipState.pinned) {
+          const calendarHit = findCalendarTooltipHitTarget(event.target);
+          if (!calendarHit) {
+            return;
+          }
+          const next = event.relatedTarget;
+          if (next && (calendarHit.contains?.(next) || (typeof next.closest === "function" && next.closest(".calendar-tooltip")))) {
+            return;
+          }
+          hideCalendarTooltip();
+        }
         return;
       }
       const next = event.relatedTarget;
@@ -500,6 +557,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         return;
       }
       hideReportChartTooltip(true);
+      const calendarHit = findCalendarTooltipHitTarget(event.target);
+      if (calendarHit || (typeof event.target.closest === "function" && event.target.closest(".calendar-tooltip"))) {
+        return;
+      }
+      hideCalendarTooltip(true);
     });
 
     bindFilterInput("search-input", "search");
@@ -832,9 +894,86 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     `;
   }
 
+  function buildCalendarTooltipMarkup(date, detail) {
+    if (!detail) {
+      return "";
+    }
+    return `
+      <div class="calendar-tooltip-card">
+        <div class="calendar-tooltip-head">
+          <div class="calendar-tooltip-copy">
+            <p class="eyebrow">Daily Flow</p>
+            <strong>${escapeHtml(detail.label || date || "Selected Day")}</strong>
+          </div>
+          <button class="ghost-button compact-button" type="button" data-action="open-calendar-tooltip-day" data-date="${escapeAttribute(date)}">Open Ledger</button>
+        </div>
+        <div class="calendar-tooltip-balance-grid">
+          ${(detail.balances || [])
+            .map(
+              (account) => `
+                <div class="calendar-tooltip-balance-card">
+                  <span class="calendar-tooltip-balance-name" style="color:${escapeAttribute(account.color || "#19c6a7")}">${escapeHtml(account.name || "")}</span>
+                  <strong>${escapeHtml(account.value || "")}</strong>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="calendar-tooltip-groups">
+          ${(detail.groups || []).length
+            ? (detail.groups || [])
+            .map(
+              (group) => `
+                <section class="calendar-tooltip-group">
+                  <div class="calendar-tooltip-group-head">
+                    <span class="calendar-tooltip-group-label" style="color:${escapeAttribute(group.color || "#19c6a7")}">${escapeHtml(group.label || "")}</span>
+                    <strong>${escapeHtml(formatMoney(group.total || 0, getPrimaryCurrencySymbol()))}</strong>
+                  </div>
+                  <div class="calendar-tooltip-lines">
+                    ${group.items
+                      .map(
+                        (item) => `
+                          <div class="calendar-tooltip-line">
+                            <span>${escapeHtml(item.text || "")}</span>
+                          </div>
+                        `
+                      )
+                      .join("")}
+                  </div>
+                </section>
+              `
+            )
+            .join("")
+            : `<div class="calendar-tooltip-empty">No transactions recorded for this day yet.</div>`}
+        </div>
+      </div>
+    `;
+  }
+
   function positionReportChartTooltip(anchor, preferredClientX = null, preferredClientY = null) {
     const shell = anchor.closest?.(".report-pie-layout");
     const tooltip = shell?.querySelector(".report-chart-tooltip");
+    if (!tooltip || !shell || !anchor) {
+      return;
+    }
+    const shellRect = shell.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const targetX = preferredClientX ?? anchorRect.left + anchorRect.width / 2;
+    const targetY = preferredClientY ?? anchorRect.top + anchorRect.height / 2;
+    const rightCandidate = targetX - shellRect.left + 14;
+    const leftCandidate = targetX - shellRect.left - tooltipRect.width - 14;
+    const preferredLeft = rightCandidate + tooltipRect.width <= shellRect.width - 12 ? rightCandidate : leftCandidate;
+    const clampedLeft = Math.max(12, Math.min(shellRect.width - tooltipRect.width - 12, preferredLeft));
+    const preferredTop = targetY - shellRect.top - tooltipRect.height / 2;
+    const clampedTop = Math.max(12, Math.min(shellRect.height - tooltipRect.height - 12, preferredTop));
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.style.top = `${clampedTop}px`;
+  }
+
+  function positionCalendarTooltip(anchor, preferredClientX = null, preferredClientY = null) {
+    const shell = anchor.closest?.(".calendar-panel");
+    const tooltip = shell?.querySelector(".calendar-tooltip");
     if (!tooltip || !shell || !anchor) {
       return;
     }
@@ -870,6 +1009,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     positionReportChartTooltip(anchor, clientX, clientY);
   }
 
+  function showCalendarTooltip(date, anchor, pinned = false, clientX = null, clientY = null) {
+    const shell = anchor.closest?.(".calendar-panel");
+    const tooltip = shell?.querySelector(".calendar-tooltip");
+    const detail = getCalendarDayDetail(date);
+    if (!tooltip || !detail || !anchor) {
+      return;
+    }
+    calendarTooltipState = {
+      date,
+      pinned,
+    };
+    tooltip.innerHTML = buildCalendarTooltipMarkup(date, detail);
+    tooltip.classList.toggle("calendar-tooltip-pinned", pinned);
+    tooltip.classList.remove("hidden");
+    positionCalendarTooltip(anchor, clientX, clientY);
+  }
+
   function hideReportChartTooltip(force = false) {
     if (!force && reportChartTooltipState.pinned) {
       return;
@@ -887,10 +1043,38 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     };
   }
 
+  function hideCalendarTooltip(force = false) {
+    if (!force && calendarTooltipState.pinned) {
+      return;
+    }
+    document.querySelectorAll(".calendar-tooltip").forEach((tooltip) => {
+      tooltip.classList.add("hidden");
+      tooltip.classList.remove("calendar-tooltip-pinned");
+      tooltip.innerHTML = "";
+      tooltip.style.left = "";
+      tooltip.style.top = "";
+    });
+    calendarTooltipState = {
+      date: "",
+      pinned: false,
+    };
+  }
+
   function findReportChartHitTarget(target) {
     let node = target;
     while (node) {
       if (node.classList?.contains("report-chart-hit")) {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function findCalendarTooltipHitTarget(target) {
+    let node = target;
+    while (node) {
+      if (node.dataset?.calendarTooltip === "true") {
         return node;
       }
       node = node.parentNode;
@@ -1835,6 +2019,20 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (action === "open-calendar-day") {
       applyDateFilter(actionTarget.dataset.date || "");
+    }
+    if (action === "show-calendar-tooltip") {
+      const date = actionTarget.dataset.date || "";
+      if (calendarTooltipState.pinned && calendarTooltipState.date === date) {
+        hideCalendarTooltip(true);
+        return;
+      }
+      showCalendarTooltip(date, actionTarget, true);
+      return;
+    }
+    if (action === "open-calendar-tooltip-day") {
+      hideCalendarTooltip(true);
+      applyDateFilter(actionTarget.dataset.date || "");
+      return;
     }
     if (action === "open-search-result") {
       openGlobalSearchResult(actionTarget.dataset.kind, id, actionTarget.dataset.query || "");
