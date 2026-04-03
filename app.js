@@ -289,6 +289,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     normalizeDateInput,
     titleCase,
     escapeRegExp,
+    calculateTransactionAmountFromDetails,
     todayIso,
     shiftIsoDate,
     showToast,
@@ -415,6 +416,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-subcategory").addEventListener("change", renderTransactionFilterValueSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("input", renderTransactionLinkedSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("change", renderTransactionLinkedSuggestions);
+    document.getElementById("transaction-details").addEventListener("input", syncTransactionAmountFromDetails);
+    document.getElementById("transaction-details").addEventListener("change", syncTransactionAmountFromDetails);
     document.querySelectorAll("[data-smart-picker-field]").forEach((input) => {
       input.addEventListener("click", () => openSmartFieldPicker(input.dataset.smartPickerField || ""));
       input.addEventListener("keydown", (event) => {
@@ -1070,6 +1073,31 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     syncTransactionTemplateControls();
   }
 
+  function calculateTransactionAmountFromDetails(detailsText = "") {
+    const pattern = /=\s*([0-9]+)\s*,/g;
+    let total = 0;
+    let hasMatch = false;
+    let match = pattern.exec(String(detailsText || ""));
+    while (match) {
+      hasMatch = true;
+      total += Number(match[1] || 0);
+      match = pattern.exec(String(detailsText || ""));
+    }
+    return hasMatch ? total : 0;
+  }
+
+  function syncTransactionAmountFromDetails() {
+    const detailsField = document.getElementById("transaction-details");
+    const amountField = document.getElementById("transaction-amount");
+    if (!detailsField || !amountField) {
+      return;
+    }
+    const derivedAmount = calculateTransactionAmountFromDetails(detailsField.value);
+    if (derivedAmount > 0) {
+      amountField.value = String(derivedAmount);
+    }
+  }
+
   function syncTransactionTemplateControls() {
     const selectedId = document.getElementById("transaction-template-select").value || "";
     const selected = transactionTemplates.find((template) => template.id === selectedId);
@@ -1115,6 +1143,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-details").value = draft.details || "";
     syncTransactionTypeFields();
     renderTransactionSmartFieldOptions();
+    if (!draft.amount && draft.details) {
+      syncTransactionAmountFromDetails();
+    }
     setTransactionTemplatePanelExpanded(false);
   }
 
@@ -1223,7 +1254,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         currentValue: document.getElementById("transaction-counterparty").value.trim(),
         options: getRankedTransactionValueSuggestions("counterparty", type, categoryId, subcategory),
         placeholder: "Type a new payee / payer or choose a ranked one",
-        note: "Ranked from similar transactions first, with category-level fallback.",
+        note: "Shows all matching payees or payers, ranked by usage frequency with the closest matches first.",
       };
     }
     if (field === "project") {
@@ -1234,7 +1265,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         currentValue: document.getElementById("transaction-project").value.trim(),
         options: getRankedTransactionValueSuggestions("project", type, categoryId, subcategory),
         placeholder: "Type a new project or choose a ranked one",
-        note: "Ranked from similar transactions first, with category-level fallback.",
+        note: "Shows all matching projects, ranked by usage frequency with the closest matches first.",
       };
     }
     return null;
@@ -1319,8 +1350,25 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function clearSmartFieldPickerValue() {
-    document.getElementById("smart-field-picker-input").value = "";
-    applySmartFieldPickerValue("");
+    const input = document.getElementById("smart-field-picker-input");
+    const target = document.getElementById(smartFieldPickerState.targetId);
+    if (!input || !target) {
+      return;
+    }
+    input.value = "";
+    smartFieldPickerState.selectedValue = "";
+    smartFieldPickerState.lastTapValue = "";
+    smartFieldPickerState.lastTapAt = 0;
+    target.value = "";
+    target.setAttribute("value", "");
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+    syncSmartFieldPickerActiveOption("");
+    renderSmartFieldPickerOptions();
+    if (smartFieldPickerState.field === "subcategory") {
+      renderTransactionLinkedSuggestions();
+    }
+    window.setTimeout(() => input.focus(), 20);
   }
 
   function resetSmartFieldPicker() {
@@ -2267,7 +2315,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     } else if (placeholder) {
       options.push(`<option value="">${placeholder}</option>`);
     }
-    state.categories.forEach((category) => {
+    const transactionType = document.getElementById("transaction-type")?.value || "expense";
+    const categories =
+      select.id === "transaction-category" && !includeAll
+        ? getRankedTransactionCategorySuggestions(transactionType)
+        : state.categories;
+    categories.forEach((category) => {
       options.push(`<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`);
     });
     select.innerHTML = options.join("");
@@ -2277,6 +2330,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function renderTransactionSmartFieldOptions() {
+    populateCategorySelect(document.getElementById("transaction-category"), false, "Optional category");
     renderSubcategoryOptions();
   }
 
@@ -2448,15 +2502,50 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       .map((entry) => entry.value);
   }
 
+  function getRankedTransactionCategorySuggestions(type) {
+    const normalizedType = type === "income" ? "income" : "expense";
+    const counts = new Map();
+    const lastUsed = new Map();
+    state.transactions.forEach((transaction) => {
+      if (transaction.type !== normalizedType || !transaction.categoryId) {
+        return;
+      }
+      const key = String(transaction.categoryId);
+      counts.set(key, (counts.get(key) || 0) + 1);
+      lastUsed.set(key, String(transaction.updatedAt || transaction.createdAt || transaction.date || ""));
+    });
+    return state.categories
+      .filter((category) => category.type === normalizedType)
+      .map((category) => ({
+        category,
+        count: counts.get(category.id) || 0,
+        lastUsed: lastUsed.get(category.id) || "",
+      }))
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.category.name.localeCompare(right.category.name);
+      })
+      .map((entry) => entry.category);
+  }
+
   function getRankedTransactionValueSuggestions(field, type, categoryId, subcategory) {
-    if (!categoryId || type === "transfer") {
+    if (type === "transfer") {
       return [];
     }
+    const normalizedCategoryId = String(categoryId || "").trim();
     const normalizedSubcategory = String(subcategory || "").trim().toLowerCase();
     const exact = new Map();
     const fallback = new Map();
     state.transactions.forEach((transaction) => {
-      if (transaction.type !== type || transaction.categoryId !== categoryId) {
+      if (transaction.type !== type) {
+        return;
+      }
+      if (normalizedCategoryId && transaction.categoryId !== normalizedCategoryId) {
         return;
       }
       const rawValue = String(transaction[field] || "").trim();
@@ -2484,7 +2573,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         return left.value.localeCompare(right.value);
       })
       .map((entry) => entry.value)
-      .slice(0, 20);
+      ;
   }
 
   function getRankedFilterTransactionValueSuggestions(field, type, categoryId, subcategory) {
@@ -2525,7 +2614,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         return left.value.localeCompare(right.value);
       })
       .map((entry) => entry.value)
-      .slice(0, 20);
+      ;
   }
 
   function getRankedFilterTagSuggestions(type, categoryId, subcategory) {
@@ -2568,7 +2657,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         return left.value.localeCompare(right.value);
       })
       .map((entry) => entry.value)
-      .slice(0, 20);
+      ;
   }
 
   function switchScreen(screen) {

@@ -22,6 +22,7 @@ export function createModalTools(api) {
     normalizeDateInput,
     titleCase,
     escapeRegExp,
+    calculateTransactionAmountFromDetails,
     todayIso,
     shiftIsoDate,
     showToast,
@@ -195,7 +196,9 @@ export function createModalTools(api) {
   function handleTransactionSubmit(event) {
     event.preventDefault();
     const type = document.getElementById("transaction-type").value;
-    const amount = Number(document.getElementById("transaction-amount").value);
+    const details = document.getElementById("transaction-details").value.trim();
+    const derivedAmount = Number(calculateTransactionAmountFromDetails ? calculateTransactionAmountFromDetails(details) : 0);
+    const amount = derivedAmount > 0 ? derivedAmount : Number(document.getElementById("transaction-amount").value);
     const rawSubcategory = document.getElementById("transaction-subcategory").value.trim();
     const payload = {
       id: document.getElementById("transaction-id").value || uid("tx"),
@@ -210,7 +213,7 @@ export function createModalTools(api) {
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
-      details: document.getElementById("transaction-details").value.trim(),
+      details,
       updatedAt: new Date().toISOString(),
     };
 
