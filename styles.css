@@ -2613,6 +2613,10 @@ textarea:focus {
   color: var(--muted);
 }
 
+.calendar-pill-empty {
+  opacity: 0.42;
+}
+
 .report-chart-tooltip-row-button {
   width: 100%;
   border: 0;

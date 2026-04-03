@@ -36,45 +36,28 @@ export function createCalendarTools(api) {
       const income = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "income"));
       const expense = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "expense"));
       const transfer = sumAmounts(dayTransactions.filter((transaction) => transaction.type === "transfer"));
-      const hasActivity = income || expense || transfer;
       cells.push(`
         <button class="calendar-cell ${inMonth ? "" : "calendar-muted"}" type="button" ${
           inMonth ? `data-action="show-calendar-tooltip" data-date="${iso}" data-calendar-tooltip="true"` : "disabled"
         }>
           <span class="calendar-day-number">${cellDate.getDate()}</span>
-          ${
-            hasActivity
-              ? `<div class="calendar-cell-flow">
-                  ${
-                    income
-                      ? `<span class="calendar-pill icon-income">
-                          <span class="calendar-pill-icon">${iconRegistry["arrow-up"]}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(income, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(income)}</span>
-                        </span>`
-                      : ""
-                  }
-                  ${
-                    expense
-                      ? `<span class="calendar-pill icon-expense">
-                          <span class="calendar-pill-icon">${iconRegistry["arrow-down"]}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(expense, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(expense)}</span>
-                        </span>`
-                      : ""
-                  }
-                  ${
-                    transfer
-                      ? `<span class="calendar-pill icon-transfer">
-                          <span class="calendar-pill-icon">${iconRegistry.swap}</span>
-                          <span class="calendar-pill-text">${formatCalendarDisplayMoney(transfer, baseSymbol)}</span>
-                          <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(transfer)}</span>
-                        </span>`
-                      : ""
-                  }
-                </div>`
-              : `<span class="calendar-empty">No activity</span>`
-          }
+          <div class="calendar-cell-flow">
+            <span class="calendar-pill icon-income ${income ? "" : "calendar-pill-empty"}">
+              <span class="calendar-pill-icon">${iconRegistry["arrow-up"]}</span>
+              <span class="calendar-pill-text">${formatCalendarDisplayMoney(income, baseSymbol)}</span>
+              <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(income)}</span>
+            </span>
+            <span class="calendar-pill icon-expense ${expense ? "" : "calendar-pill-empty"}">
+              <span class="calendar-pill-icon">${iconRegistry["arrow-down"]}</span>
+              <span class="calendar-pill-text">${formatCalendarDisplayMoney(expense, baseSymbol)}</span>
+              <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(expense)}</span>
+            </span>
+            <span class="calendar-pill icon-transfer ${transfer ? "" : "calendar-pill-empty"}">
+              <span class="calendar-pill-icon">${iconRegistry.swap}</span>
+              <span class="calendar-pill-text">${formatCalendarDisplayMoney(transfer, baseSymbol)}</span>
+              <span class="calendar-pill-mobile-text">${formatCompactPlainAmount(transfer)}</span>
+            </span>
+          </div>
         </button>
       `);
     }

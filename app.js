@@ -455,7 +455,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-template-select").addEventListener("change", syncTransactionTemplateControls);
     document.getElementById("toggle-transaction-templates-button").addEventListener("click", toggleTransactionTemplatePanel);
     document.getElementById("smart-field-picker-input").addEventListener("input", renderSmartFieldPickerOptions);
-    document.getElementById("smart-field-picker-apply-button").addEventListener("click", () => applySmartFieldPickerValue());
+    document.getElementById("smart-field-picker-apply-button").addEventListener("click", handleSmartFieldPickerApply);
     document.getElementById("smart-field-picker-clear-button").addEventListener("click", clearSmartFieldPickerValue);
     document.getElementById("smart-field-picker-list").addEventListener("dblclick", (event) => {
       const option = event.target.closest('[data-action="select-smart-field-option"]');
@@ -1522,7 +1522,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!field || !target) {
       return;
     }
-    const value = String(valueOverride ?? document.getElementById("smart-field-picker-input").value ?? "").trim();
+    const rawValue =
+      valueOverride && typeof valueOverride === "object" && "target" in valueOverride
+        ? document.getElementById("smart-field-picker-input").value
+        : valueOverride ?? document.getElementById("smart-field-picker-input").value ?? "";
+    const value = String(rawValue).trim();
     target.value = value;
     target.setAttribute("value", value);
     target.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1747,6 +1751,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (submitButton) {
       submitButton.disabled = false;
     }
+  }
+
+  function handleSmartFieldPickerApply(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const input = document.getElementById("smart-field-picker-input");
+    applySmartFieldPickerValue(input ? input.value : "");
   }
 
   function handleConfirmModalSubmit() {
