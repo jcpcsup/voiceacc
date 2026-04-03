@@ -448,7 +448,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-template-select").addEventListener("change", syncTransactionTemplateControls);
     document.getElementById("toggle-transaction-templates-button").addEventListener("click", toggleTransactionTemplatePanel);
     document.getElementById("smart-field-picker-input").addEventListener("input", renderSmartFieldPickerOptions);
-    document.getElementById("smart-field-picker-apply-button").addEventListener("click", applySmartFieldPickerValue);
+    document.getElementById("smart-field-picker-apply-button").addEventListener("click", () => applySmartFieldPickerValue());
     document.getElementById("smart-field-picker-clear-button").addEventListener("click", clearSmartFieldPickerValue);
     document.getElementById("smart-field-picker-list").addEventListener("dblclick", (event) => {
       const option = event.target.closest('[data-action="select-smart-field-option"]');
@@ -1074,14 +1074,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function calculateTransactionAmountFromDetails(detailsText = "") {
-    const pattern = /=\s*([0-9]+)\s*,/g;
+    const pattern = /=\s*([0-9]+)\s*(?:,|$)/gm;
     let total = 0;
     let hasMatch = false;
-    let match = pattern.exec(String(detailsText || ""));
+    const source = String(detailsText || "");
+    let match = pattern.exec(source);
     while (match) {
       hasMatch = true;
       total += Number(match[1] || 0);
-      match = pattern.exec(String(detailsText || ""));
+      match = pattern.exec(source);
     }
     return hasMatch ? total : 0;
   }
