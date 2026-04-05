@@ -16,11 +16,13 @@ export function createModalTools(api) {
     ensureImportedCategory,
     appendImportedSubcategory,
     normalizeImportTransactionType,
+    downloadCsv,
     slugify,
     uid,
     splitTags,
     normalizeDateInput,
     titleCase,
+    escapeHtml,
     escapeRegExp,
     calculateTransactionAmountFromDetails,
     todayIso,
@@ -32,6 +34,7 @@ export function createModalTools(api) {
   const TRANSACTION_IMPORT_SOFT_LIMIT = 1000;
   const TRANSACTION_IMPORT_HARD_LIMIT = 5000;
   const IMPORT_CHUNK_SIZE = 200;
+  let importReconciliationState = null;
 
   function syncTransactionTypeFields() {
     const type = document.getElementById("transaction-type").value;
@@ -365,6 +368,16 @@ export function createModalTools(api) {
         showToast(`Please split large transaction imports into files of ${TRANSACTION_IMPORT_HARD_LIMIT} rows or fewer.`);
         return;
       }
+      if (target === "transactions") {
+        const reconciliation = buildTransactionReconciliation(rows);
+        if (reconciliation.exactDuplicates.length || reconciliation.probableDuplicates.length) {
+          importReconciliationState = reconciliation;
+          renderImportReconciliationModal();
+          closeModal("import-modal");
+          openModal("import-reconciliation-modal");
+          return;
+        }
+      }
       let importSummary = null;
       if (target === "transactions") {
         importSummary = await importTransactionsInChunks(rows);
@@ -383,6 +396,317 @@ export function createModalTools(api) {
       setImportBusy(false);
       setImportProgress(false, "", 0);
     }
+  }
+
+  function normalizeTransactionReconciliationCandidate(row, index) {
+    const type = normalizeImportTransactionType(row.type);
+    const amount = Number(row.amount || 0);
+    const date = normalizeDateInput(row.date) || todayIso();
+    const accountId = type === "transfer" ? "" : findAccountId(row.accountId, row.accountName);
+    const fromAccountId = type === "transfer" ? findAccountId(row.fromAccountId, row.fromAccountName) : "";
+    const toAccountId = type === "transfer" ? findAccountId(row.toAccountId, row.toAccountName) : "";
+    const categoryId = type === "transfer" ? "" : findCategoryId(row.categoryId, row.categoryName);
+    const accountLabel =
+      type === "transfer"
+        ? [row.fromAccountName || getAccount(fromAccountId)?.name || "", row.toAccountName || getAccount(toAccountId)?.name || ""]
+            .filter(Boolean)
+            .join(" -> ")
+        : row.accountName || getAccount(accountId)?.name || "";
+    const categoryLabel = row.categoryName || getCategory(categoryId)?.name || "";
+    const subcategory = String(row.subcategory || "").trim();
+    const counterparty = String(row.payeeOrPayer || row.counterparty || "").trim();
+    const project = String(row.project || "").trim();
+    const accountKey =
+      type === "transfer"
+        ? `${fromAccountId || String(row.fromAccountName || "").trim().toLowerCase()}|${toAccountId || String(row.toAccountName || "").trim().toLowerCase()}`
+        : accountId || String(accountLabel || "").trim().toLowerCase();
+    const categoryKey = categoryId || String(categoryLabel || "").trim().toLowerCase();
+    const fingerprintParts =
+      type === "transfer"
+        ? [type, amount, date, fromAccountId || String(row.fromAccountName || "").trim().toLowerCase(), toAccountId || String(row.toAccountName || "").trim().toLowerCase()]
+        : [
+            type,
+            amount,
+            date,
+            accountKey,
+            categoryKey,
+            subcategory.toLowerCase(),
+            counterparty.toLowerCase(),
+            project.toLowerCase(),
+          ];
+    return {
+      row,
+      index,
+      id: String(row.id || "").trim(),
+      type,
+      amount,
+      date,
+      accountKey,
+      categoryKey,
+      subcategory: subcategory.toLowerCase(),
+      counterparty: counterparty.toLowerCase(),
+      project: project.toLowerCase(),
+      fingerprint: fingerprintParts.join("|"),
+      preview: [date, accountLabel, categoryLabel, subcategory, counterparty, project, amount ? String(amount) : ""].filter(Boolean).join(" | "),
+    };
+  }
+
+  function normalizeExistingTransactionProfile(transaction) {
+    const account = getAccount(transaction.accountId);
+    const fromAccount = getAccount(transaction.fromAccountId);
+    const toAccount = getAccount(transaction.toAccountId);
+    const category = getCategory(transaction.categoryId);
+    const type = transaction.type || "expense";
+    const amount = Number(transaction.amount || 0);
+    const date = normalizeDateInput(transaction.date) || todayIso();
+    const accountKey =
+      type === "transfer"
+        ? `${transaction.fromAccountId || String(fromAccount?.name || "").trim().toLowerCase()}|${
+            transaction.toAccountId || String(toAccount?.name || "").trim().toLowerCase()
+          }`
+        : transaction.accountId || String(account?.name || account?.id || account?.title || account?.label || account?.accountName || "").trim().toLowerCase() ||
+          String(account?.name || "").trim().toLowerCase();
+    const categoryKey = transaction.categoryId || String(category?.name || "").trim().toLowerCase();
+    const counterparty = String(transaction.counterparty || "").trim().toLowerCase();
+    const project = String(transaction.project || "").trim().toLowerCase();
+    const subcategory = String(transaction.subcategory || "").trim().toLowerCase();
+    const fingerprintParts =
+      type === "transfer"
+        ? [type, amount, date, transaction.fromAccountId || String(fromAccount?.name || "").trim().toLowerCase(), transaction.toAccountId || String(toAccount?.name || "").trim().toLowerCase()]
+        : [type, amount, date, accountKey, categoryKey, subcategory, counterparty, project];
+    return {
+      id: String(transaction.id || "").trim(),
+      type,
+      amount,
+      date,
+      accountKey,
+      categoryKey,
+      subcategory,
+      counterparty,
+      project,
+      fingerprint: fingerprintParts.join("|"),
+    };
+  }
+
+  function diffDays(leftDate, rightDate) {
+    const left = new Date(`${leftDate}T12:00:00`);
+    const right = new Date(`${rightDate}T12:00:00`);
+    return Math.round((left.getTime() - right.getTime()) / 86400000);
+  }
+
+  function isProbableDuplicate(candidate, reference) {
+    if (!reference || candidate.type !== reference.type || candidate.amount !== reference.amount) {
+      return false;
+    }
+    if (Math.abs(diffDays(candidate.date, reference.date)) > 3) {
+      return false;
+    }
+    if (candidate.type === "transfer") {
+      return candidate.accountKey && candidate.accountKey === reference.accountKey;
+    }
+    if (!candidate.accountKey || candidate.accountKey !== reference.accountKey) {
+      return false;
+    }
+    if (candidate.categoryKey && reference.categoryKey && candidate.categoryKey === reference.categoryKey) {
+      return true;
+    }
+    if (candidate.counterparty && reference.counterparty && candidate.counterparty === reference.counterparty) {
+      return true;
+    }
+    if (candidate.project && reference.project && candidate.project === reference.project) {
+      return true;
+    }
+    return false;
+  }
+
+  function buildDuplicateExportRow(item, kind) {
+    const row = item.row || {};
+    return {
+      duplicateType: kind,
+      reason: item.reason || "",
+      matchTransactionId: item.matchId || "",
+      id: row.id || "",
+      type: row.type || "",
+      amount: row.amount || "",
+      date: row.date || "",
+      accountName: row.accountName || "",
+      fromAccountName: row.fromAccountName || "",
+      toAccountName: row.toAccountName || "",
+      categoryName: row.categoryName || "",
+      subcategory: row.subcategory || "",
+      payeeOrPayer: row.payeeOrPayer || row.counterparty || "",
+      project: row.project || "",
+      tags: row.tags || "",
+      details: row.details || "",
+    };
+  }
+
+  function buildTransactionReconciliation(rows) {
+    const existingProfiles = state.transactions.map(normalizeExistingTransactionProfile);
+    const seenIds = new Map(existingProfiles.filter((item) => item.id).map((item) => [item.id, item]));
+    const seenFingerprints = new Map(existingProfiles.map((item) => [item.fingerprint, item]));
+    const referenceProfiles = [...existingProfiles];
+    const safeRows = [];
+    const exactDuplicates = [];
+    const probableDuplicates = [];
+
+    rows.forEach((row, index) => {
+      const candidate = normalizeTransactionReconciliationCandidate(row, index);
+      let exactMatch = null;
+      if (candidate.id && seenIds.has(candidate.id)) {
+        exactMatch = seenIds.get(candidate.id);
+      }
+      if (!exactMatch && seenFingerprints.has(candidate.fingerprint)) {
+        exactMatch = seenFingerprints.get(candidate.fingerprint);
+      }
+      if (exactMatch) {
+        exactDuplicates.push({
+          ...candidate,
+          matchId: exactMatch.id || "",
+          reason: candidate.id && candidate.id === exactMatch.id ? "Matching transaction ID already exists." : "Matching transaction fingerprint already exists.",
+        });
+      } else {
+        const probableMatch = referenceProfiles.find((reference) => isProbableDuplicate(candidate, reference));
+        if (probableMatch) {
+          probableDuplicates.push({
+            ...candidate,
+            matchId: probableMatch.id || "",
+            reason: "Same type, amount, and ledger context found within a +/-3 day window.",
+          });
+        } else {
+          safeRows.push(row);
+        }
+      }
+      if (candidate.id) {
+        seenIds.set(candidate.id, candidate);
+      }
+      seenFingerprints.set(candidate.fingerprint, candidate);
+      referenceProfiles.push(candidate);
+    });
+
+    return {
+      rows,
+      safeRows,
+      exactDuplicates,
+      probableDuplicates,
+      duplicateCsvRows: [
+        ...exactDuplicates.map((item) => buildDuplicateExportRow(item, "exact")),
+        ...probableDuplicates.map((item) => buildDuplicateExportRow(item, "probable")),
+      ],
+    };
+  }
+
+  function renderImportReconciliationModal() {
+    const stateSnapshot = importReconciliationState;
+    if (!stateSnapshot) {
+      return;
+    }
+    document.getElementById("import-reconciliation-message").textContent =
+      `${stateSnapshot.safeRows.length} safe transaction rows are ready. ${stateSnapshot.exactDuplicates.length} exact and ${stateSnapshot.probableDuplicates.length} probable duplicates need a decision before import.`;
+    document.getElementById("import-reconciliation-summary").innerHTML = [
+      renderReconciliationSummaryCard("CSV Rows", stateSnapshot.rows.length, "Rows parsed from the selected file"),
+      renderReconciliationSummaryCard("Safe New", stateSnapshot.safeRows.length, "Rows ready to import immediately"),
+      renderReconciliationSummaryCard(
+        "Flagged",
+        stateSnapshot.exactDuplicates.length + stateSnapshot.probableDuplicates.length,
+        "Potential duplicates requiring review"
+      ),
+    ].join("");
+    document.getElementById("import-reconciliation-exact-title").textContent = `${stateSnapshot.exactDuplicates.length} exact match${
+      stateSnapshot.exactDuplicates.length === 1 ? "" : "es"
+    }`;
+    document.getElementById("import-reconciliation-probable-title").textContent = `${stateSnapshot.probableDuplicates.length} probable match${
+      stateSnapshot.probableDuplicates.length === 1 ? "" : "es"
+    }`;
+    document.getElementById("import-reconciliation-exact-list").innerHTML = renderReconciliationList(
+      stateSnapshot.exactDuplicates,
+      "No exact duplicates were found."
+    );
+    document.getElementById("import-reconciliation-probable-list").innerHTML = renderReconciliationList(
+      stateSnapshot.probableDuplicates,
+      "No probable duplicates were found."
+    );
+  }
+
+  function renderReconciliationSummaryCard(label, value, note) {
+    return `
+      <div class="reconciliation-summary-card">
+        <p class="eyebrow">${label}</p>
+        <strong>${value}</strong>
+        <span class="supporting-text">${note}</span>
+      </div>
+    `;
+  }
+
+  function renderReconciliationList(items, emptyMessage) {
+    if (!items.length) {
+      return `<div class="empty-state compact-empty">${emptyMessage}</div>`;
+    }
+    return items
+      .slice(0, 18)
+      .map(
+        (item) => `
+          <article class="reconciliation-item">
+            <div class="reconciliation-item-head">
+              <strong>${escapeHtml(item.preview || "Imported row")}</strong>
+              <span class="meta-pill neutral">${escapeHtml(item.matchId ? `Match: ${item.matchId}` : "Review")}</span>
+            </div>
+            <p class="reconciliation-reason">${escapeHtml(item.reason || "")}</p>
+          </article>
+        `
+      )
+      .join("");
+  }
+
+  async function commitReconciledTransactionImport(rows, toastMessage, downloadDuplicates = false) {
+    if (!importReconciliationState) {
+      return;
+    }
+    const rowsToImport = Array.isArray(rows) ? rows : [];
+    setImportBusy(true);
+    setImportProgress(true, "Saving reconciled transactions...", 12);
+    try {
+      const importSummary = await importTransactionsInChunks(rowsToImport);
+      if (downloadDuplicates && importReconciliationState.duplicateCsvRows.length) {
+        downloadCsv("duplicate-transactions-found.csv", importReconciliationState.duplicateCsvRows, false);
+      }
+      persistAndRefresh();
+      closeModal("import-reconciliation-modal");
+      showToast(
+        `${toastMessage} ${buildImportToast(rowsToImport.length, "transactions", importSummary)}${
+          downloadDuplicates && importReconciliationState.duplicateCsvRows.length ? " Duplicate rows CSV downloaded." : ""
+        }`
+      );
+      importReconciliationState = null;
+    } finally {
+      setImportBusy(false);
+      setImportProgress(false, "", 0);
+    }
+  }
+
+  async function handleImportReconciliationImportAll() {
+    if (!importReconciliationState) {
+      return;
+    }
+    await commitReconciledTransactionImport(importReconciliationState.rows, "Imported all CSV rows after reconciliation.");
+  }
+
+  async function handleImportReconciliationImportSafeOnly() {
+    if (!importReconciliationState) {
+      return;
+    }
+    await commitReconciledTransactionImport(importReconciliationState.safeRows, "Imported only safe new rows.");
+  }
+
+  async function handleImportReconciliationSkipDuplicates() {
+    if (!importReconciliationState) {
+      return;
+    }
+    await commitReconciledTransactionImport(
+      importReconciliationState.safeRows,
+      "Skipped flagged duplicate rows.",
+      true
+    );
   }
 
   async function importTransactionsInChunks(rows) {
@@ -1067,6 +1391,9 @@ export function createModalTools(api) {
     handleAccountSubmit,
     handleCategorySubmit,
     handleImportSubmit,
+    handleImportReconciliationImportAll,
+    handleImportReconciliationImportSafeOnly,
+    handleImportReconciliationSkipDuplicates,
     handleParseStatement,
     initializeSpeechRecognition,
     toggleListening,

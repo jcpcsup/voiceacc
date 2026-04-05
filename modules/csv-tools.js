@@ -367,6 +367,7 @@ export function createCsvTools(api) {
     exportCategoriesCsv,
     exportImportTemplate,
     getImportTemplateMessage,
+    downloadCsv,
     toCsv,
     findAccountId,
     ensureImportedAccount,

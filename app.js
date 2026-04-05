@@ -204,6 +204,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     exportCategoriesCsv,
     exportImportTemplate,
     getImportTemplateMessage,
+    downloadCsv,
     findAccountId,
     ensureImportedAccount,
     findCategoryId,
@@ -269,6 +270,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     handleAccountSubmit,
     handleCategorySubmit,
     handleImportSubmit,
+    handleImportReconciliationImportAll,
+    handleImportReconciliationImportSafeOnly,
+    handleImportReconciliationSkipDuplicates,
     handleParseStatement,
     initializeSpeechRecognition,
     toggleListening,
@@ -294,11 +298,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     ensureImportedCategory,
     appendImportedSubcategory,
     normalizeImportTransactionType,
+    downloadCsv,
     slugify,
     uid,
     splitTags,
     normalizeDateInput,
     titleCase,
+    escapeHtml,
     escapeRegExp,
     calculateTransactionAmountFromDetails,
     todayIso,
@@ -452,6 +458,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
+    document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
+    document.getElementById("reconciliation-import-safe-button")?.addEventListener("click", handleImportReconciliationImportSafeOnly);
+    document.getElementById("reconciliation-skip-duplicates-button")?.addEventListener("click", handleImportReconciliationSkipDuplicates);
     document.getElementById("transaction-delete-button").addEventListener("click", handleTransactionModalDelete);
     document.getElementById("transaction-duplicate-button").addEventListener("click", handleTransactionModalDuplicate);
     document.getElementById("apply-transaction-template-button").addEventListener("click", applySelectedTransactionTemplate);

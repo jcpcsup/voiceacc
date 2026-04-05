@@ -3114,8 +3114,75 @@ textarea:focus {
   width: min(100%, 360px);
 }
 
+.modal-card-wide {
+  width: min(100%, 980px);
+}
+
 .suggestion-picker-card {
   width: min(100%, 760px);
+}
+
+.reconciliation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 18px;
+}
+
+.reconciliation-summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(18, 200, 164, 0.06);
+  border: 1px solid rgba(18, 59, 70, 0.08);
+}
+
+.reconciliation-summary-card strong {
+  font-size: 1.45rem;
+  color: var(--accent-strong);
+}
+
+.reconciliation-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.reconciliation-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(30vh, 260px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.reconciliation-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(13, 47, 61, 0.08);
+}
+
+.reconciliation-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reconciliation-reason {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.reconciliation-preview {
+  color: var(--text);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 #smart-field-picker-modal {
@@ -3553,6 +3620,10 @@ input[data-smart-picker-field][readonly] {
 
   .modal-card-compact {
     width: min(100%, calc(100vw - 28px));
+  }
+
+  .reconciliation-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .report-pie-panel {
