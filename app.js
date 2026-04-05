@@ -2500,12 +2500,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function renderCategories() {
     const container = document.getElementById("category-list");
+    const sortByCategoryUsageFrequency = (left, right) => {
+      const leftUsage = getCategoryUsageFrequency(left.id);
+      const rightUsage = getCategoryUsageFrequency(right.id);
+      if (rightUsage.count !== leftUsage.count) {
+        return rightUsage.count - leftUsage.count;
+      }
+      if ((rightUsage.lastUsed || "") !== (leftUsage.lastUsed || "")) {
+        return String(rightUsage.lastUsed || "").localeCompare(String(leftUsage.lastUsed || ""));
+      }
+      return left.name.localeCompare(right.name);
+    };
     const expenses = state.categories
       .filter((category) => category.type === "expense")
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort(sortByCategoryUsageFrequency);
     const income = state.categories
       .filter((category) => category.type === "income")
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort(sortByCategoryUsageFrequency);
     const groupedMarkup = [];
     if (expenses.length) {
       groupedMarkup.push(renderCategoryGroup("Expenses", expenses));
@@ -2516,6 +2527,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     container.innerHTML = groupedMarkup.length
       ? groupedMarkup.join("")
       : renderEmpty("No categories available yet.");
+  }
+
+  function getCategoryUsageFrequency(categoryId) {
+    let count = 0;
+    let lastUsed = "";
+    state.transactions.forEach((transaction) => {
+      if (transaction.categoryId !== categoryId) {
+        return;
+      }
+      count += 1;
+      const candidate = String(transaction.updatedAt || transaction.createdAt || transaction.date || "");
+      if (candidate && candidate.localeCompare(lastUsed) > 0) {
+        lastUsed = candidate;
+      }
+    });
+    return { count, lastUsed };
   }
 
   function renderSelectOptions() {
