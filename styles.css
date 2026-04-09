@@ -2959,9 +2959,9 @@ textarea:focus {
 }
 
 .ranking-list-compare {
-  max-height: 680px;
-  overflow-y: auto;
-  padding-right: 4px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .ranking-item {
@@ -3945,7 +3945,7 @@ input[data-smart-picker-field][readonly] {
 
   .report-pie-visual,
   .report-breakdown-visual {
-    width: min(100%, 210px);
+    width: min(100%, 320px);
   }
 
   .report-pie-center strong {
