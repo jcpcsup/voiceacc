@@ -965,7 +965,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                       .map(
                         (item) => `
                           <div class="calendar-tooltip-line">
-                            <span>${escapeHtml(item.text || "")}</span>
+                            <div class="calendar-tooltip-line-main">
+                              ${(item.segments || [])
+                                .map(
+                                  (segment, index) => `
+                                    ${index ? '<span class="calendar-tooltip-separator">|</span>' : ""}
+                                    <span class="calendar-tooltip-entity calendar-tooltip-entity-${escapeAttribute(segment.type || "text")}" style="color:${escapeAttribute(
+                                      segment.color || "#5f7380"
+                                    )}">${escapeHtml(segment.label || "")}</span>
+                                  `
+                                )
+                                .join("")}
+                              <span class="calendar-tooltip-arrow" aria-hidden="true">-></span>
+                              <strong class="calendar-tooltip-line-amount" style="color:${escapeAttribute(item.amountColor || group.color || "#19c6a7")}">${escapeHtml(
+                                item.amount || ""
+                              )}</strong>
+                            </div>
                           </div>
                         `
                       )

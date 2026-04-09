@@ -129,23 +129,58 @@ export function createCalendarTools(api) {
   }
 
   function buildCalendarTransactionSummary(transaction, baseSymbol) {
+    const account =
+      transaction.type === "transfer"
+        ? getAccount(transaction.fromAccountId) || getAccount(transaction.toAccountId)
+        : getAccount(transaction.accountId);
     const accountLabel =
       transaction.type === "transfer"
         ? [getAccount(transaction.fromAccountId)?.name, getAccount(transaction.toAccountId)?.name].filter(Boolean).join(" -> ")
-        : getAccount(transaction.accountId)?.name || "Unknown";
-    const categoryLabel =
-      transaction.type === "transfer" ? "Transfer" : getCategory(transaction.categoryId)?.name || "Uncategorized";
-    const parts = [
-      accountLabel,
-      categoryLabel,
-      String(transaction.subcategory || "").trim(),
-      String(transaction.counterparty || "").trim(),
-      String(transaction.project || "").trim(),
-    ].filter(Boolean);
+        : account?.name || "Unknown";
+    const category = transaction.type === "transfer" ? null : getCategory(transaction.categoryId);
+    const categoryLabel = transaction.type === "transfer" ? "Transfer" : category?.name || "Uncategorized";
+    const categoryColor = category?.color || (transaction.type === "income" ? "#1ca866" : transaction.type === "expense" ? "#d35a5a" : "#2f86ff");
+    const segments = [
+      {
+        label: accountLabel,
+        color: account?.color || "#19c6a7",
+        type: "account",
+      },
+      {
+        label: categoryLabel,
+        color: categoryColor,
+        type: "category",
+      },
+    ];
+    const subcategory = String(transaction.subcategory || "").trim();
+    const counterparty = String(transaction.counterparty || "").trim();
+    const project = String(transaction.project || "").trim();
+    if (subcategory) {
+      segments.push({
+        label: subcategory,
+        color: categoryColor,
+        type: "subcategory",
+      });
+    }
+    if (counterparty) {
+      segments.push({
+        label: counterparty,
+        color: "#6657ca",
+        type: "counterparty",
+      });
+    }
+    if (project) {
+      segments.push({
+        label: project,
+        color: "#924900",
+        type: "project",
+      });
+    }
     return {
       id: transaction.id,
-      text: `${parts.join(" | ")} -> ${formatMoney(transaction.amount || 0, getAccount(transaction.accountId || transaction.toAccountId || transaction.fromAccountId)?.currencySymbol || baseSymbol)}`,
+      segments,
       amount: formatMoney(transaction.amount || 0, getAccount(transaction.accountId || transaction.toAccountId || transaction.fromAccountId)?.currencySymbol || baseSymbol),
+      amountColor: transaction.type === "income" ? "#1ca866" : transaction.type === "expense" ? "#d35a5a" : "#2f86ff",
     };
   }
 

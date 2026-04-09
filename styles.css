@@ -807,9 +807,26 @@ body.app-locked .app-shell {
   line-height: 1.45;
 }
 
-.calendar-tooltip-line span {
-  display: block;
+.calendar-tooltip-line-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.calendar-tooltip-entity {
+  font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.calendar-tooltip-separator,
+.calendar-tooltip-arrow {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.calendar-tooltip-line-amount {
+  font-weight: 800;
 }
 
 .two-column {
