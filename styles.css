@@ -698,7 +698,7 @@ body.app-locked .app-shell {
 
 .calendar-tooltip {
   position: absolute;
-  width: min(440px, calc(100% - 24px));
+  width: min(760px, calc(100vw - 40px));
   z-index: 5;
   pointer-events: none;
 }
@@ -809,9 +809,15 @@ body.app-locked .app-shell {
 
 .calendar-tooltip-line-main {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.calendar-tooltip-line-main::-webkit-scrollbar {
+  display: none;
 }
 
 .calendar-tooltip-entity {
@@ -4212,6 +4218,11 @@ input[data-smart-picker-field][readonly] {
 
   .calendar-tooltip-balance-grid {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-tooltip-line-main {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .transaction-top {
