@@ -193,6 +193,17 @@ export function createReportsTools(api) {
     `;
   }
 
+  function renderAmountScale(maxValue, symbol, minValue = 0) {
+    const midpoint = minValue + (maxValue - minValue) / 2;
+    return `
+      <div class="report-breakdown-scale" aria-hidden="true">
+        <span>${escapeHtml(formatMoney(maxValue, symbol))}</span>
+        <span>${escapeHtml(formatMoney(midpoint, symbol))}</span>
+        <span>${escapeHtml(formatMoney(minValue, symbol))}</span>
+      </div>
+    `;
+  }
+
   function renderTimelineOverviewChart(transactions) {
     const incomeSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "income" ? transaction.amount : 0), 6);
     const expenseSeries = buildMonthlySeries(transactions, (transaction) => (transaction.type === "expense" ? transaction.amount : 0), 6);
@@ -216,6 +227,10 @@ export function createReportsTools(api) {
     const axisLabels = incomeSeries.map((item) => `<span>${escapeHtml(item.label)}</span>`).join("");
     return `
       <div class="timeline-overview">
+        <div class="timeline-overview-scale">
+          <span>${escapeHtml(formatMoney(max, getPrimaryCurrencySymbol()))}</span>
+          <span>${escapeHtml(formatMoney(0, getPrimaryCurrencySymbol()))}</span>
+        </div>
         <svg class="timeline-overview-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
           <polyline points="${incomeCoords.join(" ")}" fill="none" stroke="#1ca866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
           <polyline points="${expenseCoords.join(" ")}" fill="none" stroke="#d35a5a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
@@ -628,7 +643,9 @@ export function createReportsTools(api) {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
     return `
       <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
-        <div class="report-breakdown-bars">
+        <div class="report-breakdown-bars-shell">
+          ${renderAmountScale(maxValue, dataset.symbol)}
+          <div class="report-breakdown-bars">
           ${dataset.segments
             .map((segment, index) => {
               detailMap.set(`${indexPrefix}segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
@@ -669,6 +686,7 @@ export function createReportsTools(api) {
               `;
             })
             .join("")}
+          </div>
         </div>
       </div>
     `;
@@ -678,7 +696,9 @@ export function createReportsTools(api) {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
     return `
       <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
-        <div class="report-breakdown-columns">
+        <div class="report-breakdown-columns-shell">
+          ${renderAmountScale(maxValue, dataset.symbol)}
+          <div class="report-breakdown-columns">
           ${dataset.segments
             .map((segment, index) => {
               detailMap.set(`${indexPrefix}segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
@@ -712,6 +732,7 @@ export function createReportsTools(api) {
               `;
             })
             .join("")}
+          </div>
         </div>
       </div>
     `;

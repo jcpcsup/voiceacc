@@ -14,6 +14,7 @@ export function createRenderSharedTools(api) {
     const points = series.map((item) => Number(item.value || 0));
     const hasActivity = points.some((value) => value !== 0);
     const safeColor = color || "#19c6a7";
+    const baseSymbol = getPrimaryCurrencySymbol();
     if (!hasActivity) {
       return `
         <div class="mini-trend-card">
@@ -30,6 +31,7 @@ export function createRenderSharedTools(api) {
     const padding = 4;
     const min = Math.min(...points);
     const max = Math.max(...points);
+    const middleLabel = series[Math.floor((series.length - 1) / 2)]?.label || "";
     const range = max - min || 1;
     const coords = points.map((value, index) => {
       const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
@@ -44,12 +46,17 @@ export function createRenderSharedTools(api) {
           <span>${escapeHtml(label)}</span>
           <strong>${escapeHtml(valueLabel)}</strong>
         </div>
+        <div class="mini-trend-scale">
+          <span>${escapeHtml(formatMoney(max, baseSymbol))}</span>
+          <span>${escapeHtml(formatMoney(min, baseSymbol))}</span>
+        </div>
         <svg class="mini-trend-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
           <path d="${areaPath}" fill="${escapeHtml(withAlpha(safeColor, 0.18))}"></path>
           <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(safeColor)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
         </svg>
         <div class="mini-trend-axis">
           <span>${escapeHtml(series[0].label)}</span>
+          <span>${escapeHtml(middleLabel)}</span>
           <span>${escapeHtml(series[series.length - 1].label)}</span>
         </div>
       </div>
@@ -100,6 +107,10 @@ export function createRenderSharedTools(api) {
         <div class="report-row-graph">
           ${chart}
           <div class="bar-fill"><span style="width:${(value / max) * 100}%; ${color ? `background:${escapeHtml(color)};` : ""}"></span></div>
+          <div class="bar-scale">
+            <span>${escapeHtml(formatMoney(0, baseSymbol))}</span>
+            <span>${escapeHtml(formatMoney(max, baseSymbol))}</span>
+          </div>
         </div>
       </div>
     `;

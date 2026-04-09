@@ -934,6 +934,16 @@ body.app-locked .app-shell {
   color: var(--text);
 }
 
+.mini-trend-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 0.64rem;
+  color: var(--muted);
+}
+
 .mini-trend-chart {
   display: block;
   width: 100%;
@@ -2008,8 +2018,24 @@ textarea:focus {
 }
 
 .transaction-snapshot-chart {
+  display: block;
   width: 100%;
   height: 86px;
+}
+
+.transaction-snapshot-chart-shell {
+  display: grid;
+  gap: 6px;
+}
+
+.transaction-snapshot-scale,
+.transaction-snapshot-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .transaction-snapshot-bars {
@@ -2139,6 +2165,15 @@ textarea:focus {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(18, 200, 164, 0.95), rgba(0, 166, 199, 0.95));
+}
+
+.bar-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.66rem;
+  color: var(--muted);
 }
 
 .report-row-graph {
@@ -2286,6 +2321,13 @@ textarea:focus {
   justify-content: stretch;
 }
 
+.report-breakdown-bars-shell,
+.report-breakdown-columns-shell {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
 .report-pie-visual,
 .report-breakdown-visual {
   position: relative;
@@ -2353,6 +2395,23 @@ textarea:focus {
   gap: 12px;
   width: 100%;
   max-width: none;
+}
+
+.report-breakdown-scale {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.report-breakdown-scale span:nth-child(2) {
+  text-align: center;
+}
+
+.report-breakdown-scale span:last-child {
+  text-align: right;
 }
 
 .report-breakdown-bar-group {
@@ -2848,6 +2907,16 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.timeline-overview-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  color: var(--muted);
 }
 
 .timeline-overview-axis {

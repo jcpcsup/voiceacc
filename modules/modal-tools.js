@@ -35,6 +35,7 @@ export function createModalTools(api) {
   const TRANSACTION_IMPORT_HARD_LIMIT = 5000;
   const IMPORT_CHUNK_SIZE = 200;
   let importReconciliationState = null;
+  let transactionSubmitMode = "save";
 
   function syncTransactionTypeFields() {
     const type = document.getElementById("transaction-type").value;
@@ -109,7 +110,9 @@ export function createModalTools(api) {
     document.getElementById("transaction-id").value = transactionId || "";
     document.getElementById("transaction-modal-title").textContent = transactionId ? "Edit Transaction" : "Add Transaction";
     document.getElementById("transaction-delete-button").classList.toggle("hidden", !transactionId);
-    document.getElementById("transaction-duplicate-button").classList.toggle("hidden", !transactionId);
+    document.getElementById("transaction-duplicate-button").classList.remove("hidden");
+    document.getElementById("transaction-duplicate-button").textContent = "Save and New";
+    transactionSubmitMode = "save";
     document.getElementById("transaction-parser-notice").classList.add("hidden");
     renderSelectOptions();
     if (transactionId) {
@@ -196,8 +199,32 @@ export function createModalTools(api) {
     document.getElementById("transaction-details").value = transaction.details || "";
   }
 
+  function setTransactionSubmitMode(mode = "save") {
+    transactionSubmitMode = mode === "save-new" ? "save-new" : "save";
+  }
+
+  function prepareNewTransactionFromSavedPayload(transaction) {
+    applyTransactionToForm(transaction);
+    document.getElementById("transaction-id").value = "";
+    document.getElementById("transaction-modal-title").textContent = "Add Transaction";
+    document.getElementById("transaction-delete-button").classList.add("hidden");
+    document.getElementById("transaction-duplicate-button").classList.remove("hidden");
+    document.getElementById("transaction-duplicate-button").textContent = "Save and New";
+    document.getElementById("transaction-parser-notice").classList.add("hidden");
+    document.getElementById("transaction-template-select").value = "";
+    syncTransactionTemplateUi();
+    document.getElementById("transaction-amount").value = "";
+    window.setTimeout(() => {
+      const amountField = document.getElementById("transaction-amount");
+      amountField?.focus();
+      amountField?.select();
+    }, 20);
+  }
+
   function handleTransactionSubmit(event) {
     event.preventDefault();
+    const saveAndNew = transactionSubmitMode === "save-new";
+    transactionSubmitMode = "save";
     const type = document.getElementById("transaction-type").value;
     const details = document.getElementById("transaction-details").value.trim();
     const derivedAmount = Number(calculateTransactionAmountFromDetails ? calculateTransactionAmountFromDetails(details) : 0);
@@ -247,20 +274,27 @@ export function createModalTools(api) {
     }
 
     const existingIndex = state.transactions.findIndex((tx) => tx.id === payload.id);
+    let savedTransaction = null;
     if (existingIndex >= 0) {
-      state.transactions[existingIndex] = {
+      savedTransaction = {
         ...state.transactions[existingIndex],
         ...payload,
       };
-      showToast("Transaction updated.");
+      state.transactions[existingIndex] = savedTransaction;
+      showToast(saveAndNew ? "Transaction updated. Ready for a new one." : "Transaction updated.");
     } else {
-      state.transactions.push({
+      savedTransaction = {
         ...payload,
         createdAt: new Date().toISOString(),
-      });
-      showToast("Transaction saved.");
+      };
+      state.transactions.push(savedTransaction);
+      showToast(saveAndNew ? "Transaction saved. Ready for a new one." : "Transaction saved.");
     }
     persistAndRefresh();
+    if (saveAndNew && savedTransaction) {
+      prepareNewTransactionFromSavedPayload(savedTransaction);
+      return;
+    }
     closeModal("transaction-modal");
   }
 
@@ -1388,6 +1422,7 @@ export function createModalTools(api) {
     openAccountModal,
     openCategoryModal,
     handleTransactionSubmit,
+    setTransactionSubmitMode,
     handleAccountSubmit,
     handleCategorySubmit,
     handleImportSubmit,

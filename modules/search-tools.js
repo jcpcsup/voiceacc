@@ -19,18 +19,25 @@ export function createSearchTools(api) {
     renderEmpty,
   } = api;
 
-  function getFilteredTransactions() {
+  function getResolvedFilters(filterOverrides = null) {
+    return {
+      ...uiState.filters,
+      ...(filterOverrides || {}),
+    };
+  }
+
+  function getFilteredTransactions(filterOverrides = null) {
+    const filters = getResolvedFilters(filterOverrides);
     return [...state.transactions]
-      .filter(matchesTransactionFilters)
-      .sort(compareTransactionsBySelectedSort);
+      .filter((transaction) => matchesTransactionFilters(transaction, filters))
+      .sort((left, right) => compareTransactionsBySelectedSort(left, right, filters.sort || "dateDesc"));
   }
 
   function compareTextDate(left, right, ascending = true) {
     return ascending ? left.localeCompare(right) : right.localeCompare(left);
   }
 
-  function compareTransactionsBySelectedSort(a, b) {
-    const sortOrder = uiState.filters.sort || "dateDesc";
+  function compareTransactionsBySelectedSort(a, b, sortOrder = uiState.filters.sort || "dateDesc") {
     const createdA = String(a.createdAt || a.date || "");
     const createdB = String(b.createdAt || b.date || "");
     const updatedA = String(a.updatedAt || a.createdAt || a.date || "");
@@ -56,7 +63,7 @@ export function createSearchTools(api) {
     return compareTextDate(dateA, dateB, false) || compareTextDate(createdA, createdB, false);
   }
 
-  function matchesTransactionFilters(transaction) {
+  function matchesTransactionFilters(transaction, filters = uiState.filters) {
     const accountNames = [getAccount(transaction.accountId)?.name, getAccount(transaction.fromAccountId)?.name, getAccount(transaction.toAccountId)?.name]
       .filter(Boolean)
       .join(" ");
@@ -75,49 +82,49 @@ export function createSearchTools(api) {
       .join(" ")
       .toLowerCase();
 
-    if (uiState.filters.search && !haystack.includes(uiState.filters.search.toLowerCase())) {
+    if (filters.search && !haystack.includes(filters.search.toLowerCase())) {
       return false;
     }
-    if (uiState.filters.type !== "all" && transaction.type !== uiState.filters.type) {
+    if (filters.type !== "all" && transaction.type !== filters.type) {
       return false;
     }
     if (
-      uiState.filters.account !== "all" &&
-      ![transaction.accountId, transaction.fromAccountId, transaction.toAccountId].includes(uiState.filters.account)
+      filters.account !== "all" &&
+      ![transaction.accountId, transaction.fromAccountId, transaction.toAccountId].includes(filters.account)
     ) {
       return false;
     }
-    if (uiState.filters.category !== "all" && transaction.categoryId !== uiState.filters.category) {
+    if (filters.category !== "all" && transaction.categoryId !== filters.category) {
       return false;
     }
     if (
-      uiState.filters.subcategory &&
-      !String(transaction.subcategory || "").toLowerCase().includes(uiState.filters.subcategory.toLowerCase())
-    ) {
-      return false;
-    }
-    if (
-      uiState.filters.counterparty &&
-      !String(transaction.counterparty || "").toLowerCase().includes(uiState.filters.counterparty.toLowerCase())
+      filters.subcategory &&
+      !String(transaction.subcategory || "").toLowerCase().includes(filters.subcategory.toLowerCase())
     ) {
       return false;
     }
     if (
-      uiState.filters.project &&
-      !String(transaction.project || "").toLowerCase().includes(uiState.filters.project.toLowerCase())
+      filters.counterparty &&
+      !String(transaction.counterparty || "").toLowerCase().includes(filters.counterparty.toLowerCase())
     ) {
       return false;
     }
     if (
-      uiState.filters.tag &&
-      !(transaction.tags || []).some((tag) => tag.toLowerCase().includes(uiState.filters.tag.toLowerCase()))
+      filters.project &&
+      !String(transaction.project || "").toLowerCase().includes(filters.project.toLowerCase())
     ) {
       return false;
     }
-    if (uiState.filters.startDate && transaction.date < uiState.filters.startDate) {
+    if (
+      filters.tag &&
+      !(transaction.tags || []).some((tag) => tag.toLowerCase().includes(filters.tag.toLowerCase()))
+    ) {
       return false;
     }
-    if (uiState.filters.endDate && transaction.date > uiState.filters.endDate) {
+    if (filters.startDate && transaction.date < filters.startDate) {
+      return false;
+    }
+    if (filters.endDate && transaction.date > filters.endDate) {
       return false;
     }
     return true;

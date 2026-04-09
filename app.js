@@ -67,6 +67,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     lastTapValue: "",
     lastTapAt: 0,
   };
+  let transactionSelectionAutofillLock = false;
   let uiState;
   let transactionTemplates = loadTransactionTemplates();
 
@@ -267,6 +268,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     openAccountModal,
     openCategoryModal,
     handleTransactionSubmit,
+    setTransactionSubmitMode,
     handleAccountSubmit,
     handleCategorySubmit,
     handleImportSubmit,
@@ -427,13 +429,28 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       syncTransactionTypeFields();
       renderTransactionSmartFieldOptions();
     });
-    document.getElementById("transaction-category").addEventListener("change", renderTransactionSmartFieldOptions);
+    document.getElementById("transaction-account").addEventListener("change", (event) => {
+      applyLatestTransactionSelection("account", event.target.value);
+    });
+    document.getElementById("transaction-category").addEventListener("change", (event) => {
+      renderTransactionSmartFieldOptions();
+      applyLatestTransactionSelection("category", event.target.value);
+    });
     document.getElementById("filter-category").addEventListener("change", renderTransactionFilterSubcategoryOptions);
     document.getElementById("filter-type").addEventListener("change", renderTransactionFilterValueSuggestions);
     document.getElementById("filter-subcategory").addEventListener("input", renderTransactionFilterValueSuggestions);
     document.getElementById("filter-subcategory").addEventListener("change", renderTransactionFilterValueSuggestions);
     document.getElementById("transaction-subcategory").addEventListener("input", renderTransactionLinkedSuggestions);
-    document.getElementById("transaction-subcategory").addEventListener("change", renderTransactionLinkedSuggestions);
+    document.getElementById("transaction-subcategory").addEventListener("change", (event) => {
+      renderTransactionLinkedSuggestions();
+      applyLatestTransactionSelection("subcategory", event.target.value);
+    });
+    document.getElementById("transaction-counterparty").addEventListener("change", (event) => {
+      applyLatestTransactionSelection("counterparty", event.target.value);
+    });
+    document.getElementById("transaction-project").addEventListener("change", (event) => {
+      applyLatestTransactionSelection("project", event.target.value);
+    });
     document.getElementById("transaction-details").addEventListener("input", syncTransactionAmountFromDetails);
     document.getElementById("transaction-details").addEventListener("change", syncTransactionAmountFromDetails);
     document.querySelectorAll("[data-smart-picker-field]").forEach((input) => {
@@ -1348,7 +1365,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-id").value = "";
     document.getElementById("transaction-modal-title").textContent = options.title || "Add Transaction";
     document.getElementById("transaction-delete-button").classList.add("hidden");
-    document.getElementById("transaction-duplicate-button").classList.add("hidden");
+    document.getElementById("transaction-duplicate-button").classList.remove("hidden");
+    document.getElementById("transaction-duplicate-button").textContent = "Save and New";
     document.getElementById("transaction-type").value = draft.type || "expense";
     document.getElementById("transaction-amount").value = draft.amount ? String(draft.amount) : "";
     document.getElementById("transaction-date").value = preserveDate ? currentDate : todayIso();
@@ -1367,6 +1385,97 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       syncTransactionAmountFromDetails();
     }
     setTransactionTemplatePanelExpanded(false);
+  }
+
+  function isCreateTransactionMode() {
+    return !String(document.getElementById("transaction-id")?.value || "").trim();
+  }
+
+  function getTransactionRecencyValue(transaction) {
+    return String(transaction.updatedAt || transaction.createdAt || transaction.date || "");
+  }
+
+  function getLatestTransactionForSelection(field, value) {
+    const selectedValue = String(value || "").trim();
+    const normalizedValue = selectedValue.toLowerCase();
+    if (!normalizedValue) {
+      return null;
+    }
+    const selectedType = document.getElementById("transaction-type").value || "expense";
+    const selectedCategoryId = document.getElementById("transaction-category").value || "";
+    const selectedSubcategory = String(document.getElementById("transaction-subcategory").value || "")
+      .trim()
+      .toLowerCase();
+    const matches = state.transactions.filter((transaction) => {
+      if (field === "account") {
+        return transaction.type !== "transfer" && transaction.accountId === value;
+      }
+      if (field === "category") {
+        return transaction.type !== "transfer" && transaction.categoryId === value;
+      }
+      if (field === "subcategory") {
+        return (
+          transaction.type !== "transfer" &&
+          (!selectedCategoryId || transaction.categoryId === selectedCategoryId) &&
+          String(transaction.subcategory || "").trim().toLowerCase() === normalizedValue
+        );
+      }
+      if (field === "counterparty") {
+        return (
+          transaction.type === selectedType &&
+          (!selectedCategoryId || transaction.categoryId === selectedCategoryId) &&
+          (!selectedSubcategory || String(transaction.subcategory || "").trim().toLowerCase() === selectedSubcategory) &&
+          String(transaction.counterparty || "").trim().toLowerCase() === normalizedValue
+        );
+      }
+      if (field === "project") {
+        return (
+          transaction.type === selectedType &&
+          (!selectedCategoryId || transaction.categoryId === selectedCategoryId) &&
+          (!selectedSubcategory || String(transaction.subcategory || "").trim().toLowerCase() === selectedSubcategory) &&
+          String(transaction.project || "").trim().toLowerCase() === normalizedValue
+        );
+      }
+      return false;
+    });
+    return matches.sort((left, right) => getTransactionRecencyValue(right).localeCompare(getTransactionRecencyValue(left)))[0] || null;
+  }
+
+  function applyLatestTransactionSelection(field, value) {
+    if (transactionSelectionAutofillLock || !isCreateTransactionMode()) {
+      return;
+    }
+    const selectedValue = String(value || "").trim();
+    if (!selectedValue) {
+      return;
+    }
+    const matchedTransaction = getLatestTransactionForSelection(field, value);
+    if (!matchedTransaction) {
+      return;
+    }
+    transactionSelectionAutofillLock = true;
+    try {
+      applyTransactionDraftToForm(matchedTransaction, { preserveDate: true, title: "Add Transaction" });
+      if (field === "account") {
+        document.getElementById("transaction-account").value = value;
+      }
+      if (field === "category") {
+        document.getElementById("transaction-category").value = value;
+        renderSubcategoryOptions();
+      }
+      if (field === "subcategory") {
+        document.getElementById("transaction-subcategory").value = selectedValue;
+      }
+      if (field === "counterparty") {
+        document.getElementById("transaction-counterparty").value = selectedValue;
+      }
+      if (field === "project") {
+        document.getElementById("transaction-project").value = selectedValue;
+      }
+      renderTransactionLinkedSuggestions();
+    } finally {
+      transactionSelectionAutofillLock = false;
+    }
   }
 
   function saveCurrentTransactionTemplate() {
@@ -1824,16 +1933,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function handleTransactionModalDuplicate() {
-    const transactionId = document.getElementById("transaction-id").value;
-    if (!transactionId) {
-      return;
-    }
-    const draft = getTransactionFormDraft();
-    applyTransactionDraftToForm(draft, { preserveDate: false, title: "Duplicate Transaction" });
-    document.getElementById("transaction-parser-notice").classList.add("hidden");
-    document.getElementById("transaction-template-select").value = "";
-    syncTransactionTemplateControls();
-    showToast("Transaction duplicated. Review and save.");
+    setTransactionSubmitMode("save-new");
+    document.getElementById("transaction-form").requestSubmit();
   }
 
   function changeTransactionPage(direction) {
@@ -2314,7 +2415,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const net = income - expense;
     const average = transactions.length ? sumAmounts(transactions) / transactions.length : 0;
     const largest = transactions.reduce((best, transaction) => (!best || Number(transaction.amount || 0) > Number(best.amount || 0) ? transaction : best), null);
-    const trendSeries = buildTransactionSnapshotSeries(transactions);
+    const historicalTrendSeries = buildTransactionSnapshotSeries(getFilteredTransactions({ startDate: "", endDate: "" }));
     const topCategories = getTransactionSnapshotTopCategories(transactions);
 
     return `
@@ -2342,9 +2443,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
           <article class="transaction-snapshot-panel">
             <div class="transaction-snapshot-panel-head">
               <strong>Daily Trend</strong>
-              <span>${escapeHtml(trendSeries[0]?.label || "")}${trendSeries.length > 1 ? ` - ${escapeHtml(trendSeries[trendSeries.length - 1]?.label || "")}` : ""}</span>
+              <span>${escapeHtml(historicalTrendSeries[0]?.key || "")}${historicalTrendSeries.length > 1 ? ` - ${escapeHtml(historicalTrendSeries[historicalTrendSeries.length - 1]?.key || "")}` : ""}</span>
             </div>
-            ${renderTransactionSnapshotTrend(trendSeries)}
+            ${renderTransactionSnapshotTrend(historicalTrendSeries)}
           </article>
           <article class="transaction-snapshot-panel">
             <div class="transaction-snapshot-panel-head">
@@ -2381,7 +2482,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     const rows = [...grouped.entries()]
       .sort((left, right) => left[0].localeCompare(right[0]))
-      .slice(-14)
       .map(([date, totals]) => ({
         key: date,
         label: date.slice(5).replace("-", "/"),
@@ -2405,6 +2505,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const min = Math.min(...points);
     const max = Math.max(...points);
     const range = max - min || 1;
+    const midLabel = series[Math.floor((series.length - 1) / 2)]?.label || "";
     const coords = points.map((value, index) => {
       const x = padding + (index * (width - padding * 2)) / Math.max(points.length - 1, 1);
       const normalized = (value - min) / range;
@@ -2413,10 +2514,21 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point) => `L ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
     return `
-      <svg class="transaction-snapshot-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-        <path d="${areaPath}" fill="rgba(18, 200, 164, 0.14)"></path>
-        <polyline points="${coords.join(" ")}" fill="none" stroke="#12c8a4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-      </svg>
+      <div class="transaction-snapshot-chart-shell">
+        <div class="transaction-snapshot-scale">
+          <span>${escapeHtml(formatMoney(max, getPrimaryCurrencySymbol()))}</span>
+          <span>${escapeHtml(formatMoney(min, getPrimaryCurrencySymbol()))}</span>
+        </div>
+        <svg class="transaction-snapshot-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+          <path d="${areaPath}" fill="rgba(18, 200, 164, 0.14)"></path>
+          <polyline points="${coords.join(" ")}" fill="none" stroke="#12c8a4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+        <div class="transaction-snapshot-axis">
+          <span>${escapeHtml(series[0]?.label || "")}</span>
+          <span>${escapeHtml(midLabel)}</span>
+          <span>${escapeHtml(series[series.length - 1]?.label || "")}</span>
+        </div>
+      </div>
     `;
   }
 
