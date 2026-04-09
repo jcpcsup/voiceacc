@@ -25,6 +25,7 @@ export function createSupabaseTools(api) {
     SUPABASE_CATEGORIES_TABLE,
     SUPABASE_TRANSACTIONS_TABLE,
     SUPABASE_LEGACY_STATE_TABLE,
+    SUPABASE_TRANSACTION_SLIPS_BUCKET,
     SUPABASE_CONFIGURED,
     SUPABASE_AVAILABLE,
   } = constants;
@@ -296,6 +297,81 @@ export function createSupabaseTools(api) {
     }
   }
 
+  async function uploadTransactionSlip(fileLike, options = {}) {
+    if (!cloudState.client || !cloudState.session) {
+      throw new Error("Sign in to Supabase before uploading slip images.");
+    }
+    const file = fileLike instanceof Blob ? fileLike : null;
+    if (!file) {
+      throw new Error("Choose an image file before uploading.");
+    }
+    const transactionId = String(options.transactionId || "").trim();
+    if (!transactionId) {
+      throw new Error("A transaction ID is required before uploading a slip.");
+    }
+    const userId = cloudState.session.user.id;
+    const mimeType = String(options.contentType || file.type || "image/jpeg").trim() || "image/jpeg";
+    const extension =
+      mimeType === "image/png"
+        ? "png"
+        : mimeType === "image/webp"
+          ? "webp"
+          : mimeType === "image/gif"
+            ? "gif"
+            : "jpg";
+    const resolution = String(options.resolution || "720").trim() || "720";
+    const path = `${userId}/${transactionId}/${Date.now()}-${resolution}.${extension}`;
+    const { error } = await cloudState.client.storage.from(SUPABASE_TRANSACTION_SLIPS_BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: mimeType,
+    });
+    if (error) {
+      throw error;
+    }
+    return {
+      path,
+      contentType: mimeType,
+      sizeBytes: Number(file.size || 0),
+      resolution,
+    };
+  }
+
+  async function getTransactionSlipSignedUrl(path, expiresIn = 3600) {
+    if (!cloudState.client || !cloudState.session) {
+      return "";
+    }
+    const normalizedPath = String(path || "").trim();
+    if (!normalizedPath) {
+      return "";
+    }
+    const { data, error } = await cloudState.client.storage
+      .from(SUPABASE_TRANSACTION_SLIPS_BUCKET)
+      .createSignedUrl(normalizedPath, expiresIn);
+    if (error) {
+      throw error;
+    }
+    return data?.signedUrl || "";
+  }
+
+  async function deleteTransactionSlip(path) {
+    return deleteTransactionSlips([path]);
+  }
+
+  async function deleteTransactionSlips(paths = []) {
+    if (!cloudState.client || !cloudState.session) {
+      return;
+    }
+    const normalizedPaths = [...new Set(paths.map((item) => String(item || "").trim()).filter(Boolean))];
+    if (!normalizedPaths.length) {
+      return;
+    }
+    const { error } = await cloudState.client.storage.from(SUPABASE_TRANSACTION_SLIPS_BUCKET).remove(normalizedPaths);
+    if (error) {
+      throw error;
+    }
+  }
+
   function serializeAccountForSupabase(account, userId, syncedAt, sortOrder = 0) {
     return {
       user_id: userId,
@@ -344,6 +420,10 @@ export function createSupabaseTools(api) {
       project: transaction.project || "",
       tags: Array.isArray(transaction.tags) ? transaction.tags : [],
       details: transaction.details || "",
+      slip_path: transaction.slipPath || "",
+      slip_resolution: Number(transaction.slipResolution || 720),
+      slip_mime_type: transaction.slipMimeType || "",
+      slip_updated_at: transaction.slipUpdatedAt || null,
       created_at: transaction.createdAt || syncedAt,
       updated_at: transaction.updatedAt || syncedAt,
     };
@@ -396,6 +476,10 @@ export function createSupabaseTools(api) {
       project: row.project || "",
       tags: Array.isArray(row.tags) ? row.tags : [],
       details: row.details || "",
+      slipPath: row.slip_path || "",
+      slipResolution: String(row.slip_resolution || 720),
+      slipMimeType: row.slip_mime_type || "",
+      slipUpdatedAt: row.slip_updated_at || "",
       createdAt: row.created_at || "",
       updatedAt: row.updated_at || "",
     };
@@ -472,5 +556,9 @@ export function createSupabaseTools(api) {
     handleSignOut,
     renderCloudStatus,
     getAppRedirectUrl,
+    uploadTransactionSlip,
+    getTransactionSlipSignedUrl,
+    deleteTransactionSlip,
+    deleteTransactionSlips,
   };
 }

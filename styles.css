@@ -1433,7 +1433,20 @@ textarea:focus {
   justify-items: start;
 }
 
-.transaction-badge,
+.transaction-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 24px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 16%, white);
+  color: var(--card-color, var(--accent));
+}
+
 .category-icon {
   display: inline-flex;
   align-items: center;
@@ -1443,6 +1456,30 @@ textarea:focus {
   border-radius: 16px;
   background: color-mix(in srgb, var(--card-color, var(--accent)) 16%, white);
   color: var(--card-color, var(--accent));
+}
+
+.transaction-badge-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.transaction-badge-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.transaction-badge-fallback svg {
+  width: 34px;
+  height: 34px;
+}
+
+.transaction-badge-fallback .custom-icon-text {
+  font-size: 2rem;
 }
 
 .transaction-amount {
@@ -1725,6 +1762,60 @@ textarea:focus {
   color: var(--muted);
   font-size: 0.83rem;
   line-height: 1.4;
+}
+
+.transaction-slip-field {
+  gap: 10px;
+}
+
+.transaction-slip-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.transaction-slip-copy {
+  min-width: 0;
+}
+
+.transaction-slip-help {
+  margin-top: 4px;
+}
+
+.transaction-slip-resolution-wrap {
+  min-width: 132px;
+}
+
+.transaction-slip-preview-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  border-radius: 20px;
+  border: 1px dashed rgba(18, 59, 70, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(239, 247, 245, 0.9));
+  overflow: hidden;
+}
+
+.transaction-slip-preview-image {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.transaction-slip-preview-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.transaction-slip-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .compact-tags {
@@ -3966,9 +4057,32 @@ input[data-smart-picker-field][readonly] {
     border-radius: 14px;
   }
 
+  .transaction-badge-fallback svg {
+    width: 22px;
+    height: 22px;
+  }
+
   .transaction-badge svg {
     width: 22px;
     height: 22px;
+  }
+
+  .transaction-badge-fallback .custom-icon-text {
+    font-size: 1.2rem;
+  }
+
+  .transaction-slip-controls,
+  .transaction-slip-meta-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transaction-slip-resolution-wrap {
+    min-width: 0;
+  }
+
+  .transaction-slip-preview-shell {
+    min-height: 180px;
   }
 
   .transaction-mobile-actions {

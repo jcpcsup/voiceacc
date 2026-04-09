@@ -23,6 +23,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_CATEGORIES_TABLE = "categories";
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
+  const SUPABASE_TRANSACTION_SLIPS_BUCKET = "transaction-slips";
   const STORAGE_KEY = "ledgerflow-voice-v1";
   const TEMPLATE_STORAGE_KEY = `${STORAGE_KEY}-templates`;
   const TRANSACTIONS_PAGE_SIZE = 20;
@@ -70,6 +71,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let transactionSelectionAutofillLock = false;
   let uiState;
   let transactionTemplates = loadTransactionTemplates();
+  const transactionSlipUrlCache = new Map();
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
     storageKey: STORAGE_KEY,
@@ -276,6 +278,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     handleImportReconciliationImportSafeOnly,
     handleImportReconciliationSkipDuplicates,
     handleParseStatement,
+    handleTransactionSlipFileChange,
+    handleTransactionSlipRemove,
+    resetTransactionSlipState,
     initializeSpeechRecognition,
     toggleListening,
     refreshListeningUi,
@@ -312,6 +317,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     todayIso,
     shiftIsoDate,
     showToast,
+    uploadTransactionSlip: (...args) => uploadTransactionSlip(...args),
+    deleteTransactionSlip: (...args) => deleteTransactionSlip(...args),
+    resolveTransactionSlipPreviewUrl: (...args) => resolveTransactionSlipPreviewUrl(...args),
+    clearTransactionSlipPreviewCache: (...args) => clearTransactionSlipPreviewCache(...args),
     persistAndRefresh,
   });
 
@@ -349,6 +358,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     handleSignOut,
     renderCloudStatus,
     getAppRedirectUrl,
+    uploadTransactionSlip,
+    getTransactionSlipSignedUrl,
+    deleteTransactionSlip,
+    deleteTransactionSlips,
   } = createSupabaseTools({
     constants: {
       SUPABASE_URL,
@@ -357,6 +370,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       SUPABASE_CATEGORIES_TABLE,
       SUPABASE_TRANSACTIONS_TABLE,
       SUPABASE_LEGACY_STATE_TABLE,
+      SUPABASE_TRANSACTION_SLIPS_BUCKET,
       SUPABASE_CONFIGURED,
       SUPABASE_AVAILABLE,
     },
@@ -451,6 +465,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-project").addEventListener("change", (event) => {
       applyLatestTransactionSelection("project", event.target.value);
     });
+    document.getElementById("transaction-slip-file").addEventListener("change", handleTransactionSlipFileChange);
+    document.getElementById("transaction-slip-remove-button").addEventListener("click", handleTransactionSlipRemove);
     document.getElementById("transaction-details").addEventListener("input", syncTransactionAmountFromDetails);
     document.getElementById("transaction-details").addEventListener("change", syncTransactionAmountFromDetails);
     document.querySelectorAll("[data-smart-picker-field]").forEach((input) => {
@@ -1338,6 +1354,76 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return repairedCount;
   }
 
+  async function resolveTransactionSlipPreviewUrl(path, forceRefresh = false) {
+    const normalizedPath = String(path || "").trim();
+    if (!normalizedPath) {
+      return "";
+    }
+    const cached = transactionSlipUrlCache.get(normalizedPath);
+    const now = Date.now();
+    if (!forceRefresh && cached && cached.expiresAt > now + 15000) {
+      return cached.url;
+    }
+    const signedUrl = await getTransactionSlipSignedUrl(normalizedPath);
+    if (!signedUrl) {
+      return "";
+    }
+    transactionSlipUrlCache.set(normalizedPath, {
+      url: signedUrl,
+      expiresAt: now + 55 * 60 * 1000,
+    });
+    return signedUrl;
+  }
+
+  function clearTransactionSlipPreviewCache(path = "") {
+    const normalizedPath = String(path || "").trim();
+    if (!normalizedPath) {
+      return;
+    }
+    transactionSlipUrlCache.delete(normalizedPath);
+  }
+
+  async function hydrateTransactionSlipPreviews(root = document) {
+    const container = root instanceof Element || root instanceof Document ? root : document;
+    const slots = [...container.querySelectorAll("[data-transaction-slip-path]")];
+    const uniquePaths = [...new Set(slots.map((slot) => String(slot.dataset.transactionSlipPath || "").trim()).filter(Boolean))];
+    if (!uniquePaths.length) {
+      return;
+    }
+    const urlEntries = await Promise.all(
+      uniquePaths.map(async (path) => {
+        try {
+          const url = await resolveTransactionSlipPreviewUrl(path);
+          return [path, url];
+        } catch (error) {
+          console.error(error);
+          return [path, ""];
+        }
+      })
+    );
+    const urlMap = new Map(urlEntries);
+    slots.forEach((slot) => {
+      const path = String(slot.dataset.transactionSlipPath || "").trim();
+      const image = slot.querySelector(".transaction-badge-image");
+      const fallback = slot.querySelector(".transaction-badge-fallback");
+      const url = urlMap.get(path) || "";
+      if (!(image instanceof HTMLImageElement) || !(fallback instanceof HTMLElement)) {
+        return;
+      }
+      if (url) {
+        image.src = url;
+        image.classList.remove("hidden");
+        fallback.classList.add("hidden");
+        slot.classList.add("transaction-badge-has-image");
+      } else {
+        image.removeAttribute("src");
+        image.classList.add("hidden");
+        fallback.classList.remove("hidden");
+        slot.classList.remove("transaction-badge-has-image");
+      }
+    });
+  }
+
   function syncTransactionAmountFromDetails() {
     const detailsField = document.getElementById("transaction-details");
     const amountField = document.getElementById("transaction-amount");
@@ -1394,6 +1480,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-project").value = draft.project || "";
     document.getElementById("transaction-tags").value = Array.isArray(draft.tags) ? draft.tags.join(", ") : "";
     document.getElementById("transaction-details").value = draft.details || "";
+    resetTransactionSlipState();
     syncTransactionTypeFields();
     renderTransactionSmartFieldOptions();
     if (!draft.amount && draft.details) {
@@ -2326,6 +2413,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-list").innerHTML = matches.length
       ? visibleMatches.map(renderTransactionItem).join("")
       : renderEmpty("No transactions match your search yet.");
+    void hydrateTransactionSlipPreviews(document.getElementById("transaction-list"));
     const pagination = document.getElementById("transaction-pagination");
     const pageLabel = document.getElementById("transaction-page-label");
     const prevButton = document.getElementById("transaction-page-prev-button");
@@ -3150,8 +3238,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       message: "This transaction will be removed from your ledger.",
       submitLabel: "Delete",
       onConfirm: () => {
-        state.transactions = state.transactions.filter((transaction) => transaction.id !== id);
+        const transaction = getTransaction(id);
+        const slipPath = String(transaction?.slipPath || "").trim();
+        state.transactions = state.transactions.filter((transactionItem) => transactionItem.id !== id);
         persistAndRefresh();
+        if (slipPath) {
+          clearTransactionSlipPreviewCache(slipPath);
+          void deleteTransactionSlip(slipPath).catch((error) => console.error(error));
+        }
         showToast("Transaction deleted.");
       },
     });
@@ -3165,10 +3259,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       submitLabel: "Clear All",
       confirmationText: "CLEAR ALL TRANSACTIONS",
       onConfirm: () => {
+        const slipPaths = state.transactions.map((transaction) => String(transaction.slipPath || "").trim()).filter(Boolean);
         state.transactions = [];
         uiState.transactionPage = 1;
         clearFilters();
         persistAndRefresh();
+        slipPaths.forEach((path) => clearTransactionSlipPreviewCache(path));
+        if (slipPaths.length) {
+          void deleteTransactionSlips(slipPaths).catch((error) => console.error(error));
+        }
         showToast("All transactions cleared.");
       },
     });
@@ -3279,6 +3378,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     };
     const leadingIcon =
       category ? renderCategoryIcon(category.icon) : renderCategoryIcon("");
+    const slipPath = String(transaction.slipPath || "").trim();
+    const badgeMarkup = `
+      <div class="transaction-badge ${slipPath ? "transaction-badge-has-image" : ""}"${
+        slipPath ? ` data-transaction-slip-path="${escapeAttribute(slipPath)}"` : ""
+      }>
+        <img class="transaction-badge-image hidden" alt="Slip preview for ${escapeAttribute(transaction.date || "transaction")}" />
+        <div class="transaction-badge-fallback">${leadingIcon}</div>
+      </div>
+    `;
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
     const detailPillParts = [
       transaction.counterparty
@@ -3297,7 +3405,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         <div class="transaction-top">
           <div class="transaction-main">
             <div class="transaction-rail">
-              <div class="transaction-badge">${leadingIcon}</div>
+              ${badgeMarkup}
               <div class="transaction-mobile-actions">
                 <button class="icon-button transaction-icon-action" type="button" data-action="edit-transaction" data-id="${escapeHtml(transaction.id)}" aria-label="Edit transaction">
                   ${iconRegistry.pen}

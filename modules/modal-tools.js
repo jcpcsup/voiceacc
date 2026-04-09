@@ -28,6 +28,10 @@ export function createModalTools(api) {
     todayIso,
     shiftIsoDate,
     showToast,
+    uploadTransactionSlip,
+    deleteTransactionSlip,
+    resolveTransactionSlipPreviewUrl,
+    clearTransactionSlipPreviewCache,
     persistAndRefresh,
   } = api;
 
@@ -36,6 +40,7 @@ export function createModalTools(api) {
   const IMPORT_CHUNK_SIZE = 200;
   let importReconciliationState = null;
   let transactionSubmitMode = "save";
+  let transactionSlipState = createEmptyTransactionSlipState();
 
   function syncTransactionTypeFields() {
     const type = document.getElementById("transaction-type").value;
@@ -63,6 +68,9 @@ export function createModalTools(api) {
     const modal = document.getElementById(id);
     modal.classList.add("hidden");
     modal.setAttribute("aria-hidden", "true");
+    if (id === "transaction-modal") {
+      resetTransactionSlipState();
+    }
   }
 
   function setImportProgress(visible, message = "", percent = 0) {
@@ -103,6 +111,212 @@ export function createModalTools(api) {
     });
   }
 
+  function createEmptyTransactionSlipState() {
+    return {
+      file: null,
+      localPreviewUrl: "",
+      existingPath: "",
+      existingResolution: "720",
+      existingMimeType: "",
+      removeExisting: false,
+    };
+  }
+
+  function revokeTransactionSlipPreviewUrl() {
+    if (transactionSlipState.localPreviewUrl) {
+      URL.revokeObjectURL(transactionSlipState.localPreviewUrl);
+    }
+  }
+
+  function resetTransactionSlipState() {
+    revokeTransactionSlipPreviewUrl();
+    transactionSlipState = createEmptyTransactionSlipState();
+    const fileField = document.getElementById("transaction-slip-file");
+    const resolutionField = document.getElementById("transaction-slip-resolution");
+    if (fileField) {
+      fileField.value = "";
+    }
+    if (resolutionField) {
+      resolutionField.value = "720";
+    }
+    updateTransactionSlipMeta("Choose a slip image to store with this transaction.");
+    renderTransactionSlipPreview();
+  }
+
+  function getSlipResolutionLabel(value) {
+    const numeric = String(value || "720").trim() || "720";
+    return `${numeric}p`;
+  }
+
+  function updateTransactionSlipMeta(message) {
+    const meta = document.getElementById("transaction-slip-meta");
+    if (meta) {
+      meta.textContent = message;
+    }
+  }
+
+  function renderTransactionSlipPreview(previewUrl = "") {
+    const empty = document.getElementById("transaction-slip-preview-empty");
+    const image = document.getElementById("transaction-slip-preview-image");
+    const removeButton = document.getElementById("transaction-slip-remove-button");
+    if (!empty || !image || !removeButton) {
+      return;
+    }
+    const hasPreview = Boolean(previewUrl);
+    image.classList.toggle("hidden", !hasPreview);
+    empty.classList.toggle("hidden", hasPreview);
+    removeButton.classList.toggle(
+      "hidden",
+      !hasPreview && !transactionSlipState.file && !transactionSlipState.existingPath
+    );
+    if (hasPreview) {
+      image.src = previewUrl;
+    } else {
+      image.removeAttribute("src");
+    }
+  }
+
+  async function loadTransactionSlipPreview(path) {
+    if (!path || transactionSlipState.removeExisting) {
+      renderTransactionSlipPreview("");
+      updateTransactionSlipMeta("Choose a slip image to store with this transaction.");
+      return;
+    }
+    updateTransactionSlipMeta(`Attached slip | ${getSlipResolutionLabel(transactionSlipState.existingResolution)}`);
+    try {
+      const signedUrl = await resolveTransactionSlipPreviewUrl(path);
+      if (transactionSlipState.existingPath === path && !transactionSlipState.file && !transactionSlipState.removeExisting) {
+        renderTransactionSlipPreview(signedUrl);
+      }
+    } catch (error) {
+      console.error(error);
+      renderTransactionSlipPreview("");
+      updateTransactionSlipMeta("Attached slip could not be previewed right now.");
+    }
+  }
+
+  function applyTransactionSlipStateFromTransaction(transaction) {
+    revokeTransactionSlipPreviewUrl();
+    transactionSlipState = {
+      file: null,
+      localPreviewUrl: "",
+      existingPath: String(transaction?.slipPath || "").trim(),
+      existingResolution: String(transaction?.slipResolution || "720"),
+      existingMimeType: String(transaction?.slipMimeType || "").trim(),
+      removeExisting: false,
+    };
+    const resolutionField = document.getElementById("transaction-slip-resolution");
+    const fileField = document.getElementById("transaction-slip-file");
+    if (resolutionField) {
+      resolutionField.value = transactionSlipState.existingResolution || "720";
+    }
+    if (fileField) {
+      fileField.value = "";
+    }
+    if (transactionSlipState.existingPath) {
+      renderTransactionSlipPreview("");
+      void loadTransactionSlipPreview(transactionSlipState.existingPath);
+      return;
+    }
+    renderTransactionSlipPreview("");
+    updateTransactionSlipMeta("Choose a slip image to store with this transaction.");
+  }
+
+  function handleTransactionSlipFileChange(event) {
+    const input = event?.target;
+    const file = input?.files?.[0];
+    revokeTransactionSlipPreviewUrl();
+    transactionSlipState.file = file || null;
+    transactionSlipState.localPreviewUrl = file ? URL.createObjectURL(file) : "";
+    transactionSlipState.removeExisting = false;
+    if (file) {
+      renderTransactionSlipPreview(transactionSlipState.localPreviewUrl);
+      updateTransactionSlipMeta(`Ready to compress and upload | ${getSlipResolutionLabel(document.getElementById("transaction-slip-resolution")?.value || "720")}`);
+    } else if (transactionSlipState.existingPath) {
+      renderTransactionSlipPreview("");
+      void loadTransactionSlipPreview(transactionSlipState.existingPath);
+    } else {
+      renderTransactionSlipPreview("");
+      updateTransactionSlipMeta("Choose a slip image to store with this transaction.");
+    }
+  }
+
+  function handleTransactionSlipRemove() {
+    const fileField = document.getElementById("transaction-slip-file");
+    const hadExistingPath = Boolean(transactionSlipState.existingPath);
+    if (fileField) {
+      fileField.value = "";
+    }
+    revokeTransactionSlipPreviewUrl();
+    transactionSlipState.file = null;
+    transactionSlipState.localPreviewUrl = "";
+    transactionSlipState.removeExisting = hadExistingPath;
+    renderTransactionSlipPreview("");
+    updateTransactionSlipMeta(hadExistingPath ? "Slip image will be removed when you save." : "Slip image cleared.");
+  }
+
+  function getTargetSlipDimension(resolutionValue) {
+    const parsed = Number(resolutionValue || 720);
+    if ([480, 600, 720, 1080].includes(parsed)) {
+      return parsed;
+    }
+    return 720;
+  }
+
+  async function compressTransactionSlipFile(file, resolutionValue) {
+    const targetMaxEdge = getTargetSlipDimension(resolutionValue);
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Unable to read the selected image."));
+        img.src = objectUrl;
+      });
+      const width = Number(image.naturalWidth || image.width || 0);
+      const height = Number(image.naturalHeight || image.height || 0);
+      if (!width || !height) {
+        throw new Error("Selected image has invalid dimensions.");
+      }
+      const scale = Math.min(1, targetMaxEdge / Math.max(width, height));
+      const outputWidth = Math.max(1, Math.round(width * scale));
+      const outputHeight = Math.max(1, Math.round(height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Image compression is not available in this browser.");
+      }
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      context.drawImage(image, 0, 0, outputWidth, outputHeight);
+      const preferredType = typeof canvas.toDataURL === "function" && canvas.toDataURL("image/webp").startsWith("data:image/webp")
+        ? "image/webp"
+        : "image/jpeg";
+      const quality = targetMaxEdge >= 1080 ? 0.8 : targetMaxEdge >= 720 ? 0.76 : 0.72;
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (result) => {
+            if (result) {
+              resolve(result);
+              return;
+            }
+            reject(new Error("Unable to compress the selected image."));
+          },
+          preferredType,
+          quality
+        );
+      });
+      return {
+        blob,
+        mimeType: preferredType,
+      };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   function openTransactionModal(transactionId, parserResult) {
     const form = document.getElementById("transaction-form");
     form.reset();
@@ -114,6 +328,7 @@ export function createModalTools(api) {
     document.getElementById("transaction-duplicate-button").textContent = "Save and New";
     transactionSubmitMode = "save";
     document.getElementById("transaction-parser-notice").classList.add("hidden");
+    resetTransactionSlipState();
     renderSelectOptions();
     if (!transactionId && !parserResult) {
       document.getElementById("transaction-type").value = "expense";
@@ -212,6 +427,7 @@ export function createModalTools(api) {
     document.getElementById("transaction-project").value = transaction.project || "";
     document.getElementById("transaction-tags").value = (transaction.tags || []).join(", ");
     document.getElementById("transaction-details").value = transaction.details || "";
+    applyTransactionSlipStateFromTransaction(transaction);
   }
 
   function setTransactionSubmitMode(mode = "save") {
@@ -236,7 +452,7 @@ export function createModalTools(api) {
     }, 20);
   }
 
-  function handleTransactionSubmit(event) {
+  async function handleTransactionSubmit(event) {
     event.preventDefault();
     const saveAndNew = transactionSubmitMode === "save-new";
     transactionSubmitMode = "save";
@@ -245,8 +461,9 @@ export function createModalTools(api) {
     const derivedAmount = Number(calculateTransactionAmountFromDetails ? calculateTransactionAmountFromDetails(details) : 0);
     const amount = derivedAmount > 0 ? derivedAmount : Number(document.getElementById("transaction-amount").value);
     const rawSubcategory = document.getElementById("transaction-subcategory").value.trim();
+    const transactionId = document.getElementById("transaction-id").value || uid("tx");
     const payload = {
-      id: document.getElementById("transaction-id").value || uid("tx"),
+      id: transactionId,
       type,
       amount,
       date: document.getElementById("transaction-date").value,
@@ -259,6 +476,10 @@ export function createModalTools(api) {
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
       details,
+      slipPath: transactionSlipState.removeExisting ? "" : transactionSlipState.existingPath || "",
+      slipResolution: String(document.getElementById("transaction-slip-resolution").value || transactionSlipState.existingResolution || "720"),
+      slipMimeType: transactionSlipState.removeExisting ? "" : transactionSlipState.existingMimeType || "",
+      slipUpdatedAt: transactionSlipState.removeExisting ? "" : "",
       updatedAt: new Date().toISOString(),
     };
 
@@ -289,6 +510,44 @@ export function createModalTools(api) {
     }
 
     const existingIndex = state.transactions.findIndex((tx) => tx.id === payload.id);
+    const previousTransaction = existingIndex >= 0 ? state.transactions[existingIndex] : null;
+    const previousSlipPath = String(previousTransaction?.slipPath || "").trim();
+    if (!transactionSlipState.file && !transactionSlipState.removeExisting && previousTransaction) {
+      payload.slipPath = previousTransaction.slipPath || "";
+      payload.slipResolution = String(previousTransaction.slipResolution || payload.slipResolution || "720");
+      payload.slipMimeType = previousTransaction.slipMimeType || "";
+      payload.slipUpdatedAt = previousTransaction.slipUpdatedAt || "";
+    }
+    const hasNewSlipFile = Boolean(transactionSlipState.file);
+    let nextSlipPath = payload.slipPath;
+    let replacedOldSlip = false;
+    if (hasNewSlipFile) {
+      try {
+        const compressed = await compressTransactionSlipFile(transactionSlipState.file, payload.slipResolution);
+        const uploadResult = await uploadTransactionSlip(compressed.blob, {
+          transactionId: payload.id,
+          resolution: payload.slipResolution,
+          contentType: compressed.mimeType,
+        });
+        payload.slipPath = uploadResult.path;
+        payload.slipResolution = String(uploadResult.resolution || payload.slipResolution || "720");
+        payload.slipMimeType = uploadResult.contentType || compressed.mimeType || "";
+        payload.slipUpdatedAt = new Date().toISOString();
+        nextSlipPath = payload.slipPath;
+        replacedOldSlip = Boolean(previousSlipPath && previousSlipPath !== nextSlipPath);
+      } catch (error) {
+        console.error(error);
+        showToast(error.message || "Slip image upload failed.");
+        return;
+      }
+    } else if (transactionSlipState.removeExisting) {
+      nextSlipPath = "";
+      payload.slipPath = "";
+      payload.slipMimeType = "";
+      payload.slipUpdatedAt = "";
+      replacedOldSlip = Boolean(previousSlipPath);
+    }
+
     let savedTransaction = null;
     if (existingIndex >= 0) {
       savedTransaction = {
@@ -304,6 +563,17 @@ export function createModalTools(api) {
       };
       state.transactions.push(savedTransaction);
       showToast(saveAndNew ? "Transaction saved. Ready for a new one." : "Transaction saved.");
+    }
+    if (replacedOldSlip && previousSlipPath && previousSlipPath !== nextSlipPath) {
+      clearTransactionSlipPreviewCache(previousSlipPath);
+      try {
+        await deleteTransactionSlip(previousSlipPath);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    if (nextSlipPath) {
+      clearTransactionSlipPreviewCache(nextSlipPath);
     }
     persistAndRefresh();
     if (saveAndNew && savedTransaction) {
@@ -1445,6 +1715,9 @@ export function createModalTools(api) {
     handleImportReconciliationImportSafeOnly,
     handleImportReconciliationSkipDuplicates,
     handleParseStatement,
+    handleTransactionSlipFileChange,
+    handleTransactionSlipRemove,
+    resetTransactionSlipState,
     initializeSpeechRecognition,
     toggleListening,
     refreshListeningUi,

@@ -57,6 +57,10 @@ create table if not exists public.transactions (
   project text not null default '',
   tags text[] not null default '{}',
   details text not null default '',
+  slip_path text not null default '',
+  slip_resolution integer not null default 720,
+  slip_mime_type text not null default '',
+  slip_updated_at timestamptz null,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   primary key (user_id, id)
@@ -66,6 +70,18 @@ create index if not exists accounts_user_id_idx on public.accounts (user_id);
 create index if not exists categories_user_id_idx on public.categories (user_id);
 create index if not exists transactions_user_id_idx on public.transactions (user_id);
 create index if not exists transactions_user_id_date_idx on public.transactions (user_id, transaction_date desc);
+
+alter table public.transactions
+add column if not exists slip_path text not null default '';
+
+alter table public.transactions
+add column if not exists slip_resolution integer not null default 720;
+
+alter table public.transactions
+add column if not exists slip_mime_type text not null default '';
+
+alter table public.transactions
+add column if not exists slip_updated_at timestamptz null;
 
 alter table public.accounts
 add column if not exists include_in_total_balance boolean not null default true;
@@ -181,6 +197,63 @@ on public.transactions
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'transaction-slips',
+  'transaction-slips',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "transaction_slips_select_own" on storage.objects;
+create policy "transaction_slips_select_own"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'transaction-slips'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "transaction_slips_insert_own" on storage.objects;
+create policy "transaction_slips_insert_own"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'transaction-slips'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "transaction_slips_update_own" on storage.objects;
+create policy "transaction_slips_update_own"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'transaction-slips'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'transaction-slips'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "transaction_slips_delete_own" on storage.objects;
+create policy "transaction_slips_delete_own"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'transaction-slips'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 
 -- Legacy snapshot table kept only as a migration source for existing installs.
 create table if not exists public.ledger_state (

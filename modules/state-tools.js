@@ -36,7 +36,16 @@ export function createStateTools(api) {
         Array.isArray(parsed.categories) && parsed.categories.length
           ? parsed.categories
           : structuredClone(defaultState.categories),
-      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+      transactions: Array.isArray(parsed.transactions)
+        ? parsed.transactions.map((transaction) => ({
+            slipPath: "",
+            slipResolution: "720",
+            slipMimeType: "",
+            slipUpdatedAt: "",
+            ...transaction,
+            slipResolution: String(transaction?.slipResolution || 720),
+          }))
+        : [],
     };
   }
 
