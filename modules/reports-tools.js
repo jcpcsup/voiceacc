@@ -130,6 +130,98 @@ export function createReportsTools(api) {
     return ["expense", "income", "transfer"].filter((type) => selected.includes(type));
   }
 
+  function shiftLocalIsoDate(isoDate, days) {
+    const reference = parseIsoDate(isoDate, 12);
+    reference.setDate(reference.getDate() + Number(days || 0));
+    return toLocalIsoDate(reference);
+  }
+
+  function getInclusiveDaySpan(start, end) {
+    if (!start || !end) {
+      return 0;
+    }
+    const startDate = parseIsoDate(start, 12);
+    const endDate = parseIsoDate(end, 12);
+    return Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+  }
+
+  function getPreviousReportRangeMeta() {
+    const range = uiState.reports.range;
+    const current = getDateRange(range);
+    if (!current.start || !current.end || range === "all") {
+      return null;
+    }
+    if (range === "thisMonth") {
+      const currentStart = parseIsoDate(current.start, 12);
+      const previousStart = new Date(currentStart.getFullYear(), currentStart.getMonth() - 1, 1);
+      const previousEnd = new Date(currentStart.getFullYear(), currentStart.getMonth(), 0);
+      return {
+        start: toLocalIsoDate(previousStart),
+        end: toLocalIsoDate(previousEnd),
+        label: "Last Month",
+      };
+    }
+    if (range === "last30") {
+      const span = getInclusiveDaySpan(current.start, current.end);
+      const previousEnd = shiftLocalIsoDate(current.start, -1);
+      return {
+        start: shiftLocalIsoDate(previousEnd, -(span - 1)),
+        end: previousEnd,
+        label: "Previous 30 Days",
+      };
+    }
+    if (range === "thisQuarter") {
+      const currentStart = parseIsoDate(current.start, 12);
+      const previousStart = new Date(currentStart.getFullYear(), currentStart.getMonth() - 3, 1);
+      const previousEnd = new Date(currentStart.getFullYear(), currentStart.getMonth(), 0);
+      return {
+        start: toLocalIsoDate(previousStart),
+        end: toLocalIsoDate(previousEnd),
+        label: "Last Quarter",
+      };
+    }
+    if (range === "thisYear") {
+      const currentStart = parseIsoDate(current.start, 12);
+      return {
+        start: `${currentStart.getFullYear() - 1}-01-01`,
+        end: `${currentStart.getFullYear() - 1}-12-31`,
+        label: "Last Year",
+      };
+    }
+    if (range === "custom") {
+      const span = getInclusiveDaySpan(current.start, current.end);
+      const previousEnd = shiftLocalIsoDate(current.start, -1);
+      return {
+        start: shiftLocalIsoDate(previousEnd, -(span - 1)),
+        end: previousEnd,
+        label: "Previous Range",
+      };
+    }
+    return null;
+  }
+
+  function getTransactionsForReportWindow(start, end) {
+    const selectedTypes = getSelectedReportTypes();
+    return state.transactions.filter((transaction) => {
+      if (!selectedTypes.includes(transaction.type)) {
+        return false;
+      }
+      if (
+        uiState.reports.account !== "all" &&
+        ![transaction.accountId, transaction.fromAccountId, transaction.toAccountId].includes(uiState.reports.account)
+      ) {
+        return false;
+      }
+      if (start && transaction.date < start) {
+        return false;
+      }
+      if (end && transaction.date > end) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   function getBaseReportFilters() {
     const { start, end } = getDateRange(uiState.reports.range);
     return {
@@ -1215,6 +1307,34 @@ export function createReportsTools(api) {
     `;
   }
 
+  function renderCategoryRankingComparisonItem(currentRow, comparisonRow, rank, compact = false) {
+    const baseSymbol = getPrimaryCurrencySymbol();
+    const currentValue = Number(currentRow?.value || 0);
+    const previousValue = Number(comparisonRow?.value || 0);
+    const referencePercent = Number(currentRow?.percent || 0);
+    const barWidth = Math.max(8, Math.min(100, referencePercent || 0));
+    return `
+      <article class="ranking-item ranking-item-compare ${compact ? "ranking-item-compare-compact" : ""}">
+        <div class="ranking-item-main">
+          <div class="ranking-icon" style="--rank-color:${escapeHtml(currentRow.color)}">${renderCategoryIcon(currentRow.icon, iconRegistry.cart)}</div>
+          <div class="ranking-copy">
+            <div class="ranking-topline">
+              <strong>${rank} ${escapeHtml(currentRow.label)}</strong>
+              <span>${escapeHtml(currentRow.percent)}%</span>
+            </div>
+            <div class="ranking-bar">
+              <span style="width:${barWidth}%; background:${escapeHtml(currentRow.color)}"></span>
+            </div>
+          </div>
+        </div>
+        <div class="ranking-meta">
+          <strong>${formatMoney(previousValue, baseSymbol)}</strong>
+          <span>${formatMoney(currentValue, baseSymbol)} current</span>
+        </div>
+      </article>
+    `;
+  }
+
   function renderCategoryRanking(transactions) {
     const selectedTypes = getSelectedReportTypes();
     if (selectedTypes.length === 1 && selectedTypes[0] === "transfer") {
@@ -1232,6 +1352,7 @@ export function createReportsTools(api) {
 
     const targetType = selectedTypes.includes("expense") ? "expense" : "income";
     const rows = getCategoryRankingRows(transactions, targetType);
+    const previousRange = getPreviousReportRangeMeta();
     if (!rows.length) {
       return `
         <div class="section-heading compact">
@@ -1245,6 +1366,14 @@ export function createReportsTools(api) {
       `;
     }
 
+    const previousRows = previousRange
+      ? getCategoryRankingRows(getTransactionsForReportWindow(previousRange.start, previousRange.end), targetType)
+      : [];
+    const previousRowsMap = new Map(previousRows.map((row) => [row.id, row]));
+    const comparisonItems = rows.map((row, index) =>
+      renderCategoryRankingComparisonItem(row, previousRowsMap.get(row.id) || null, index + 1, true)
+    );
+
     return `
       <div class="section-heading compact">
         <div>
@@ -1253,8 +1382,25 @@ export function createReportsTools(api) {
         </div>
         <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
       </div>
-      <div class="ranking-list">
-        ${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}
+      <div class="ranking-layout">
+        <div class="ranking-section ranking-section-current">
+          <div class="ranking-list">
+            ${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}
+          </div>
+        </div>
+        <aside class="ranking-section ranking-section-last-period">
+          <div class="ranking-side-header">
+            <div>
+              <p class="eyebrow">Last Period</p>
+              <h4>${escapeHtml(previousRange?.label || "No comparison")}</h4>
+            </div>
+          </div>
+          ${
+            previousRange
+              ? `<div class="ranking-list ranking-list-compare">${comparisonItems.join("")}</div>`
+              : renderEmpty("Last Period comparison is unavailable for All Time.")
+          }
+        </aside>
       </div>
     `;
   }

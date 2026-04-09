@@ -2918,6 +2918,48 @@ textarea:focus {
   margin-top: 12px;
 }
 
+.ranking-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.ranking-layout .ranking-list {
+  margin-top: 0;
+}
+
+.ranking-section {
+  min-width: 0;
+}
+
+.ranking-section-last-period {
+  padding: 14px 14px 12px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(13, 47, 61, 0.07);
+}
+
+.ranking-side-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ranking-side-header h4 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.ranking-list-compare {
+  max-height: 680px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .ranking-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3002,6 +3044,48 @@ textarea:focus {
 
 .ranking-meta span {
   color: var(--muted);
+}
+
+.ranking-item-compare {
+  padding: 12px 14px;
+}
+
+.ranking-item-compare .ranking-meta strong {
+  font-size: 1.05rem;
+}
+
+.ranking-item-compare .ranking-meta span {
+  font-size: 0.78rem;
+}
+
+.ranking-item-compare-compact {
+  padding: 10px 12px;
+  gap: 10px;
+}
+
+.ranking-item-compare-compact .ranking-item-main {
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ranking-item-compare-compact .ranking-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+
+.ranking-item-compare-compact .ranking-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.ranking-item-compare-compact .ranking-bar {
+  height: 8px;
+  margin-top: 6px;
+}
+
+.ranking-item-compare-compact .ranking-meta strong {
+  font-size: 0.98rem;
 }
 
 .timeline-overview-chart {
@@ -3821,6 +3905,19 @@ input[data-smart-picker-field][readonly] {
     padding: 18px 14px;
   }
 
+  .ranking-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ranking-section-last-period {
+    padding: 12px 12px 10px;
+  }
+
+  .ranking-list-compare {
+    max-height: 420px;
+  }
+
   .account-chart-trio {
     grid-template-columns: 1fr;
   }
@@ -3886,6 +3983,22 @@ input[data-smart-picker-field][readonly] {
 
   .ranking-meta strong {
     font-size: 1rem;
+  }
+
+  .ranking-item-compare,
+  .ranking-item-compare-compact {
+    padding: 9px 12px;
+    gap: 8px;
+  }
+
+  .ranking-item-compare-compact .ranking-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .ranking-item-compare-compact .ranking-icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .field-span-2 {
