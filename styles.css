@@ -1769,9 +1769,9 @@ textarea:focus {
 }
 
 .transaction-slip-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
   align-items: end;
-  justify-content: space-between;
   gap: 14px;
 }
 
@@ -1784,7 +1784,7 @@ textarea:focus {
 }
 
 .transaction-slip-resolution-wrap {
-  min-width: 132px;
+  min-width: 0;
 }
 
 .transaction-slip-preview-shell {
@@ -4071,10 +4071,13 @@ input[data-smart-picker-field][readonly] {
     font-size: 1.2rem;
   }
 
-  .transaction-slip-controls,
+  .transaction-slip-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
   .transaction-slip-meta-row {
     align-items: stretch;
-    flex-direction: column;
   }
 
   .transaction-slip-resolution-wrap {

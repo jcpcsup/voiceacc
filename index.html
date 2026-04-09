@@ -598,22 +598,22 @@
               <datalist id="transaction-project-options"></datalist>
             </div>
             <div class="field-group field-span-2 transaction-slip-field">
+              <div class="transaction-slip-copy">
+                <label class="field-label" for="transaction-slip-file">Slip Image</label>
+                <p class="supporting-text transaction-slip-help">Compressed before upload to private Supabase Storage.</p>
+              </div>
               <div class="transaction-slip-controls">
-                <div class="transaction-slip-copy">
-                  <label class="field-label" for="transaction-slip-file">Slip Image</label>
-                  <p class="supporting-text transaction-slip-help">Compressed before upload to private Supabase Storage.</p>
-                </div>
+                <input id="transaction-slip-file" type="file" accept="image/*" />
                 <div class="transaction-slip-resolution-wrap">
                   <label class="field-label" for="transaction-slip-resolution">Resolution</label>
                   <select id="transaction-slip-resolution">
+                    <option value="360">360p</option>
                     <option value="480">480p</option>
-                    <option value="600">600p</option>
                     <option value="720" selected>720p</option>
                     <option value="1080">1080p</option>
                   </select>
                 </div>
               </div>
-              <input id="transaction-slip-file" type="file" accept="image/*" />
               <div class="transaction-slip-preview-shell">
                 <div class="transaction-slip-preview-empty" id="transaction-slip-preview-empty">No slip attached yet.</div>
                 <img id="transaction-slip-preview-image" class="transaction-slip-preview-image hidden" alt="Transaction slip preview" />

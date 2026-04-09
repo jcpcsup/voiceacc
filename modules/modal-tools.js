@@ -257,7 +257,7 @@ export function createModalTools(api) {
 
   function getTargetSlipDimension(resolutionValue) {
     const parsed = Number(resolutionValue || 720);
-    if ([480, 600, 720, 1080].includes(parsed)) {
+    if ([360, 480, 720, 1080].includes(parsed)) {
       return parsed;
     }
     return 720;

@@ -1497,6 +1497,33 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return String(transaction.updatedAt || transaction.createdAt || transaction.date || "");
   }
 
+  function hasMeaningfulTransactionFormData(ignoreField = "") {
+    const ignored = String(ignoreField || "").trim();
+    const type = document.getElementById("transaction-type")?.value || "expense";
+    const values = {
+      amount: String(document.getElementById("transaction-amount")?.value || "").trim(),
+      account: type === "transfer" ? "" : String(document.getElementById("transaction-account")?.value || "").trim(),
+      fromAccount: type === "transfer" ? String(document.getElementById("transaction-from-account")?.value || "").trim() : "",
+      toAccount: type === "transfer" ? String(document.getElementById("transaction-to-account")?.value || "").trim() : "",
+      category: type === "transfer" ? "" : String(document.getElementById("transaction-category")?.value || "").trim(),
+      subcategory: type === "transfer" ? "" : String(document.getElementById("transaction-subcategory")?.value || "").trim(),
+      counterparty: String(document.getElementById("transaction-counterparty")?.value || "").trim(),
+      project: String(document.getElementById("transaction-project")?.value || "").trim(),
+      tags: String(document.getElementById("transaction-tags")?.value || "").trim(),
+      details: String(document.getElementById("transaction-details")?.value || "").trim(),
+      slip: String(document.getElementById("transaction-slip-file")?.value || "").trim(),
+    };
+    const fieldKeyMap = {
+      account: ["account"],
+      category: ["category"],
+      subcategory: ["subcategory"],
+      counterparty: ["counterparty"],
+      project: ["project"],
+    };
+    const ignoredKeys = new Set(fieldKeyMap[ignored] || []);
+    return Object.entries(values).some(([key, value]) => !ignoredKeys.has(key) && Boolean(value));
+  }
+
   function getLatestTransactionForSelection(field, value) {
     const selectedValue = String(value || "").trim();
     const normalizedValue = selectedValue.toLowerCase();
@@ -1549,6 +1576,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     const selectedValue = String(value || "").trim();
     if (!selectedValue) {
+      return;
+    }
+    if (hasMeaningfulTransactionFormData(field)) {
       return;
     }
     const matchedTransaction = getLatestTransactionForSelection(field, value);
