@@ -2930,17 +2930,20 @@ textarea:focus {
   margin-top: 0;
 }
 
-.ranking-section {
-  min-width: 0;
+.ranking-layout-mobile {
+  display: none;
+  margin-top: 12px;
 }
 
-.ranking-section-last-period {
+.ranking-panel {
+  min-width: 0;
   padding: 14px 14px 12px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(13, 47, 61, 0.07);
 }
 
+.ranking-panel-header,
 .ranking-side-header {
   display: flex;
   align-items: start;
@@ -2948,6 +2951,7 @@ textarea:focus {
   gap: 10px;
 }
 
+.ranking-panel-header h4,
 .ranking-side-header h4 {
   margin: 2px 0 0;
   font-size: 1.05rem;
@@ -3086,6 +3090,15 @@ textarea:focus {
 
 .ranking-item-compare-compact .ranking-meta strong {
   font-size: 0.98rem;
+}
+
+.ranking-mobile-pair {
+  display: grid;
+  gap: 8px;
+}
+
+.ranking-mobile-previous .ranking-item-compare-compact {
+  min-height: 0;
 }
 
 .timeline-overview-chart {
@@ -3905,17 +3918,12 @@ input[data-smart-picker-field][readonly] {
     padding: 18px 14px;
   }
 
-  .ranking-layout {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .ranking-layout-desktop {
+    display: none;
   }
 
-  .ranking-section-last-period {
-    padding: 12px 12px 10px;
-  }
-
-  .ranking-list-compare {
-    max-height: 420px;
+  .ranking-layout-mobile {
+    display: block;
   }
 
   .account-chart-trio {
@@ -3991,14 +3999,42 @@ input[data-smart-picker-field][readonly] {
     gap: 8px;
   }
 
+  .ranking-mobile-previous .ranking-item-compare-compact {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    opacity: 0.94;
+  }
+
   .ranking-item-compare-compact .ranking-icon {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
   }
 
   .ranking-item-compare-compact .ranking-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-item-main {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-topline strong {
+    font-size: 0.92rem;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-topline span,
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-meta span {
+    font-size: 0.72rem;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-meta strong {
+    font-size: 0.9rem;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-bar {
+    height: 7px;
   }
 
   .field-span-2 {

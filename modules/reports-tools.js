@@ -1335,6 +1335,17 @@ export function createReportsTools(api) {
     `;
   }
 
+  function renderMobileCategoryRankingPair(row, comparisonRow, rank) {
+    return `
+      <div class="ranking-mobile-pair">
+        ${renderCategoryRankingItem(row, rank)}
+        <div class="ranking-mobile-previous">
+          ${renderCategoryRankingComparisonItem(row, comparisonRow, rank, true)}
+        </div>
+      </div>
+    `;
+  }
+
   function renderCategoryRanking(transactions) {
     const selectedTypes = getSelectedReportTypes();
     if (selectedTypes.length === 1 && selectedTypes[0] === "transfer") {
@@ -1370,9 +1381,8 @@ export function createReportsTools(api) {
       ? getCategoryRankingRows(getTransactionsForReportWindow(previousRange.start, previousRange.end), targetType)
       : [];
     const previousRowsMap = new Map(previousRows.map((row) => [row.id, row]));
-    const comparisonItems = rows.map((row, index) =>
-      renderCategoryRankingComparisonItem(row, previousRowsMap.get(row.id) || null, index + 1, true)
-    );
+    const comparisonItems = rows.map((row, index) => renderCategoryRankingComparisonItem(row, previousRowsMap.get(row.id) || null, index + 1, true));
+    const mobilePairs = rows.map((row, index) => renderMobileCategoryRankingPair(row, previousRowsMap.get(row.id) || null, index + 1));
 
     return `
       <div class="section-heading compact">
@@ -1382,13 +1392,19 @@ export function createReportsTools(api) {
         </div>
         <span class="meta-pill neutral">${escapeHtml(titleCase(targetType))}</span>
       </div>
-      <div class="ranking-layout">
-        <div class="ranking-section ranking-section-current">
+      <div class="ranking-layout ranking-layout-desktop">
+        <section class="ranking-panel ranking-panel-current">
+          <div class="ranking-panel-header">
+            <div>
+              <p class="eyebrow">Current Period</p>
+              <h4>Category Ranking</h4>
+            </div>
+          </div>
           <div class="ranking-list">
             ${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}
           </div>
-        </div>
-        <aside class="ranking-section ranking-section-last-period">
+        </section>
+        <aside class="ranking-panel ranking-panel-last-period">
           <div class="ranking-side-header">
             <div>
               <p class="eyebrow">Last Period</p>
@@ -1401,6 +1417,13 @@ export function createReportsTools(api) {
               : renderEmpty("Last Period comparison is unavailable for All Time.")
           }
         </aside>
+      </div>
+      <div class="ranking-layout-mobile">
+        ${
+          previousRange
+            ? `<div class="ranking-list ranking-list-mobile">${mobilePairs.join("")}</div>`
+            : `<div class="ranking-list ranking-list-mobile">${rows.map((row, index) => renderCategoryRankingItem(row, index + 1)).join("")}</div>`
+        }
       </div>
     `;
   }
