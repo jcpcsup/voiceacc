@@ -1309,18 +1309,18 @@ export function createReportsTools(api) {
 
   function renderCategoryRankingComparisonItem(currentRow, comparisonRow, rank, compact = false) {
     const baseSymbol = getPrimaryCurrencySymbol();
-    const currentValue = Number(currentRow?.value || 0);
     const previousValue = Number(comparisonRow?.value || 0);
-    const referencePercent = Number(currentRow?.percent || 0);
-    const barWidth = Math.max(8, Math.min(100, referencePercent || 0));
+    const comparisonPercent = Number(comparisonRow?.percent || 0);
+    const barWidth = Math.max(8, Math.min(100, comparisonPercent || 0));
+    const comparisonCount = Number(comparisonRow?.count || 0);
     return `
       <article class="ranking-item ranking-item-compare ${compact ? "ranking-item-compare-compact" : ""}">
         <div class="ranking-item-main">
           <div class="ranking-icon" style="--rank-color:${escapeHtml(currentRow.color)}">${renderCategoryIcon(currentRow.icon, iconRegistry.cart)}</div>
           <div class="ranking-copy">
             <div class="ranking-topline">
-              <strong>${rank} ${escapeHtml(currentRow.label)}</strong>
-              <span>${escapeHtml(currentRow.percent)}%</span>
+              <strong>${rank} ${escapeHtml(comparisonRow?.label || currentRow.label)}</strong>
+              <span>${escapeHtml((comparisonRow?.percent ?? "0.0").toString())}%</span>
             </div>
             <div class="ranking-bar">
               <span style="width:${barWidth}%; background:${escapeHtml(currentRow.color)}"></span>
@@ -1329,7 +1329,7 @@ export function createReportsTools(api) {
         </div>
         <div class="ranking-meta">
           <strong>${formatMoney(previousValue, baseSymbol)}</strong>
-          <span>${formatMoney(currentValue, baseSymbol)} current</span>
+          <span>${comparisonCount} ${comparisonCount === 1 ? "bill" : "bills"}</span>
         </div>
       </article>
     `;
@@ -1381,7 +1381,7 @@ export function createReportsTools(api) {
       ? getCategoryRankingRows(getTransactionsForReportWindow(previousRange.start, previousRange.end), targetType)
       : [];
     const previousRowsMap = new Map(previousRows.map((row) => [row.id, row]));
-    const comparisonItems = rows.map((row, index) => renderCategoryRankingComparisonItem(row, previousRowsMap.get(row.id) || null, index + 1, true));
+    const comparisonItems = rows.map((row, index) => renderCategoryRankingComparisonItem(row, previousRowsMap.get(row.id) || null, index + 1, false));
     const mobilePairs = rows.map((row, index) => renderMobileCategoryRankingPair(row, previousRowsMap.get(row.id) || null, index + 1));
 
     return `

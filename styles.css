@@ -2970,6 +2970,7 @@ textarea:focus {
   gap: 14px;
   align-items: center;
   padding: 14px 16px;
+  min-height: 110px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(13, 47, 61, 0.07);
@@ -3051,20 +3052,24 @@ textarea:focus {
 }
 
 .ranking-item-compare {
-  padding: 12px 14px;
+  padding: 14px 16px;
+  min-height: 110px;
 }
 
 .ranking-item-compare .ranking-meta strong {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
 }
 
 .ranking-item-compare .ranking-meta span {
-  font-size: 0.78rem;
+  font-size: 1rem;
 }
 
 .ranking-item-compare-compact {
   padding: 10px 12px;
   gap: 10px;
+  min-height: 0;
+  background: rgba(240, 244, 247, 0.92);
+  border-color: rgba(13, 47, 61, 0.06);
 }
 
 .ranking-item-compare-compact .ranking-item-main {
@@ -3965,6 +3970,7 @@ input[data-smart-picker-field][readonly] {
     grid-template-columns: 1fr;
     gap: 10px;
     padding: 12px 14px;
+    min-height: 0;
   }
 
   .ranking-item-main {
@@ -4003,6 +4009,7 @@ input[data-smart-picker-field][readonly] {
     padding-top: 7px;
     padding-bottom: 7px;
     opacity: 0.94;
+    background: rgba(236, 241, 244, 0.98);
   }
 
   .ranking-item-compare-compact .ranking-icon {
@@ -4031,6 +4038,12 @@ input[data-smart-picker-field][readonly] {
 
   .ranking-mobile-previous .ranking-item-compare-compact .ranking-meta strong {
     font-size: 0.9rem;
+  }
+
+  .ranking-mobile-previous .ranking-item-compare-compact .ranking-meta {
+    grid-template-columns: 1fr auto;
+    text-align: left;
+    align-items: baseline;
   }
 
   .ranking-mobile-previous .ranking-item-compare-compact .ranking-bar {
