@@ -2415,7 +2415,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     const net = income - expense;
     const average = transactions.length ? sumAmounts(transactions) / transactions.length : 0;
     const largest = transactions.reduce((best, transaction) => (!best || Number(transaction.amount || 0) > Number(best.amount || 0) ? transaction : best), null);
-    const historicalTrendSeries = buildTransactionSnapshotSeries(getFilteredTransactions({ startDate: "", endDate: "" }));
+    const historicalTrendSeries = buildTransactionSnapshotSeries(getTransactionSnapshotTrendTransactions(transactions));
     const topCategories = getTransactionSnapshotTopCategories(transactions);
 
     return `
@@ -2467,6 +2467,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         <p>${escapeHtml(note)}</p>
       </article>
     `;
+  }
+
+  function getTransactionSnapshotTrendTransactions(currentTransactions) {
+    if (uiState.filters.startDate || uiState.filters.endDate) {
+      return currentTransactions;
+    }
+    const rollingStart = new Date();
+    rollingStart.setMonth(rollingStart.getMonth() - 24);
+    return getFilteredTransactions({
+      startDate: toLocalIsoDate(rollingStart),
+      endDate: todayIso(),
+    });
   }
 
   function buildTransactionSnapshotSeries(transactions) {
