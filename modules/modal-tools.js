@@ -115,6 +115,21 @@ export function createModalTools(api) {
     transactionSubmitMode = "save";
     document.getElementById("transaction-parser-notice").classList.add("hidden");
     renderSelectOptions();
+    if (!transactionId && !parserResult) {
+      document.getElementById("transaction-type").value = "expense";
+      document.getElementById("transaction-amount").value = "";
+      document.getElementById("transaction-account").value = "";
+      document.getElementById("transaction-from-account").value = "";
+      document.getElementById("transaction-to-account").value = "";
+      document.getElementById("transaction-category").value = "";
+      renderSubcategoryOptions();
+      document.getElementById("transaction-subcategory").value = "";
+      document.getElementById("transaction-counterparty").value = "";
+      document.getElementById("transaction-project").value = "";
+      document.getElementById("transaction-tags").value = "";
+      document.getElementById("transaction-details").value = "";
+      document.getElementById("transaction-template-select").value = "";
+    }
     if (transactionId) {
       const transaction = getTransaction(transactionId);
       if (!transaction) {

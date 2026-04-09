@@ -1675,6 +1675,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     target.setAttribute("value", value);
     target.dispatchEvent(new Event("input", { bubbles: true }));
     target.dispatchEvent(new Event("change", { bubbles: true }));
+    if (field === "subcategory" || field === "counterparty" || field === "project") {
+      applyLatestTransactionSelection(field, value);
+    }
     closeModal("smart-field-picker-modal");
     resetSmartFieldPicker();
     if (field === "subcategory") {
