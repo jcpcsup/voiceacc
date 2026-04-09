@@ -2920,7 +2920,7 @@ textarea:focus {
 
 .ranking-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 16px;
   align-items: start;
   margin-top: 12px;
@@ -3946,6 +3946,16 @@ input[data-smart-picker-field][readonly] {
   .report-pie-visual,
   .report-breakdown-visual {
     width: min(100%, 320px);
+  }
+
+  .report-pie-visual-wrap,
+  .report-pie-visual-wrap-wide {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .report-breakdown-visual-donut {
+    width: min(calc(100vw - 40px), 420px);
   }
 
   .report-pie-center strong {
