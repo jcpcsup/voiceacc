@@ -193,6 +193,11 @@ export function createAccountsCategoriesTools(api) {
       snapshot.netCarryByCounterparty.set(counterpartyId, 0);
       snapshot.monthNetDeltaByCounterparty.set(counterpartyId, Array.from({ length: snapshot.months.length }, () => 0));
       snapshot.monthlySeriesByCounterparty.set(counterpartyId, []);
+      snapshot.currentMonthStartingNetByCounterparty.set(counterpartyId, 0);
+      snapshot.currentMonthDeltaByCounterparty.set(counterpartyId, Array.from({ length: snapshot.currentMonthDays.length }, () => 0));
+      snapshot.currentMonthSeriesByCounterparty.set(counterpartyId, []);
+      snapshot.allTimeMonthDeltaByCounterparty.set(counterpartyId, Array.from({ length: snapshot.allTimeMonths.length }, () => 0));
+      snapshot.allTimeSeriesByCounterparty.set(counterpartyId, []);
       snapshot.countByCounterparty.set(counterpartyId, 0);
       snapshot.lastActivityByCounterparty.set(counterpartyId, "");
     }
@@ -287,6 +292,11 @@ export function createAccountsCategoriesTools(api) {
       netCarryByCounterparty: new Map(),
       monthNetDeltaByCounterparty: new Map(),
       monthlySeriesByCounterparty: new Map(),
+      currentMonthStartingNetByCounterparty: new Map(),
+      currentMonthDeltaByCounterparty: new Map(),
+      currentMonthSeriesByCounterparty: new Map(),
+      allTimeMonthDeltaByCounterparty: new Map(),
+      allTimeSeriesByCounterparty: new Map(),
       countByCounterparty: new Map(),
       lastActivityByCounterparty: new Map(),
       totals: {
@@ -374,6 +384,36 @@ export function createAccountsCategoriesTools(api) {
         addCategoryCurrentMonthAmount(snapshot, transaction.categoryId, amount, transaction.date, today);
       }
       applyCounterpartyAggregate(snapshot, transaction.counterpartyId, transaction.counterpartyEffect, amount, transaction.date);
+      if (transaction.counterpartyId && transaction.counterpartyEffect) {
+        let netDelta = 0;
+        if (transaction.counterpartyEffect === "receivableIncrease") {
+          netDelta = amount;
+        }
+        if (transaction.counterpartyEffect === "receivableDecrease") {
+          netDelta = -amount;
+        }
+        if (transaction.counterpartyEffect === "payableIncrease") {
+          netDelta = -amount;
+        }
+        if (transaction.counterpartyEffect === "payableDecrease") {
+          netDelta = amount;
+        }
+        if (transaction.date < thisMonth.start) {
+          snapshot.currentMonthStartingNetByCounterparty.set(
+            transaction.counterpartyId,
+            Number(snapshot.currentMonthStartingNetByCounterparty.get(transaction.counterpartyId) || 0) + netDelta
+          );
+        } else if (transaction.date >= thisMonth.start && transaction.date <= today) {
+          const dayIndex = snapshot.currentMonthDayIndexByKey.get(transaction.date.slice(8, 10));
+          if (dayIndex !== undefined) {
+            snapshot.currentMonthDeltaByCounterparty.get(transaction.counterpartyId)[dayIndex] += netDelta;
+          }
+        }
+        const allTimeMonthIndex = snapshot.allTimeMonthIndexByKey.get(transaction.date.slice(0, 7));
+        if (allTimeMonthIndex !== undefined) {
+          snapshot.allTimeMonthDeltaByCounterparty.get(transaction.counterpartyId)[allTimeMonthIndex] += netDelta;
+        }
+      }
 
       if (transaction.date === today) {
         if (transaction.type === "income") {
@@ -457,6 +497,32 @@ export function createAccountsCategoriesTools(api) {
           return {
             label: month.label,
             value: runningNet,
+          };
+        })
+      );
+      let currentMonthNet = Number(snapshot.currentMonthStartingNetByCounterparty.get(counterpartyId) || 0);
+      const currentMonthDeltas =
+        snapshot.currentMonthDeltaByCounterparty.get(counterpartyId) || Array.from({ length: snapshot.currentMonthDays.length }, () => 0);
+      snapshot.currentMonthSeriesByCounterparty.set(
+        counterpartyId,
+        snapshot.currentMonthDays.map((day, index) => {
+          currentMonthNet += Number(currentMonthDeltas[index] || 0);
+          return {
+            label: day.label,
+            value: currentMonthNet,
+          };
+        })
+      );
+      let allTimeNet = 0;
+      const allTimeDeltas =
+        snapshot.allTimeMonthDeltaByCounterparty.get(counterpartyId) || Array.from({ length: snapshot.allTimeMonths.length }, () => 0);
+      snapshot.allTimeSeriesByCounterparty.set(
+        counterpartyId,
+        snapshot.allTimeMonths.map((month, index) => {
+          allTimeNet += Number(allTimeDeltas[index] || 0);
+          return {
+            label: month.label,
+            value: allTimeNet,
           };
         })
       );
@@ -573,9 +639,21 @@ export function createAccountsCategoriesTools(api) {
       net: receivable - payable,
       count: Number(snapshot.countByCounterparty.get(counterpartyId) || 0),
       lastActivity: String(snapshot.lastActivityByCounterparty.get(counterpartyId) || ""),
+      currentMonthSeries:
+        snapshot.currentMonthSeriesByCounterparty.get(counterpartyId) ||
+        snapshot.currentMonthDays.map((day) => ({
+          label: day.label,
+          value: 0,
+        })),
       series:
         snapshot.monthlySeriesByCounterparty.get(counterpartyId) ||
         snapshot.months.map((month) => ({
+          label: month.label,
+          value: 0,
+        })),
+      allTimeSeries:
+        snapshot.allTimeSeriesByCounterparty.get(counterpartyId) ||
+        snapshot.allTimeMonths.map((month) => ({
           label: month.label,
           value: 0,
         })),
@@ -703,7 +781,11 @@ export function createAccountsCategoriesTools(api) {
         <h3>${escapeHtml(counterparty.name)}</h3>
         <strong class="money account-balance">${formatMoney(stats.net, symbol)}</strong>
         <p class="supporting-text">Net position across tracked assets and liabilities</p>
-        ${renderMiniTrendChart(stats.series, themeColor, "12M Net", formatMoney(stats.net, symbol))}
+        <div class="account-chart-trio">
+          ${renderMiniTrendChart(stats.currentMonthSeries, themeColor, "Monthly Net", formatMoney(stats.currentMonthSeries[stats.currentMonthSeries.length - 1]?.value || 0, symbol))}
+          ${renderMiniTrendChart(stats.series, themeColor, "12M Net", formatMoney(stats.net, symbol))}
+          ${renderMiniTrendChart(stats.allTimeSeries, themeColor, "All Time Net", formatMoney(stats.allTimeSeries[stats.allTimeSeries.length - 1]?.value || 0, symbol))}
+        </div>
         <div class="account-card-footer">
           <div class="transaction-tags compact-tags">
             <span class="meta-pill neutral counterparty-flow-pill counterparty-flow-pill-asset">Receivable | ${formatMoney(stats.receivable, symbol)}</span>
