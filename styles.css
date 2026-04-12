@@ -1787,6 +1787,8 @@ textarea:focus {
 }
 
 .transaction-slip-field {
+  display: grid;
+  align-content: start;
   gap: 10px;
 }
 
@@ -1810,6 +1812,7 @@ textarea:focus {
 }
 
 .transaction-slip-preview-shell {
+  margin-top: 4px;
   position: relative;
   display: grid;
   place-items: center;
@@ -1834,6 +1837,7 @@ textarea:focus {
 }
 
 .transaction-slip-meta-row {
+  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
