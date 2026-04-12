@@ -2474,7 +2474,8 @@ textarea:focus {
 }
 
 .report-breakdown-bars-shell,
-.report-breakdown-columns-shell {
+.report-breakdown-columns-shell,
+.report-breakdown-line-shell {
   display: grid;
   gap: 10px;
   width: 100%;
@@ -2684,6 +2685,73 @@ textarea:focus {
   font-size: 0.72rem;
   color: var(--muted);
   text-align: center;
+}
+
+.report-breakdown-line-viewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.report-breakdown-line-chart {
+  display: block;
+  width: max(100%, 420px);
+  min-width: 100%;
+  height: 300px;
+  overflow: visible;
+}
+
+.report-line-series {
+  opacity: 0.94;
+}
+
+.report-line-series-type {
+  opacity: 1;
+}
+
+.report-line-point {
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.report-line-point:hover,
+.report-line-point:focus-visible {
+  transform: scale(1.08);
+  filter: brightness(1.06);
+}
+
+.report-breakdown-line-axis {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(34px, 1fr);
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+  min-width: 420px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.report-breakdown-line-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-line-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-line-chip-swatch {
+  display: inline-flex;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
 }
 
 .report-stacked-breakdown {
@@ -3927,6 +3995,7 @@ input[data-smart-picker-field][readonly] {
   }
 
   .report-breakdown-columns,
+  .report-breakdown-line-shell,
   .report-stacked-breakdown,
   .report-breakdown-bars {
     width: 100%;
@@ -3942,6 +4011,20 @@ input[data-smart-picker-field][readonly] {
   }
 
   .report-breakdown-column-group {
+    gap: 6px;
+  }
+
+  .report-breakdown-line-chart {
+    width: max(100%, 520px);
+    height: 240px;
+  }
+
+  .report-breakdown-line-axis {
+    min-width: 520px;
+    font-size: 0.66rem;
+  }
+
+  .report-breakdown-line-legend {
     gap: 6px;
   }
 

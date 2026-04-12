@@ -620,6 +620,7 @@ export function createReportsTools(api) {
   function renderBreakdownSwitcher(activeStyle) {
     const options = [
       { value: "donut", label: "Donut" },
+      { value: "line", label: "Line" },
       { value: "bars", label: "Bar" },
       { value: "column", label: "Column" },
       { value: "stacked", label: "Stacked Bar" },
@@ -651,6 +652,9 @@ export function createReportsTools(api) {
   }
 
   function renderBreakdownVisualWithMap(dataset, chartStyle, transactions, detailMap, indexPrefix = "") {
+    if (chartStyle === "line") {
+      return renderBreakdownLine(dataset, transactions, detailMap, indexPrefix);
+    }
     if (chartStyle === "bars") {
       return renderBreakdownBars(dataset, detailMap, indexPrefix);
     }
@@ -661,6 +665,275 @@ export function createReportsTools(api) {
       return renderBreakdownStacked(transactions, detailMap, indexPrefix);
     }
     return renderBreakdownDonut(dataset, detailMap, indexPrefix);
+  }
+
+  function buildBreakdownLinePeriods(transactions) {
+    const activeRange = getDateRange(uiState.reports.range);
+    if (uiState.reports.range === "all") {
+      const years = [...new Set(transactions.map((transaction) => String(transaction.date || "").slice(0, 4)).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true })
+      );
+      return years.map((year) => ({
+        key: year,
+        label: year,
+        start: `${year}-01-01`,
+        end: `${year}-12-31`,
+      }));
+    }
+
+    if (!activeRange.start || !activeRange.end) {
+      return [];
+    }
+
+    const startDate = parseIsoDate(activeRange.start, 12);
+    const endDate = parseIsoDate(activeRange.end, 12);
+    const daySpan = Math.max(1, Math.floor((endDate - startDate) / 86400000) + 1);
+
+    if (uiState.reports.range === "thisMonth" || uiState.reports.range === "last30" || daySpan <= 45) {
+      const periods = [];
+      const cursor = new Date(startDate);
+      while (cursor <= endDate) {
+        const iso = toLocalIsoDate(cursor);
+        periods.push({
+          key: iso,
+          label:
+            daySpan > 12
+              ? cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : cursor.toLocaleDateString("en-US", { day: "numeric" }),
+          start: iso,
+          end: iso,
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return periods;
+    }
+
+    if (uiState.reports.range === "thisQuarter" || uiState.reports.range === "thisYear" || daySpan <= 550) {
+      const periods = [];
+      const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      const finalMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+      while (cursor <= finalMonth) {
+        const monthStart = new Date(cursor);
+        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+        const periodStart = monthStart < startDate ? startDate : monthStart;
+        const periodEnd = monthEnd > endDate ? endDate : monthEnd;
+        periods.push({
+          key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`,
+          label: cursor.toLocaleDateString("en-US", { month: "short" }),
+          start: toLocalIsoDate(periodStart),
+          end: toLocalIsoDate(periodEnd),
+        });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+      return periods;
+    }
+
+    const periods = [];
+    for (let year = startDate.getFullYear(); year <= endDate.getFullYear(); year += 1) {
+      const yearStart = parseIsoDate(`${year}-01-01`, 12);
+      const yearEnd = parseIsoDate(`${year}-12-31`, 12);
+      periods.push({
+        key: String(year),
+        label: String(year),
+        start: toLocalIsoDate(yearStart < startDate ? startDate : yearStart),
+        end: toLocalIsoDate(yearEnd > endDate ? endDate : yearEnd),
+      });
+    }
+    return periods;
+  }
+
+  function buildLinePointDetail(dataset, series, point, period) {
+    const periodTotal = Number(point.periodTotal || 0);
+    const periodShare = periodTotal ? ((point.value / periodTotal) * 100).toFixed(2) : "0.00";
+    return {
+      eyebrow: period.label,
+      label: series.label,
+      color: series.color,
+      value: formatMoney(point.value, dataset.symbol),
+      percent: `${periodShare}% of ${period.label}`,
+      filters: point.filters || getBaseReportFilters(),
+      drilldownKey: "",
+      meta: [
+        { label: "Entries", value: String(point.count || 0), action: "open-report-entries" },
+        { label: "Period Total", value: formatMoney(periodTotal, dataset.symbol) },
+      ],
+    };
+  }
+
+  function buildBreakdownLineSeries(dataset, transactions, periods, periodTotals) {
+    const baseFilters = getBaseReportFilters();
+    const selectedTypes = getSelectedReportTypes();
+    const categoryMap = new Map();
+
+    transactions
+      .filter((transaction) => transaction.type !== "transfer")
+      .forEach((transaction) => {
+        const category = getCategory(transaction.categoryId);
+        const key = category?.id || `uncategorized-${transaction.type}`;
+        const current = categoryMap.get(key) || {
+          id: key,
+          label: category?.name || "Uncategorized",
+          color: category?.color || (transaction.type === "income" ? "#1ca866" : "#d35a5a"),
+          type: category?.type || transaction.type,
+          total: 0,
+        };
+        current.total += Number(transaction.amount || 0);
+        categoryMap.set(key, current);
+      });
+
+    const categorySeries = [...categoryMap.values()]
+      .sort((left, right) => right.total - left.total)
+      .slice(0, Math.min(dataset.segments.length || 10, 10))
+      .map((entry) => ({
+        label: entry.label,
+        color: entry.color,
+        strokeWidth: 2.4,
+        points: periods.map((period) => {
+          const matching = transactions.filter(
+            (transaction) =>
+              transaction.type !== "transfer" &&
+              (getCategory(transaction.categoryId)?.id || `uncategorized-${transaction.type}`) === entry.id &&
+              transaction.date >= period.start &&
+              transaction.date <= period.end
+          );
+          return {
+            value: sumAmounts(matching),
+            count: matching.length,
+            filters: {
+              ...baseFilters,
+              type: entry.type,
+              categoryId: entry.id.startsWith("uncategorized-") ? "" : entry.id,
+              startDate: period.start,
+              endDate: period.end,
+            },
+          };
+        }),
+      }))
+      .filter((series) => series.points.some((point) => point.value > 0));
+
+    const typeSeries =
+      selectedTypes.length > 1 || (selectedTypes.length === 1 && selectedTypes[0] === "transfer")
+        ? selectedTypes.map((type) => ({
+            label: titleCase(type === "expense" ? "expenses" : type),
+            color: type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff",
+            strokeWidth: 4.6,
+            points: periods.map((period) => {
+              const matching = transactions.filter(
+                (transaction) => transaction.type === type && transaction.date >= period.start && transaction.date <= period.end
+              );
+              return {
+                value: sumAmounts(matching),
+                count: matching.length,
+                filters: {
+                  ...baseFilters,
+                  type,
+                  startDate: period.start,
+                  endDate: period.end,
+                },
+              };
+            }),
+          }))
+        : [];
+
+    const combined = [...typeSeries, ...categorySeries];
+    combined.forEach((series) => {
+      series.points.forEach((point, index) => {
+        point.periodTotal = Number(periodTotals[index] || 0);
+      });
+    });
+    return combined;
+  }
+
+  function renderBreakdownLine(dataset, transactions, detailMap, indexPrefix = "") {
+    const periods = buildBreakdownLinePeriods(transactions);
+    const selectedTypes = getSelectedReportTypes();
+    if (!periods.length) {
+      return `<div class="report-pie-visual-wrap report-pie-visual-wrap-wide">${renderEmpty("No timeline data is available for this filtered range yet.")}</div>`;
+    }
+    const periodTotals = periods.map((period) =>
+      sumAmounts(transactions.filter((transaction) => transaction.date >= period.start && transaction.date <= period.end))
+    );
+    const series = buildBreakdownLineSeries(dataset, transactions, periods, periodTotals);
+    if (!series.length) {
+      return `<div class="report-pie-visual-wrap report-pie-visual-wrap-wide">${renderEmpty("No line data is available for this filtered range yet.")}</div>`;
+    }
+    const width = Math.max(420, periods.length * 46);
+    const height = 300;
+    const paddingLeft = 16;
+    const paddingRight = 16;
+    const paddingTop = 12;
+    const paddingBottom = 16;
+    const maxValue = Math.max(...series.flatMap((item) => item.points.map((point) => Number(point.value || 0))), 1);
+    const chartHeight = height - paddingTop - paddingBottom;
+    const chartWidth = width - paddingLeft - paddingRight;
+    const xForIndex = (index) => paddingLeft + (index * chartWidth) / Math.max(periods.length - 1, 1);
+    const yForValue = (value) => paddingTop + chartHeight - (Number(value || 0) / maxValue) * chartHeight;
+
+    const axes = periods
+      .map((period, index) => `<span>${escapeHtml(period.label)}</span>`)
+      .join("");
+
+    const paths = series
+      .map((item, seriesIndex) => {
+        const points = item.points.map((point, index) => `${xForIndex(index).toFixed(2)},${yForValue(point.value).toFixed(2)}`);
+        return `
+          <polyline
+            class="report-line-series ${item.strokeWidth > 4 ? "report-line-series-type" : "report-line-series-category"}"
+            points="${points.join(" ")}"
+            fill="none"
+            stroke="${escapeHtml(item.color)}"
+            stroke-width="${item.strokeWidth}"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></polyline>
+          ${item.points
+            .map((point, pointIndex) => {
+              const detailIndex = `${indexPrefix}line:${seriesIndex}:${pointIndex}`;
+              detailMap.set(detailIndex, buildLinePointDetail(dataset, item, point, periods[pointIndex]));
+              return `
+                <circle
+                  class="report-line-point report-chart-hit ${item.strokeWidth > 4 ? "report-line-point-type" : ""}"
+                  cx="${xForIndex(pointIndex).toFixed(2)}"
+                  cy="${yForValue(point.value).toFixed(2)}"
+                  r="${item.strokeWidth > 4 ? 5.4 : 4.1}"
+                  fill="${escapeHtml(item.color)}"
+                  data-action="show-report-chart-tooltip"
+                  data-index="${detailIndex}"
+                ></circle>
+              `;
+            })
+            .join("")}
+        `;
+      })
+      .join("");
+
+    return `
+      <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
+        <div class="report-breakdown-line-shell">
+          ${renderAmountScale(maxValue, dataset.symbol)}
+          <div class="report-breakdown-line-viewport">
+            <svg class="report-breakdown-line-chart" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(dataset.title)} timeline">
+              <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.12)" stroke-width="1"></line>
+              <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.12)" stroke-width="1"></line>
+              ${paths}
+            </svg>
+          </div>
+          <div class="report-breakdown-line-axis">${axes}</div>
+          ${
+            selectedTypes.length > 1
+              ? `<div class="report-breakdown-line-legend">
+                  ${selectedTypes
+                    .map((type) => {
+                      const color = type === "income" ? "#1ca866" : type === "expense" ? "#d35a5a" : "#2f86ff";
+                      return `<span class="meta-pill neutral report-line-chip"><span class="report-line-chip-swatch" style="background:${escapeHtml(color)}"></span>${escapeHtml(titleCase(type === "expense" ? "expenses" : type))}</span>`;
+                    })
+                    .join("")}
+                </div>`
+              : ""
+          }
+        </div>
+      </div>
+    `;
   }
 
   function renderBreakdownDonut(dataset, detailMap, indexPrefix = "") {
