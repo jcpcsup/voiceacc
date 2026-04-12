@@ -152,6 +152,7 @@ export function createDefaultState() {
         budgetPeriod: "monthly",
       },
     ],
+    counterparties: [],
     transactions: [],
   };
 }

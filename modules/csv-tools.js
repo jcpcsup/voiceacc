@@ -18,6 +18,8 @@ export function createCsvTools(api) {
       subcategory: transaction.subcategory || "",
       tags: (transaction.tags || []).join(", "),
       payeeOrPayer: transaction.counterparty || "",
+      counterpartyId: transaction.counterpartyId || "",
+      counterpartyEffect: transaction.counterpartyEffect || "",
       project: transaction.project || "",
       details: transaction.details || "",
       createdAt: transaction.createdAt || "",
@@ -110,6 +112,8 @@ export function createCsvTools(api) {
         subcategory: "Supermarket",
         tags: "food, home",
         payeeOrPayer: "Walmart",
+        counterpartyId: "",
+        counterpartyEffect: "",
         project: "Home Budget",
         details: "Weekly grocery run",
         createdAt: "2026-03-15T09:00:00.000Z",
@@ -128,6 +132,8 @@ export function createCsvTools(api) {
         subcategory: "Payroll",
         tags: "salary, work",
         payeeOrPayer: "Employer Inc",
+        counterpartyId: "",
+        counterpartyEffect: "",
         project: "",
         details: "Monthly salary deposit",
         createdAt: "2026-03-01T08:00:00.000Z",
@@ -146,6 +152,8 @@ export function createCsvTools(api) {
         subcategory: "",
         tags: "transfer",
         payeeOrPayer: "",
+        counterpartyId: "",
+        counterpartyEffect: "",
         project: "",
         details: "Move funds to mobile wallet",
         createdAt: "2026-03-20T10:15:00.000Z",
@@ -161,7 +169,7 @@ export function createCsvTools(api) {
     if (target === "categories") {
       return "Use this template to bulk-create or update categories and subcategory lists.";
     }
-    return "Transactions CSV can auto-create missing accounts, categories, and subcategories from the name columns. Type, icon, color, currency, and budget fields can be omitted and the app will use inferred or default values.";
+    return "Transactions CSV can auto-create missing accounts, categories, subcategories, and tracked counterparties from the name columns. Type, icon, color, currency, and budget fields can be omitted and the app will use inferred or default values.";
   }
 
   function downloadCsv(filename, rows, announce = true) {

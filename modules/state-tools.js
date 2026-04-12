@@ -32,12 +32,23 @@ export function createStateTools(api) {
         : structuredClone(defaultState.accounts);
     return {
       accounts: normalizedAccounts,
+      counterparties:
+        Array.isArray(parsed.counterparties) && parsed.counterparties.length
+          ? parsed.counterparties.map((counterparty) => ({
+              color: "#6657ca",
+              icon: "briefcase",
+              notes: "",
+              ...counterparty,
+            }))
+          : structuredClone(defaultState.counterparties || []),
       categories:
         Array.isArray(parsed.categories) && parsed.categories.length
           ? parsed.categories
           : structuredClone(defaultState.categories),
       transactions: Array.isArray(parsed.transactions)
         ? parsed.transactions.map((transaction) => ({
+            counterpartyId: "",
+            counterpartyEffect: "",
             slipPath: "",
             slipResolution: "720",
             slipMimeType: "",
@@ -52,6 +63,7 @@ export function createStateTools(api) {
   function replaceState(nextState) {
     const normalized = normalizeState(nextState);
     state.accounts = normalized.accounts;
+    state.counterparties = normalized.counterparties;
     state.categories = normalized.categories;
     state.transactions = normalized.transactions;
   }
@@ -59,6 +71,7 @@ export function createStateTools(api) {
   function buildSerializableState() {
     return {
       accounts: state.accounts,
+      counterparties: state.counterparties,
       categories: state.categories,
       transactions: state.transactions,
     };

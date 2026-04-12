@@ -3,6 +3,7 @@ export function createAccountsCategoriesTools(api) {
     state,
     iconRegistry,
     getAccount,
+    getCounterparty,
     getCategoryUsage,
     getPrimaryCurrencySymbol,
     formatMoney,
@@ -83,15 +84,18 @@ export function createAccountsCategoriesTools(api) {
     const accountPart = state.accounts
       .map((account) => `${account.id}:${Number(account.openingBalance || 0)}:${account.includeInTotalBalance !== false ? 1 : 0}`)
       .join("|");
+    const counterpartyPart = state.counterparties
+      .map((counterparty) => `${counterparty.id}:${counterparty.name}:${counterparty.updatedAt || counterparty.createdAt || ""}`)
+      .join("|");
     const transactionPart = state.transactions
       .map(
         (transaction) =>
           `${transaction.id}:${transaction.updatedAt || transaction.createdAt || ""}:${transaction.type}:${transaction.amount}:${transaction.date}:${
             transaction.accountId || ""
-          }:${transaction.fromAccountId || ""}:${transaction.toAccountId || ""}:${transaction.categoryId || ""}`
+          }:${transaction.fromAccountId || ""}:${transaction.toAccountId || ""}:${transaction.categoryId || ""}:${transaction.counterpartyId || ""}:${transaction.counterpartyEffect || ""}`
       )
       .join("|");
-    return `${monthAnchor}::${accountPart}::${transactionPart}`;
+    return `${monthAnchor}::${accountPart}::${counterpartyPart}::${transactionPart}`;
   }
 
   function primeAccountMaps(snapshot, accountId, openingBalance) {
@@ -179,6 +183,71 @@ export function createAccountsCategoriesTools(api) {
     snapshot.currentMonthByCategory.get(categoryId)[dayIndex].value += Number(amount || 0);
   }
 
+  function primeCounterpartyMaps(snapshot, counterpartyId) {
+    if (!counterpartyId) {
+      return;
+    }
+    if (!snapshot.receivableByCounterparty.has(counterpartyId)) {
+      snapshot.receivableByCounterparty.set(counterpartyId, 0);
+      snapshot.payableByCounterparty.set(counterpartyId, 0);
+      snapshot.netCarryByCounterparty.set(counterpartyId, 0);
+      snapshot.monthNetDeltaByCounterparty.set(counterpartyId, Array.from({ length: snapshot.months.length }, () => 0));
+      snapshot.monthlySeriesByCounterparty.set(counterpartyId, []);
+      snapshot.countByCounterparty.set(counterpartyId, 0);
+      snapshot.lastActivityByCounterparty.set(counterpartyId, "");
+    }
+  }
+
+  function applyCounterpartyAggregate(snapshot, counterpartyId, effect, amount, transactionDate) {
+    if (!counterpartyId || !effect || !amount) {
+      return;
+    }
+    primeCounterpartyMaps(snapshot, counterpartyId);
+    let receivableDelta = 0;
+    let payableDelta = 0;
+    let netDelta = 0;
+    if (effect === "receivableIncrease") {
+      receivableDelta = amount;
+      netDelta = amount;
+    }
+    if (effect === "receivableDecrease") {
+      receivableDelta = -amount;
+      netDelta = -amount;
+    }
+    if (effect === "payableIncrease") {
+      payableDelta = amount;
+      netDelta = -amount;
+    }
+    if (effect === "payableDecrease") {
+      payableDelta = -amount;
+      netDelta = amount;
+    }
+    snapshot.receivableByCounterparty.set(
+      counterpartyId,
+      Number(snapshot.receivableByCounterparty.get(counterpartyId) || 0) + receivableDelta
+    );
+    snapshot.payableByCounterparty.set(
+      counterpartyId,
+      Number(snapshot.payableByCounterparty.get(counterpartyId) || 0) + payableDelta
+    );
+    snapshot.countByCounterparty.set(counterpartyId, Number(snapshot.countByCounterparty.get(counterpartyId) || 0) + 1);
+    if (transactionDate && String(transactionDate).localeCompare(String(snapshot.lastActivityByCounterparty.get(counterpartyId) || "")) > 0) {
+      snapshot.lastActivityByCounterparty.set(counterpartyId, transactionDate);
+    }
+    if (!transactionDate) {
+      return;
+    }
+    const monthIndex = snapshot.monthIndexByKey.get(transactionDate.slice(0, 7));
+    if (monthIndex !== undefined) {
+      snapshot.monthNetDeltaByCounterparty.get(counterpartyId)[monthIndex] += netDelta;
+    } else if (transactionDate < snapshot.firstTrackedMonthIso) {
+      snapshot.netCarryByCounterparty.set(
+        counterpartyId,
+        Number(snapshot.netCarryByCounterparty.get(counterpartyId) || 0) + netDelta
+      );
+    }
+  }
+
   function buildAggregateSnapshot() {
     const months = getTrailingMonths(12);
     const now = new Date();
@@ -213,6 +282,13 @@ export function createAccountsCategoriesTools(api) {
       allTimeSeriesByAccount: new Map(),
       monthlyByCategory: new Map(),
       currentMonthByCategory: new Map(),
+      receivableByCounterparty: new Map(),
+      payableByCounterparty: new Map(),
+      netCarryByCounterparty: new Map(),
+      monthNetDeltaByCounterparty: new Map(),
+      monthlySeriesByCounterparty: new Map(),
+      countByCounterparty: new Map(),
+      lastActivityByCounterparty: new Map(),
       totals: {
         balance: 0,
         monthIncome: 0,
@@ -221,11 +297,17 @@ export function createAccountsCategoriesTools(api) {
         weekExpense: 0,
         dayIncome: 0,
         dayExpense: 0,
+        receivable: 0,
+        payable: 0,
+        counterpartyNet: 0,
       },
     };
 
     state.accounts.forEach((account) => {
       primeAccountMaps(snapshot, account.id, account.openingBalance || 0);
+    });
+    state.counterparties.forEach((counterparty) => {
+      primeCounterpartyMaps(snapshot, counterparty.id);
     });
 
     const thisWeek = getCurrentWeekRange();
@@ -291,6 +373,7 @@ export function createAccountsCategoriesTools(api) {
       if (transaction.date >= thisMonth.start && transaction.date <= today) {
         addCategoryCurrentMonthAmount(snapshot, transaction.categoryId, amount, transaction.date, today);
       }
+      applyCounterpartyAggregate(snapshot, transaction.counterpartyId, transaction.counterpartyEffect, amount, transaction.date);
 
       if (transaction.date === today) {
         if (transaction.type === "income") {
@@ -362,6 +445,25 @@ export function createAccountsCategoriesTools(api) {
         snapshot.totals.balance += Number(snapshot.balanceByAccount.get(accountId) || 0);
       }
     });
+
+    state.counterparties.forEach((counterparty) => {
+      const counterpartyId = counterparty.id;
+      let runningNet = Number(snapshot.netCarryByCounterparty.get(counterpartyId) || 0);
+      const deltas = snapshot.monthNetDeltaByCounterparty.get(counterpartyId) || Array.from({ length: months.length }, () => 0);
+      snapshot.monthlySeriesByCounterparty.set(
+        counterpartyId,
+        snapshot.months.map((month, index) => {
+          runningNet += Number(deltas[index] || 0);
+          return {
+            label: month.label,
+            value: runningNet,
+          };
+        })
+      );
+      snapshot.totals.receivable += Number(snapshot.receivableByCounterparty.get(counterpartyId) || 0);
+      snapshot.totals.payable += Number(snapshot.payableByCounterparty.get(counterpartyId) || 0);
+    });
+    snapshot.totals.counterpartyNet = snapshot.totals.receivable - snapshot.totals.payable;
 
     return snapshot;
   }
@@ -461,6 +563,34 @@ export function createAccountsCategoriesTools(api) {
     return { ...getAggregateSnapshot().totals };
   }
 
+  function getCounterpartyLedgerStats(counterpartyId) {
+    const snapshot = getAggregateSnapshot();
+    const receivable = Number(snapshot.receivableByCounterparty.get(counterpartyId) || 0);
+    const payable = Number(snapshot.payableByCounterparty.get(counterpartyId) || 0);
+    return {
+      receivable,
+      payable,
+      net: receivable - payable,
+      count: Number(snapshot.countByCounterparty.get(counterpartyId) || 0),
+      lastActivity: String(snapshot.lastActivityByCounterparty.get(counterpartyId) || ""),
+      series:
+        snapshot.monthlySeriesByCounterparty.get(counterpartyId) ||
+        snapshot.months.map((month) => ({
+          label: month.label,
+          value: 0,
+        })),
+    };
+  }
+
+  function getCounterpartyLedgerMetrics() {
+    const snapshot = getAggregateSnapshot();
+    return {
+      receivable: Number(snapshot.totals.receivable || 0),
+      payable: Number(snapshot.totals.payable || 0),
+      net: Number(snapshot.totals.counterpartyNet || 0),
+    };
+  }
+
   function renderAccountCard(account, manageMode) {
     const balance = getAccountBalance(account.id);
     const flow = getAccountFlow(account.id);
@@ -520,6 +650,67 @@ export function createAccountsCategoriesTools(api) {
             <span class="meta-pill neutral meta-pill-icon icon-income account-flow-pill">${iconRegistry["arrow-up"]}<span>${formatMoney(flow.incoming, accountSymbol)}</span></span>
             <span class="meta-pill neutral meta-pill-icon icon-expense account-flow-pill">${iconRegistry["arrow-down"]}<span>${formatMoney(flow.outgoing, accountSymbol)}</span></span>
           </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCounterpartyCard(counterparty, manageMode) {
+    const stats = getCounterpartyLedgerStats(counterparty.id);
+    const symbol = getPrimaryCurrencySymbol();
+    const themeColor =
+      stats.receivable > stats.payable
+        ? counterparty.color || "#6657ca"
+        : stats.payable > stats.receivable
+          ? "#b25d49"
+          : counterparty.color || "#6657ca";
+    const ledgerLabel =
+      stats.receivable > 0 && stats.payable > 0
+        ? "Mixed"
+        : stats.receivable > 0
+          ? "Receivable"
+          : stats.payable > 0
+            ? "Payable"
+            : "Tracked";
+    return `
+      <article class="counterparty-card" style="--card-color:${escapeHtml(counterparty.color || "#6657ca")}">
+        <div class="flash-card-top">
+          <div class="card-icon">${iconRegistry[counterparty.icon] || iconRegistry.briefcase}</div>
+          <div class="account-top-controls">
+            <div class="account-order-row">
+              <span class="meta-pill neutral">${escapeHtml(ledgerLabel)}</span>
+              ${
+                stats.lastActivity
+                  ? `<span class="meta-pill neutral">Last activity | ${escapeHtml(stats.lastActivity)}</span>`
+                  : ""
+              }
+            </div>
+            ${
+              manageMode
+                ? `<div class="account-icon-actions">
+                    <button class="ghost-button compact-button" type="button" data-action="open-counterparty-ledger" data-id="${escapeHtml(counterparty.id)}">View Ledger</button>
+                    <button class="icon-button account-manage-icon" type="button" data-action="edit-counterparty" data-id="${escapeHtml(counterparty.id)}" aria-label="Edit counterparty">
+                      ${iconRegistry.pen}
+                    </button>
+                    <button class="icon-button account-manage-icon delete" type="button" data-action="delete-counterparty" data-id="${escapeHtml(counterparty.id)}" aria-label="Delete counterparty">
+                      ${iconRegistry.bin}
+                    </button>
+                  </div>`
+                : ""
+            }
+          </div>
+        </div>
+        <h3>${escapeHtml(counterparty.name)}</h3>
+        <strong class="money account-balance">${formatMoney(stats.net, symbol)}</strong>
+        <p class="supporting-text">Net position across tracked assets and liabilities</p>
+        ${renderMiniTrendChart(stats.series, themeColor, "12M Net", formatMoney(stats.net, symbol))}
+        <div class="account-card-footer">
+          <div class="transaction-tags compact-tags">
+            <span class="meta-pill neutral counterparty-flow-pill counterparty-flow-pill-asset">Receivable | ${formatMoney(stats.receivable, symbol)}</span>
+            <span class="meta-pill neutral counterparty-flow-pill counterparty-flow-pill-liability">Payable | ${formatMoney(stats.payable, symbol)}</span>
+            <span class="meta-pill neutral">Bills | ${escapeHtml(String(stats.count))}</span>
+          </div>
+          ${counterparty.notes ? `<p class="supporting-text counterparty-notes">${escapeHtml(counterparty.notes)}</p>` : ""}
         </div>
       </article>
     `;
@@ -615,10 +806,13 @@ export function createAccountsCategoriesTools(api) {
     getAccountBalanceAtDate,
     getCategoryMonthlySeries,
     getCategoryCurrentMonthSeries,
+    getCounterpartyLedgerStats,
+    getCounterpartyLedgerMetrics,
     getCurrentWeekRange,
     getTransactionsForPreset,
     getGlobalMetrics,
     renderAccountCard,
+    renderCounterpartyCard,
     renderCategoryItem,
     renderCategoryGroup,
     renderHeroAccountPill,

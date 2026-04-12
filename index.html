@@ -272,6 +272,17 @@
             <div class="metric-grid" id="account-metrics"></div>
             <div class="account-grid large-grid" id="account-list"></div>
           </section>
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Subledger</p>
+                <h2>Assets &amp; Liabilities</h2>
+              </div>
+              <button class="ghost-button" type="button" data-open-counterparty-modal>New Counterparty</button>
+            </div>
+            <div class="metric-grid" id="counterparty-metrics"></div>
+            <div class="account-grid large-grid" id="counterparty-list"></div>
+          </section>
         </section>
 
         <section class="screen" data-screen="reports">
@@ -597,6 +608,20 @@
               <input id="transaction-project" type="text" list="transaction-project-options" placeholder="Tap to choose or type a project" readonly data-smart-picker-field="project" />
               <datalist id="transaction-project-options"></datalist>
             </div>
+            <div class="field-group" id="field-tracked-counterparty">
+              <label class="field-label" for="transaction-tracked-counterparty">Tracked Counterparty</label>
+              <select id="transaction-tracked-counterparty"></select>
+            </div>
+            <div class="field-group" id="field-counterparty-effect">
+              <label class="field-label" for="transaction-counterparty-effect">Asset / Liability Impact</label>
+              <select id="transaction-counterparty-effect">
+                <option value="">No tracking impact</option>
+                <option value="receivableIncrease">Increase receivable</option>
+                <option value="receivableDecrease">Decrease receivable</option>
+                <option value="payableIncrease">Increase payable</option>
+                <option value="payableDecrease">Decrease payable</option>
+              </select>
+            </div>
             <div class="field-group field-span-2 transaction-slip-field">
               <div class="transaction-slip-copy">
                 <label class="field-label" for="transaction-slip-file">Slip Image</label>
@@ -737,6 +762,55 @@
           <div class="modal-actions">
             <button class="secondary-button" type="button" data-close-modal="account-modal">Cancel</button>
             <button class="primary-button" type="submit">Save Account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="counterparty-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="counterparty-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Assets &amp; Liabilities</p>
+            <h2 id="counterparty-modal-title">Add Counterparty</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="counterparty-modal" aria-label="Close">
+            X
+          </button>
+        </div>
+        <form id="counterparty-form">
+          <input id="counterparty-id" type="hidden" />
+          <div class="form-grid">
+            <div class="field-group">
+              <label class="field-label" for="counterparty-name">Counterparty Name</label>
+              <input id="counterparty-name" type="text" required />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="counterparty-icon">Icon</label>
+              <select id="counterparty-icon">
+                <option value="briefcase">Briefcase</option>
+                <option value="wallet">Wallet</option>
+                <option value="cash">Cash</option>
+                <option value="bank">Bank</option>
+                <option value="card">Card</option>
+                <option value="safe">Safe</option>
+                <option value="gift">Gift</option>
+                <option value="home">Home</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="counterparty-color">Theme Color</label>
+              <input id="counterparty-color" type="color" value="#6657ca" />
+            </div>
+            <div class="field-group field-span-2">
+              <label class="field-label" for="counterparty-notes">Notes</label>
+              <textarea id="counterparty-notes" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="counterparty-modal">Cancel</button>
+            <button class="primary-button" type="submit">Save Counterparty</button>
           </div>
         </form>
       </div>

@@ -42,6 +42,18 @@ create table if not exists public.categories (
   primary key (user_id, id)
 );
 
+create table if not exists public.counterparties (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  name text not null,
+  icon text not null default 'briefcase',
+  color text not null default '#6657ca',
+  notes text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, id)
+);
+
 create table if not exists public.transactions (
   user_id uuid not null references auth.users (id) on delete cascade,
   id text not null,
@@ -54,6 +66,8 @@ create table if not exists public.transactions (
   category_id text null,
   subcategory text not null default '',
   counterparty text not null default '',
+  counterparty_id text not null default '',
+  counterparty_effect text not null default '',
   project text not null default '',
   tags text[] not null default '{}',
   details text not null default '',
@@ -68,6 +82,7 @@ create table if not exists public.transactions (
 
 create index if not exists accounts_user_id_idx on public.accounts (user_id);
 create index if not exists categories_user_id_idx on public.categories (user_id);
+create index if not exists counterparties_user_id_idx on public.counterparties (user_id);
 create index if not exists transactions_user_id_idx on public.transactions (user_id);
 create index if not exists transactions_user_id_date_idx on public.transactions (user_id, transaction_date desc);
 
@@ -82,6 +97,12 @@ add column if not exists slip_mime_type text not null default '';
 
 alter table public.transactions
 add column if not exists slip_updated_at timestamptz null;
+
+alter table public.transactions
+add column if not exists counterparty_id text not null default '';
+
+alter table public.transactions
+add column if not exists counterparty_effect text not null default '';
 
 alter table public.accounts
 add column if not exists include_in_total_balance boolean not null default true;
@@ -101,6 +122,12 @@ before update on public.categories
 for each row
 execute function public.set_row_updated_at();
 
+drop trigger if exists counterparties_set_updated_at on public.counterparties;
+create trigger counterparties_set_updated_at
+before update on public.counterparties
+for each row
+execute function public.set_row_updated_at();
+
 drop trigger if exists transactions_set_updated_at on public.transactions;
 create trigger transactions_set_updated_at
 before update on public.transactions
@@ -109,6 +136,7 @@ execute function public.set_row_updated_at();
 
 alter table public.accounts enable row level security;
 alter table public.categories enable row level security;
+alter table public.counterparties enable row level security;
 alter table public.transactions enable row level security;
 
 drop policy if exists "accounts_select_own" on public.accounts;
@@ -165,6 +193,35 @@ with check (auth.uid() = user_id);
 drop policy if exists "categories_delete_own" on public.categories;
 create policy "categories_delete_own"
 on public.categories
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "counterparties_select_own" on public.counterparties;
+create policy "counterparties_select_own"
+on public.counterparties
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "counterparties_insert_own" on public.counterparties;
+create policy "counterparties_insert_own"
+on public.counterparties
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "counterparties_update_own" on public.counterparties;
+create policy "counterparties_update_own"
+on public.counterparties
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "counterparties_delete_own" on public.counterparties;
+create policy "counterparties_delete_own"
+on public.counterparties
 for delete
 to authenticated
 using (auth.uid() = user_id);

@@ -867,7 +867,8 @@ body.app-locked .app-shell {
 }
 
 @media (min-width: 721px) {
-  #account-list.account-grid {
+  #account-list.account-grid,
+  #counterparty-list.account-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -885,6 +886,7 @@ body.app-locked .app-shell {
 }
 
 .account-card,
+.counterparty-card,
 .metric-card,
 .budget-item,
 .transaction-item,
@@ -899,7 +901,8 @@ body.app-locked .app-shell {
   background: var(--panel-strong);
 }
 
-.account-card {
+.account-card,
+.counterparty-card {
   padding: 16px 18px;
   min-height: 150px;
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -994,6 +997,10 @@ body.app-locked .app-shell {
   margin-top: 10px;
 }
 
+.counterparty-notes {
+  font-size: 0.84rem;
+}
+
 .account-top-controls {
   display: grid;
   gap: 10px;
@@ -1047,6 +1054,7 @@ body.app-locked .app-shell {
 }
 
 .account-card:hover,
+.counterparty-card:hover,
 .transaction-item:hover,
 .category-item:hover {
   transform: translateY(-2px);
@@ -1054,6 +1062,7 @@ body.app-locked .app-shell {
 }
 
 .account-card::before,
+.counterparty-card::before,
 .category-item::before {
   content: "";
   position: absolute;
@@ -1096,12 +1105,19 @@ body.app-locked .app-shell {
   line-height: 1.05;
 }
 
+.counterparty-card h3 {
+  margin: 2px 0 0;
+  font-size: 1.2rem;
+  line-height: 1.08;
+}
+
 .category-item h3 {
   margin: 2px 0 0;
   font-size: 1.08rem;
 }
 
 .account-card p,
+.counterparty-card p,
 .category-item p,
 .supporting-text,
 .mini-table p,
@@ -1832,6 +1848,10 @@ textarea:focus {
   gap: 12px;
 }
 
+.counterparty-card .compact-tags {
+  gap: 10px;
+}
+
 .account-flow-pill {
   padding: 12px 18px;
   font-size: 1rem;
@@ -1847,6 +1867,20 @@ textarea:focus {
 .account-flow-pill span:last-child {
   font-size: 1rem;
   line-height: 1.2;
+}
+
+.counterparty-flow-pill {
+  font-weight: 700;
+}
+
+.counterparty-flow-pill-asset {
+  color: #129f70;
+  background: rgba(18, 159, 112, 0.12);
+}
+
+.counterparty-flow-pill-liability {
+  color: #b25d49;
+  background: rgba(178, 93, 73, 0.12);
 }
 
 .flash-card-top {

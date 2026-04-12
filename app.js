@@ -21,6 +21,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjcGlsc3h5cnN3d2hqeWFlbnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMDc3MzEsImV4cCI6MjA4OTY4MzczMX0.kxQhwsH1InTmLCrKIhBw93pI2ALf_iVcTowqvR_zYco";
   const SUPABASE_ACCOUNTS_TABLE = "accounts";
   const SUPABASE_CATEGORIES_TABLE = "categories";
+  const SUPABASE_COUNTERPARTIES_TABLE = "counterparties";
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const SUPABASE_TRANSACTION_SLIPS_BUCKET = "transaction-slips";
@@ -45,6 +46,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   };
   const state = {
     accounts: [],
+    counterparties: [],
     categories: [],
     transactions: [],
   };
@@ -180,12 +182,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     getTrailingMonths,
     getGlobalMetrics,
     renderAccountCard,
+    getCounterpartyLedgerStats,
+    getCounterpartyLedgerMetrics,
+    renderCounterpartyCard,
     renderCategoryGroup,
     renderHeroAccountPill,
   } = createAccountsCategoriesTools({
     state,
     iconRegistry,
     getAccount,
+    getCounterparty,
     getCategory,
     getCategoryUsage: (categoryId) => getBudgetStatus().find((item) => item.category.id === categoryId),
     getPrimaryCurrencySymbol,
@@ -268,10 +274,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     closeModal,
     openTransactionModal,
     openAccountModal,
+    openCounterpartyModal,
     openCategoryModal,
     handleTransactionSubmit,
     setTransactionSubmitMode,
     handleAccountSubmit,
+    handleCounterpartySubmit,
     handleCategorySubmit,
     handleImportSubmit,
     handleImportReconciliationImportAll,
@@ -298,6 +306,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     },
     getTransaction,
     getAccount,
+    getCounterparty,
     getCategory,
     findAccountId,
     findCategoryId,
@@ -368,6 +377,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       SUPABASE_ANON_KEY,
       SUPABASE_ACCOUNTS_TABLE,
       SUPABASE_CATEGORIES_TABLE,
+      SUPABASE_COUNTERPARTIES_TABLE,
       SUPABASE_TRANSACTIONS_TABLE,
       SUPABASE_LEGACY_STATE_TABLE,
       SUPABASE_TRANSACTION_SLIPS_BUCKET,
@@ -434,6 +444,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.querySelectorAll("[data-open-account-modal]").forEach((button) => {
       button.addEventListener("click", () => openAccountModal());
     });
+    document.querySelectorAll("[data-open-counterparty-modal]").forEach((button) => {
+      button.addEventListener("click", () => openCounterpartyModal());
+    });
 
     document.querySelectorAll("[data-close-modal]").forEach((button) => {
       button.addEventListener("click", () => closeModal(button.dataset.closeModal));
@@ -460,8 +473,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       applyLatestTransactionSelection("subcategory", event.target.value);
     });
     document.getElementById("transaction-counterparty").addEventListener("change", (event) => {
+      syncTrackedCounterpartySelection();
       applyLatestTransactionSelection("counterparty", event.target.value);
     });
+    document.getElementById("transaction-tracked-counterparty").addEventListener("change", syncTrackedCounterpartySelection);
     document.getElementById("transaction-project").addEventListener("change", (event) => {
       applyLatestTransactionSelection("project", event.target.value);
     });
@@ -489,6 +504,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
     document.getElementById("transaction-form").addEventListener("submit", handleTransactionSubmit);
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
+    document.getElementById("counterparty-form").addEventListener("submit", handleCounterpartySubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
     document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
@@ -1454,6 +1470,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       categoryId: type === "transfer" ? "" : document.getElementById("transaction-category").value || "",
       subcategory: type === "transfer" ? "" : document.getElementById("transaction-subcategory").value.trim(),
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
+      counterpartyId: type === "transfer" ? "" : document.getElementById("transaction-tracked-counterparty").value || "",
+      counterpartyEffect: type === "transfer" ? "" : document.getElementById("transaction-counterparty-effect").value || "",
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
       details: document.getElementById("transaction-details").value.trim(),
@@ -1477,6 +1495,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-category").value = draft.categoryId || "";
     document.getElementById("transaction-subcategory").value = draft.subcategory || "";
     document.getElementById("transaction-counterparty").value = draft.counterparty || "";
+    document.getElementById("transaction-tracked-counterparty").value = draft.counterpartyId || "";
+    document.getElementById("transaction-counterparty-effect").value = draft.counterpartyEffect || "";
     document.getElementById("transaction-project").value = draft.project || "";
     document.getElementById("transaction-tags").value = Array.isArray(draft.tags) ? draft.tags.join(", ") : "";
     document.getElementById("transaction-details").value = draft.details || "";
@@ -1486,6 +1506,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!draft.amount && draft.details) {
       syncTransactionAmountFromDetails();
     }
+    syncTrackedCounterpartySelection();
     setTransactionTemplatePanelExpanded(false);
   }
 
@@ -1508,6 +1529,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       category: type === "transfer" ? "" : String(document.getElementById("transaction-category")?.value || "").trim(),
       subcategory: type === "transfer" ? "" : String(document.getElementById("transaction-subcategory")?.value || "").trim(),
       counterparty: String(document.getElementById("transaction-counterparty")?.value || "").trim(),
+      trackedCounterparty: String(document.getElementById("transaction-tracked-counterparty")?.value || "").trim(),
+      counterpartyEffect: String(document.getElementById("transaction-counterparty-effect")?.value || "").trim(),
       project: String(document.getElementById("transaction-project")?.value || "").trim(),
       tags: String(document.getElementById("transaction-tags")?.value || "").trim(),
       details: String(document.getElementById("transaction-details")?.value || "").trim(),
@@ -1518,6 +1541,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       category: ["category"],
       subcategory: ["subcategory"],
       counterparty: ["counterparty"],
+      trackedCounterparty: ["counterparty"],
+      counterpartyEffect: ["counterparty"],
       project: ["project"],
     };
     const ignoredKeys = new Set(fieldKeyMap[ignored] || []);
@@ -2284,6 +2309,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (action === "delete-account") {
       deleteAccount(id);
     }
+    if (action === "edit-counterparty") {
+      openCounterpartyModal(id);
+    }
+    if (action === "delete-counterparty") {
+      deleteCounterparty(id);
+    }
+    if (action === "open-counterparty-ledger") {
+      openCounterpartyLedger(id);
+    }
     if (action === "move-account-up") {
       moveAccount(id, -1);
     }
@@ -2734,6 +2768,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       incoming: getAccountFlow(account.id).incoming,
       outgoing: getAccountFlow(account.id).outgoing,
     }));
+    const counterpartyMetrics = getCounterpartyLedgerMetrics();
+    const rankedCounterparties = state.counterparties
+      .slice()
+      .sort((left, right) => {
+        const leftStats = getCounterpartyLedgerStats(left.id);
+        const rightStats = getCounterpartyLedgerStats(right.id);
+        const leftExposure = Math.max(Math.abs(leftStats.receivable), Math.abs(leftStats.payable), Math.abs(leftStats.net));
+        const rightExposure = Math.max(Math.abs(rightStats.receivable), Math.abs(rightStats.payable), Math.abs(rightStats.net));
+        if (rightExposure !== leftExposure) {
+          return rightExposure - leftExposure;
+        }
+        if ((rightStats.lastActivity || "") !== (leftStats.lastActivity || "")) {
+          return String(rightStats.lastActivity || "").localeCompare(String(leftStats.lastActivity || ""));
+        }
+        return left.name.localeCompare(right.name);
+      });
     document.getElementById("account-metrics").innerHTML = [
       metricCard("Active Accounts", String(state.accounts.length), "Track cash, bank, wallet, and savings"),
       metricCard(
@@ -2756,6 +2806,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("account-list").innerHTML = state.accounts.length
       ? state.accounts.map((account) => renderAccountCard(account, true)).join("")
       : renderEmpty("Create your first account to unlock transfers and balance tracking.");
+
+    document.getElementById("counterparty-metrics").innerHTML = [
+      metricCard("Tracked Counterparties", String(state.counterparties.length), "Canonical payees and payers linked to receivables and payables"),
+      metricCard("Receivables", formatMoney(counterpartyMetrics.receivable, baseSymbol), "Amounts owed back to you"),
+      metricCard("Payables", formatMoney(counterpartyMetrics.payable, baseSymbol), "Amounts you still owe"),
+      metricCard("Net Exposure", formatMoney(counterpartyMetrics.net, baseSymbol), "Receivables minus payables"),
+    ].join("");
+    document.getElementById("counterparty-list").innerHTML = rankedCounterparties.length
+      ? rankedCounterparties.map((counterparty) => renderCounterpartyCard(counterparty, true)).join("")
+      : renderEmpty("Create a tracked counterparty to monitor receivables and payables from selected payees or payers.");
   }
 
   function renderCategories() {
@@ -2814,6 +2874,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     populateAccountSelect(document.getElementById("transaction-from-account"), false, "Select source");
     populateAccountSelect(document.getElementById("transaction-to-account"), false, "Select destination");
     populateCategorySelect(document.getElementById("transaction-category"), false, "Optional category");
+    populateCounterpartySelect(document.getElementById("transaction-tracked-counterparty"), false, "Use payee / payer text");
 
     renderTransactionSmartFieldOptions();
   }
@@ -2857,6 +2918,29 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     categories.forEach((category) => {
       options.push(`<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`);
     });
+    select.innerHTML = options.join("");
+    if ([...select.options].some((option) => option.value === current)) {
+      select.value = current;
+    }
+  }
+
+  function populateCounterpartySelect(select, includeAll, placeholder) {
+    if (!select) {
+      return;
+    }
+    const current = select.value;
+    const options = [];
+    if (includeAll) {
+      options.push('<option value="all">All Counterparties</option>');
+    } else {
+      options.push(`<option value="">${placeholder || "Select counterparty"}</option>`);
+    }
+    state.counterparties
+      .slice()
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .forEach((counterparty) => {
+        options.push(`<option value="${escapeHtml(counterparty.id)}">${escapeHtml(counterparty.name)}</option>`);
+      });
     select.innerHTML = options.join("");
     if ([...select.options].some((option) => option.value === current)) {
       select.value = current;
@@ -2963,6 +3047,29 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       document.getElementById("transaction-project-options"),
       getRankedTransactionValueSuggestions("project", type, categoryId, subcategory)
     );
+  }
+
+  function syncTrackedCounterpartySelection() {
+    const trackedField = document.getElementById("transaction-tracked-counterparty");
+    const counterpartyField = document.getElementById("transaction-counterparty");
+    if (!trackedField || !counterpartyField) {
+      return;
+    }
+    const typedName = counterpartyField.value.trim().toLowerCase();
+    if (trackedField.value) {
+      const linked = getCounterparty(trackedField.value);
+      if (linked && !counterpartyField.value.trim()) {
+        counterpartyField.value = linked.name;
+      }
+      return;
+    }
+    if (!typedName) {
+      return;
+    }
+    const match = state.counterparties.find((entry) => entry.name.trim().toLowerCase() === typedName);
+    if (match) {
+      trackedField.value = match.id;
+    }
   }
 
   function populateRankedDatalist(datalist, values) {
@@ -3324,6 +3431,37 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
+  function openCounterpartyLedger(id) {
+    const counterparty = getCounterparty(id);
+    if (!counterparty) {
+      return;
+    }
+    uiState.filters.counterparty = counterparty.name;
+    uiState.transactionPage = 1;
+    switchScreen("transactions");
+    renderTransactions();
+    showToast(`Showing ledger entries for ${counterparty.name}.`);
+  }
+
+  function deleteCounterparty(id) {
+    const linked = state.transactions.some((transaction) => transaction.counterpartyId === id);
+    if (linked) {
+      showToast("This counterparty is already linked to tracked transactions.");
+      return;
+    }
+    openConfirmModal({
+      eyebrow: "Delete",
+      title: "Delete this counterparty?",
+      message: "This tracked payee or payer will be removed permanently.",
+      submitLabel: "Delete",
+      onConfirm: () => {
+        state.counterparties = state.counterparties.filter((counterparty) => counterparty.id !== id);
+        persistAndRefresh();
+        showToast("Counterparty deleted.");
+      },
+    });
+  }
+
   function deleteCategory(id) {
     const linked = state.transactions.some((transaction) => transaction.categoryId === id);
     if (linked) {
@@ -3573,6 +3711,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function getCategory(id) {
     return state.categories.find((category) => category.id === id);
+  }
+
+  function getCounterparty(id) {
+    return state.counterparties.find((counterparty) => counterparty.id === id);
   }
 
   function getTransaction(id) {

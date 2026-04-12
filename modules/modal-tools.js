@@ -9,6 +9,7 @@ export function createModalTools(api) {
     syncTransactionTemplateUi,
     getTransaction,
     getAccount,
+    getCounterparty,
     getCategory,
     findAccountId,
     findCategoryId,
@@ -50,6 +51,8 @@ export function createModalTools(api) {
     document.getElementById("transaction-account").closest(".field-group").classList.toggle("hidden", isTransfer);
     document.getElementById("transaction-category").closest(".field-group").classList.toggle("hidden", isTransfer);
     document.getElementById("transaction-subcategory").closest(".field-group").classList.toggle("hidden", isTransfer);
+    document.getElementById("field-tracked-counterparty").classList.toggle("hidden", isTransfer);
+    document.getElementById("field-counterparty-effect").classList.toggle("hidden", isTransfer);
   }
 
   function syncCategoryBudgetState() {
@@ -413,6 +416,26 @@ export function createModalTools(api) {
     openModal("category-modal");
   }
 
+  function openCounterpartyModal(counterpartyId) {
+    const form = document.getElementById("counterparty-form");
+    form.reset();
+    document.getElementById("counterparty-id").value = counterpartyId || "";
+    document.getElementById("counterparty-modal-title").textContent = counterpartyId ? "Edit Counterparty" : "Add Counterparty";
+    document.getElementById("counterparty-color").value = "#6657ca";
+    document.getElementById("counterparty-icon").value = "briefcase";
+    if (counterpartyId) {
+      const counterparty = getCounterparty(counterpartyId);
+      if (!counterparty) {
+        return;
+      }
+      document.getElementById("counterparty-name").value = counterparty.name || "";
+      document.getElementById("counterparty-icon").value = counterparty.icon || "briefcase";
+      document.getElementById("counterparty-color").value = counterparty.color || "#6657ca";
+      document.getElementById("counterparty-notes").value = counterparty.notes || "";
+    }
+    openModal("counterparty-modal");
+  }
+
   function applyTransactionToForm(transaction) {
     document.getElementById("transaction-type").value = transaction.type || "expense";
     document.getElementById("transaction-amount").value = transaction.amount ?? "";
@@ -424,6 +447,8 @@ export function createModalTools(api) {
     renderSubcategoryOptions();
     document.getElementById("transaction-subcategory").value = transaction.subcategory || "";
     document.getElementById("transaction-counterparty").value = transaction.counterparty || "";
+    document.getElementById("transaction-tracked-counterparty").value = transaction.counterpartyId || "";
+    document.getElementById("transaction-counterparty-effect").value = transaction.counterpartyEffect || "";
     document.getElementById("transaction-project").value = transaction.project || "";
     document.getElementById("transaction-tags").value = (transaction.tags || []).join(", ");
     document.getElementById("transaction-details").value = transaction.details || "";
@@ -452,6 +477,39 @@ export function createModalTools(api) {
     }, 20);
   }
 
+  function findCounterpartyByName(name) {
+    const normalizedName = String(name || "").trim().toLowerCase();
+    if (!normalizedName) {
+      return null;
+    }
+    return state.counterparties.find((counterparty) => String(counterparty.name || "").trim().toLowerCase() === normalizedName) || null;
+  }
+
+  function ensureTrackedCounterparty(name, existingId = "") {
+    const trimmedName = titleCase(String(name || "").trim());
+    if (existingId && getCounterparty(existingId)) {
+      return existingId;
+    }
+    if (!trimmedName) {
+      return "";
+    }
+    const existing = findCounterpartyByName(trimmedName);
+    if (existing) {
+      return existing.id;
+    }
+    const payload = {
+      id: uid("cp"),
+      name: trimmedName,
+      icon: "briefcase",
+      color: "#6657ca",
+      notes: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    state.counterparties.push(payload);
+    return payload.id;
+  }
+
   async function handleTransactionSubmit(event) {
     event.preventDefault();
     const saveAndNew = transactionSubmitMode === "save-new";
@@ -473,6 +531,8 @@ export function createModalTools(api) {
       categoryId: type === "transfer" ? "" : document.getElementById("transaction-category").value,
       subcategory: type === "transfer" ? "" : rawSubcategory,
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
+      counterpartyId: type === "transfer" ? "" : document.getElementById("transaction-tracked-counterparty").value,
+      counterpartyEffect: type === "transfer" ? "" : document.getElementById("transaction-counterparty-effect").value,
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
       details,
@@ -503,6 +563,20 @@ export function createModalTools(api) {
     } else if (!payload.accountId) {
       showToast("Choose an account for this transaction.");
       return;
+    }
+
+    if (payload.counterpartyEffect) {
+      payload.counterpartyId = ensureTrackedCounterparty(payload.counterparty || getCounterparty(payload.counterpartyId)?.name || "", payload.counterpartyId);
+      if (!payload.counterpartyId) {
+        showToast("Choose or type a payee / payer before tracking assets or liabilities.");
+        return;
+      }
+      if (!payload.counterparty) {
+        payload.counterparty = getCounterparty(payload.counterpartyId)?.name || "";
+      }
+    } else {
+      payload.counterpartyId = "";
+      payload.counterpartyEffect = "";
     }
 
     if (payload.categoryId && payload.subcategory) {
@@ -628,6 +702,55 @@ export function createModalTools(api) {
     }
     persistAndRefresh();
     closeModal("account-modal");
+  }
+
+  function handleCounterpartySubmit(event) {
+    event.preventDefault();
+    const counterpartyId = document.getElementById("counterparty-id").value;
+    const payload = {
+      id: counterpartyId || uid("cp"),
+      name: titleCase(document.getElementById("counterparty-name").value.trim()),
+      icon: document.getElementById("counterparty-icon").value || "briefcase",
+      color: document.getElementById("counterparty-color").value || "#6657ca",
+      notes: document.getElementById("counterparty-notes").value.trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (!payload.name) {
+      showToast("Counterparty name is required.");
+      return;
+    }
+    const existingByName = findCounterpartyByName(payload.name);
+    if (existingByName && existingByName.id !== payload.id) {
+      showToast("A counterparty with that name already exists.");
+      return;
+    }
+    const existingIndex = state.counterparties.findIndex((counterparty) => counterparty.id === payload.id);
+    if (existingIndex >= 0) {
+      const previousName = state.counterparties[existingIndex].name;
+      state.counterparties[existingIndex] = {
+        ...state.counterparties[existingIndex],
+        ...payload,
+      };
+      if (previousName !== payload.name) {
+        state.transactions = state.transactions.map((transaction) =>
+          transaction.counterpartyId === payload.id
+            ? {
+                ...transaction,
+                counterparty: payload.name,
+              }
+            : transaction
+        );
+      }
+      showToast("Counterparty updated.");
+    } else {
+      state.counterparties.push({
+        ...payload,
+        createdAt: new Date().toISOString(),
+      });
+      showToast("Counterparty created.");
+    }
+    persistAndRefresh();
+    closeModal("counterparty-modal");
   }
 
   function handleCategorySubmit(event) {
@@ -1126,12 +1249,17 @@ export function createModalTools(api) {
         categoryId,
         subcategory,
         counterparty: row.payeeOrPayer || row.counterparty || "",
+        counterpartyId: row.counterpartyId || "",
+        counterpartyEffect: row.counterpartyEffect || "",
         project: row.project || "",
         tags: splitTags(row.tags || ""),
         details: row.details || "",
         createdAt: row.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      if (payload.counterpartyEffect) {
+        payload.counterpartyId = ensureTrackedCounterparty(payload.counterparty, payload.counterpartyId);
+      }
       upsertById(state.transactions, payload);
   }
 
@@ -1705,10 +1833,12 @@ export function createModalTools(api) {
     closeModal,
     openTransactionModal,
     openAccountModal,
+    openCounterpartyModal,
     openCategoryModal,
     handleTransactionSubmit,
     setTransactionSubmitMode,
     handleAccountSubmit,
+    handleCounterpartySubmit,
     handleCategorySubmit,
     handleImportSubmit,
     handleImportReconciliationImportAll,

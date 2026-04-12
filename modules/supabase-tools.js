@@ -23,6 +23,7 @@ export function createSupabaseTools(api) {
     SUPABASE_ANON_KEY,
     SUPABASE_ACCOUNTS_TABLE,
     SUPABASE_CATEGORIES_TABLE,
+    SUPABASE_COUNTERPARTIES_TABLE,
     SUPABASE_TRANSACTIONS_TABLE,
     SUPABASE_LEGACY_STATE_TABLE,
     SUPABASE_TRANSACTION_SLIPS_BUCKET,
@@ -107,7 +108,7 @@ export function createSupabaseTools(api) {
     try {
       const remoteState = await loadNormalizedStateFromSupabase(cloudState.session.user.id);
       const hasRemoteRows =
-        remoteState.accounts.length || remoteState.categories.length || remoteState.transactions.length;
+        remoteState.accounts.length || remoteState.categories.length || remoteState.counterparties.length || remoteState.transactions.length;
 
       if (hasRemoteRows) {
         replaceState(remoteState);
@@ -176,6 +177,10 @@ export function createSupabaseTools(api) {
         state.categories.map((category) => serializeCategoryForSupabase(category, userId, syncedAt))
       );
       await syncSupabaseTable(
+        SUPABASE_COUNTERPARTIES_TABLE,
+        state.counterparties.map((counterparty) => serializeCounterpartyForSupabase(counterparty, userId, syncedAt))
+      );
+      await syncSupabaseTable(
         SUPABASE_TRANSACTIONS_TABLE,
         state.transactions.map((transaction) => serializeTransactionForSupabase(transaction, userId, syncedAt))
       );
@@ -206,12 +211,13 @@ export function createSupabaseTools(api) {
   }
 
   async function loadNormalizedStateFromSupabase(userId) {
-    const [accounts, categories, transactions] = await Promise.all([
+    const [accounts, categories, counterparties, transactions] = await Promise.all([
       fetchAllSupabaseRows(SUPABASE_ACCOUNTS_TABLE, userId, [
         { column: "sort_order", ascending: true },
         { column: "created_at", ascending: true },
       ]),
       fetchAllSupabaseRows(SUPABASE_CATEGORIES_TABLE, userId, [{ column: "name", ascending: true }]),
+      fetchAllSupabaseRows(SUPABASE_COUNTERPARTIES_TABLE, userId, [{ column: "name", ascending: true }], true),
       fetchAllSupabaseRows(SUPABASE_TRANSACTIONS_TABLE, userId, [
         { column: "transaction_date", ascending: false },
         { column: "created_at", ascending: false },
@@ -221,11 +227,12 @@ export function createSupabaseTools(api) {
     return normalizeState({
       accounts: accounts.map(deserializeSupabaseAccount),
       categories: categories.map(deserializeSupabaseCategory),
+      counterparties: counterparties.map(deserializeSupabaseCounterparty),
       transactions: transactions.map(deserializeSupabaseTransaction),
     });
   }
 
-  async function fetchAllSupabaseRows(tableName, userId, orderings = []) {
+  async function fetchAllSupabaseRows(tableName, userId, orderings = [], tolerateMissingTable = false) {
     const rows = [];
     let offset = 0;
 
@@ -241,6 +248,12 @@ export function createSupabaseTools(api) {
 
       const { data, error } = await query.range(offset, offset + SUPABASE_FETCH_BATCH_SIZE - 1);
       if (error) {
+        if (
+          tolerateMissingTable &&
+          (String(error.code || "") === "PGRST205" || String(error.message || "").toLowerCase().includes("could not find"))
+        ) {
+          return [];
+        }
         throw error;
       }
 
@@ -404,6 +417,18 @@ export function createSupabaseTools(api) {
     };
   }
 
+  function serializeCounterpartyForSupabase(counterparty, userId, syncedAt) {
+    return {
+      user_id: userId,
+      id: counterparty.id,
+      name: counterparty.name,
+      icon: counterparty.icon || "briefcase",
+      color: counterparty.color || "#6657ca",
+      notes: counterparty.notes || "",
+      updated_at: syncedAt,
+    };
+  }
+
   function serializeTransactionForSupabase(transaction, userId, syncedAt) {
     return {
       user_id: userId,
@@ -417,6 +442,8 @@ export function createSupabaseTools(api) {
       category_id: transaction.categoryId || null,
       subcategory: transaction.subcategory || "",
       counterparty: transaction.counterparty || "",
+      counterparty_id: transaction.counterpartyId || "",
+      counterparty_effect: transaction.counterpartyEffect || "",
       project: transaction.project || "",
       tags: Array.isArray(transaction.tags) ? transaction.tags : [],
       details: transaction.details || "",
@@ -461,6 +488,18 @@ export function createSupabaseTools(api) {
     };
   }
 
+  function deserializeSupabaseCounterparty(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      icon: row.icon || "briefcase",
+      color: row.color || "#6657ca",
+      notes: row.notes || "",
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || "",
+    };
+  }
+
   function deserializeSupabaseTransaction(row) {
     return {
       id: row.id,
@@ -473,6 +512,8 @@ export function createSupabaseTools(api) {
       categoryId: row.category_id || "",
       subcategory: row.subcategory || "",
       counterparty: row.counterparty || "",
+      counterpartyId: row.counterparty_id || "",
+      counterpartyEffect: row.counterparty_effect || "",
       project: row.project || "",
       tags: Array.isArray(row.tags) ? row.tags : [],
       details: row.details || "",
@@ -489,6 +530,7 @@ export function createSupabaseTools(api) {
     const timestamps = [
       ...remoteState.accounts.map((item) => item.updatedAt || ""),
       ...remoteState.categories.map((item) => item.updatedAt || ""),
+      ...remoteState.counterparties.map((item) => item.updatedAt || ""),
       ...remoteState.transactions.map((item) => item.updatedAt || ""),
     ].filter(Boolean);
     return timestamps.sort().at(-1) || "";
