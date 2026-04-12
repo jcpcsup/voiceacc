@@ -3903,6 +3903,24 @@ input[data-smart-picker-field][readonly] {
     height: 150px;
   }
 
+  .report-breakdown-column-group {
+    gap: 6px;
+  }
+
+  .report-breakdown-column-label {
+    display: inline-flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 74px;
+    margin: 0 auto;
+    font-size: 0.68rem;
+    line-height: 1;
+    white-space: nowrap;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+  }
+
   .modal-card-compact {
     width: min(100%, calc(100vw - 28px));
   }
