@@ -2926,9 +2926,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
 
     state.transactions.forEach((transaction) => {
+      const normalizedTags = Array.isArray(transaction.tags)
+        ? transaction.tags
+        : splitTags(transaction.tags || "");
       const values =
         kind === "tag"
-          ? (transaction.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean)
+          ? normalizedTags.map((tag) => String(tag || "").trim()).filter(Boolean)
           : [String(kind === "counterparty" ? transaction.counterparty : transaction.project || "").trim()].filter(Boolean);
       if (!values.length) {
         return;
@@ -3075,7 +3078,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         updated += 1;
         return { ...transaction, project: nextName };
       }
-      const tags = Array.isArray(transaction.tags) ? transaction.tags : [];
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
       let changed = false;
       const nextTags = tags.map((tag) => {
         if (String(tag || "").trim().toLowerCase() !== originalKey) {
@@ -3117,7 +3120,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         updated += 1;
         return { ...transaction, project: "" };
       }
-      const tags = Array.isArray(transaction.tags) ? transaction.tags : [];
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
       const nextTags = tags.filter((tag) => String(tag || "").trim().toLowerCase() !== valueKey);
       if (nextTags.length === tags.length) {
         return transaction;
@@ -3207,7 +3210,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (kind === "project") {
         return String(transaction.project || "").trim().toLowerCase() === String(name || "").trim().toLowerCase();
       }
-      return (transaction.tags || []).some((tag) => String(tag || "").trim().toLowerCase() === String(name || "").trim().toLowerCase());
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
+      return tags.some((tag) => String(tag || "").trim().toLowerCase() === String(name || "").trim().toLowerCase());
     }).length;
     openConfirmModal({
       eyebrow: "Delete",
@@ -3679,7 +3683,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (normalizedCategoryId && transaction.categoryId !== normalizedCategoryId) {
         return;
       }
-      (transaction.tags || []).forEach((tag) => {
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
+      tags.forEach((tag) => {
         const rawValue = String(tag || "").trim();
         if (!rawValue) {
           return;
@@ -3920,7 +3925,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         }
       </div>
     `;
-    const tagPills = (transaction.tags || []).map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("");
+    const safeTags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
+    const tagPills = safeTags.map((tag) => `<span class="meta-pill neutral">#${escapeHtml(tag)}</span>`).join("");
     const accountPills =
       transaction.type === "transfer"
         ? [getAccount(transaction.fromAccountId), getAccount(transaction.toAccountId)]

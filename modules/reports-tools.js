@@ -1824,7 +1824,13 @@ export function createReportsTools(api) {
   function renderProjectTable(transactions) {
     const map = new Map();
     transactions.forEach((transaction) => {
-      (transaction.tags || []).forEach((tag) => {
+      const tags = Array.isArray(transaction.tags)
+        ? transaction.tags
+        : String(transaction.tags || "")
+            .split(",")
+            .map((tag) => tag.trim().replace(/^#/, "").toLowerCase())
+            .filter(Boolean);
+      tags.forEach((tag) => {
         const key = `tag:${tag}`;
         const current = map.get(key) || { label: `#${tag}`, value: 0, color: "#00a6c7" };
         current.value += Number(transaction.amount || 0);
@@ -1855,7 +1861,14 @@ export function createReportsTools(api) {
                 buildMonthlySeries(
                   transactions.filter((transaction) =>
                     key.startsWith("tag:")
-                      ? (transaction.tags || []).includes(key.replace("tag:", ""))
+                      ? (
+                          Array.isArray(transaction.tags)
+                            ? transaction.tags
+                            : String(transaction.tags || "")
+                                .split(",")
+                                .map((tag) => tag.trim().replace(/^#/, "").toLowerCase())
+                                .filter(Boolean)
+                        ).includes(key.replace("tag:", ""))
                       : transaction.project === key.replace("project:", "")
                   ),
                   (transaction) => transaction.amount || 0

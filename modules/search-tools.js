@@ -19,6 +19,16 @@ export function createSearchTools(api) {
     renderEmpty,
   } = api;
 
+  function getSafeTags(transaction) {
+    if (Array.isArray(transaction?.tags)) {
+      return transaction.tags.map((tag) => String(tag || "").trim()).filter(Boolean);
+    }
+    return String(transaction?.tags || "")
+      .split(",")
+      .map((tag) => tag.trim().replace(/^#/, "").toLowerCase())
+      .filter(Boolean);
+  }
+
   function getResolvedFilters(filterOverrides = null) {
     return {
       ...uiState.filters,
@@ -75,7 +85,7 @@ export function createSearchTools(api) {
       transaction.subcategory,
       accountNames,
       categoryName,
-      ...(transaction.tags || []),
+      ...getSafeTags(transaction),
       transaction.type,
       transaction.date,
     ]
@@ -117,7 +127,7 @@ export function createSearchTools(api) {
     }
     if (
       filters.tag &&
-      !(transaction.tags || []).some((tag) => tag.toLowerCase().includes(filters.tag.toLowerCase()))
+      !getSafeTags(transaction).some((tag) => tag.toLowerCase().includes(filters.tag.toLowerCase()))
     ) {
       return false;
     }
@@ -237,7 +247,7 @@ export function createSearchTools(api) {
         transaction.details,
         categoryName,
         accountName,
-        ...(transaction.tags || []),
+        ...getSafeTags(transaction),
         transaction.date,
       ]
         .join(" ")

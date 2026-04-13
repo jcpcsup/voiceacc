@@ -1,6 +1,16 @@
 export function createStateTools(api) {
   const { storageKey, defaultState, state, getCurrentUserId } = api;
 
+  function normalizeTags(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+    return String(value || "")
+      .split(",")
+      .map((item) => item.trim().replace(/^#/, "").toLowerCase())
+      .filter(Boolean);
+  }
+
   function loadLocalState(key = storageKey) {
     try {
       const raw = window.localStorage.getItem(key);
@@ -67,6 +77,7 @@ export function createStateTools(api) {
             slipMimeType: "",
             slipUpdatedAt: "",
             ...transaction,
+            tags: normalizeTags(transaction?.tags),
             slipResolution: String(transaction?.slipResolution || 720),
           }))
         : [],
