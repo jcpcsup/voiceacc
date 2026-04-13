@@ -438,6 +438,8 @@ export function createModalTools(api) {
 
   function applyTransactionToForm(transaction) {
     document.getElementById("transaction-type").value = transaction.type || "expense";
+    syncTransactionTypeFields();
+    renderSelectOptions();
     document.getElementById("transaction-amount").value = transaction.amount ?? "";
     document.getElementById("transaction-date").value = transaction.date || todayIso();
     document.getElementById("transaction-account").value = transaction.accountId || "";
