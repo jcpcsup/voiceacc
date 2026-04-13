@@ -946,8 +946,39 @@
             Changes here can update existing transactions that already use this value.
           </p>
           <div class="modal-actions">
+            <button class="ghost-button hidden" type="button" id="managed-value-merge-button">Merge</button>
             <button class="secondary-button" type="button" data-close-modal="managed-value-modal">Cancel</button>
             <button class="primary-button" type="submit">Save Value</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="managed-value-merge-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="managed-value-merge-modal"></div>
+      <div class="modal-card modal-card-compact">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Directory</p>
+            <h2 id="managed-value-merge-title">Merge Value</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="managed-value-merge-modal" aria-label="Close">
+            X
+          </button>
+        </div>
+        <form id="managed-value-merge-form">
+          <input id="managed-value-merge-kind" type="hidden" />
+          <input id="managed-value-merge-source" type="hidden" />
+          <div class="field-group">
+            <label class="field-label" for="managed-value-merge-target" id="managed-value-merge-label">Merge Into</label>
+            <select id="managed-value-merge-target"></select>
+          </div>
+          <p class="supporting-text" id="managed-value-merge-help">
+            Merging updates every matching transaction to the selected target, then removes the source entry.
+          </p>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="managed-value-merge-modal">Cancel</button>
+            <button class="primary-button" type="submit" id="managed-value-merge-submit">Merge Now</button>
           </div>
         </form>
       </div>

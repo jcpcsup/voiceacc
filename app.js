@@ -513,6 +513,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("counterparty-form").addEventListener("submit", handleCounterpartySubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
     document.getElementById("managed-value-form")?.addEventListener("submit", handleManagedValueSubmit);
+    document.getElementById("managed-value-merge-form")?.addEventListener("submit", handleManagedValueMergeSubmit);
+    document.getElementById("managed-value-merge-button")?.addEventListener("click", handleManagedValueMergeButton);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
     document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
     document.getElementById("reconciliation-import-safe-button")?.addEventListener("click", handleImportReconciliationImportSafeOnly);
@@ -3027,6 +3029,38 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
+  function syncManagedValueMergeButton(kind, originalName) {
+    const button = document.getElementById("managed-value-merge-button");
+    if (!button) {
+      return;
+    }
+    const hasSource = Boolean(String(originalName || "").trim());
+    const mergeCandidates = hasSource
+      ? getManagedValueStats(kind).filter((entry) => entry.name.trim().toLowerCase() !== String(originalName || "").trim().toLowerCase())
+      : [];
+    button.classList.toggle("hidden", !hasSource);
+    button.disabled = !hasSource || !mergeCandidates.length;
+    button.dataset.kind = kind;
+    button.dataset.value = originalName;
+  }
+
+  function countManagedValueLinks(kind, name) {
+    const valueKey = String(name || "").trim().toLowerCase();
+    if (!valueKey) {
+      return 0;
+    }
+    return state.transactions.filter((transaction) => {
+      if (kind === "counterparty") {
+        return String(transaction.counterparty || "").trim().toLowerCase() === valueKey;
+      }
+      if (kind === "project") {
+        return String(transaction.project || "").trim().toLowerCase() === valueKey;
+      }
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : splitTags(transaction.tags || "");
+      return tags.some((tag) => String(tag || "").trim().toLowerCase() === valueKey);
+    }).length;
+  }
+
   function openManagedValueModal(kind, currentName = "") {
     const idField = document.getElementById("managed-value-id");
     const kindField = document.getElementById("managed-value-kind");
@@ -3050,11 +3084,51 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     helpField.textContent = originalName
       ? `Caution: renaming this ${config.singular} updates all matching transactions in the ledger.`
       : `Create a reusable ${config.singular} so it appears in ranked suggestions even before it is used often.`;
+    syncManagedValueMergeButton(kind, originalName);
     openModal("managed-value-modal");
     window.setTimeout(() => {
       nameField.focus();
       nameField.select();
     }, 20);
+  }
+
+  function openManagedValueMergeModal(kind, sourceName) {
+    const titleField = document.getElementById("managed-value-merge-title");
+    const labelField = document.getElementById("managed-value-merge-label");
+    const helpField = document.getElementById("managed-value-merge-help");
+    const kindField = document.getElementById("managed-value-merge-kind");
+    const sourceField = document.getElementById("managed-value-merge-source");
+    const targetField = document.getElementById("managed-value-merge-target");
+    const submitButton = document.getElementById("managed-value-merge-submit");
+    if (!titleField || !labelField || !helpField || !kindField || !sourceField || !targetField || !submitButton) {
+      return;
+    }
+    const config = getManagedValueConfig(kind);
+    const source = String(sourceName || "").trim();
+    const candidates = getManagedValueStats(kind)
+      .filter((entry) => entry.name.trim().toLowerCase() !== source.toLowerCase())
+      .map((entry) => entry.name);
+    titleField.textContent = `Merge ${config.title}`;
+    labelField.textContent = `Merge ${config.title} Into`;
+    helpField.textContent = candidates.length
+      ? `This moves ${countManagedValueLinks(kind, source)} linked ${countManagedValueLinks(kind, source) === 1 ? "transaction" : "transactions"} from "${source}" into the selected target, then removes "${source}".`
+      : `No other ${config.title.toLowerCase()} entries are available to merge into yet.`;
+    kindField.value = kind;
+    sourceField.value = source;
+    targetField.innerHTML = candidates.length
+      ? candidates.map((candidate) => `<option value="${escapeHtml(candidate)}">${escapeHtml(kind === "tag" ? `#${candidate}` : candidate)}</option>`).join("")
+      : `<option value="">No merge target available</option>`;
+    submitButton.disabled = !candidates.length;
+    openModal("managed-value-merge-modal");
+  }
+
+  function handleManagedValueMergeButton() {
+    const kind = String(document.getElementById("managed-value-kind")?.value || "").trim();
+    const sourceName = String(document.getElementById("managed-value-original-name")?.value || "").trim();
+    if (!kind || !sourceName) {
+      return;
+    }
+    openManagedValueMergeModal(kind, sourceName);
   }
 
   function renameManagedValueInTransactions(kind, originalName, nextName) {
@@ -3198,6 +3272,47 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       affectedTransactions
         ? `${config.title} updated across ${affectedTransactions} ${affectedTransactions === 1 ? "transaction" : "transactions"}.`
         : `${config.title} updated.`
+    );
+  }
+
+  function handleManagedValueMergeSubmit(event) {
+    event.preventDefault();
+    const kind = String(document.getElementById("managed-value-merge-kind")?.value || "").trim();
+    const sourceName = String(document.getElementById("managed-value-merge-source")?.value || "").trim();
+    const targetName = String(document.getElementById("managed-value-merge-target")?.value || "").trim();
+    if (!kind || !sourceName || !targetName || sourceName.toLowerCase() === targetName.toLowerCase()) {
+      return;
+    }
+    const config = getManagedValueConfig(kind);
+    const now = new Date().toISOString();
+    const targetKey = targetName.toLowerCase();
+    let targetExists = false;
+    state.lookupEntries = state.lookupEntries
+      .filter((entry) => !(entry.kind === kind && String(entry.name || "").trim().toLowerCase() === sourceName.toLowerCase()))
+      .map((entry) => {
+        if (entry.kind === kind && String(entry.name || "").trim().toLowerCase() === targetKey) {
+          targetExists = true;
+          return { ...entry, updatedAt: now };
+        }
+        return entry;
+      });
+    if (!targetExists) {
+      state.lookupEntries.push({
+        id: uid("lkp"),
+        kind,
+        name: kind === "tag" ? targetName.toLowerCase() : targetName,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    const movedTransactions = renameManagedValueInTransactions(kind, sourceName, targetName);
+    persistAndRefresh();
+    closeModal("managed-value-merge-modal");
+    closeModal("managed-value-modal");
+    showToast(
+      movedTransactions
+        ? `Merged ${config.title} into ${kind === "tag" ? `#${targetName}` : targetName} across ${movedTransactions} ${movedTransactions === 1 ? "transaction" : "transactions"}.`
+        : `Merged ${config.title} into ${kind === "tag" ? `#${targetName}` : targetName}.`
     );
   }
 
