@@ -2795,16 +2795,16 @@ textarea:focus {
 
 .report-breakdown-line-frame {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
   width: 100%;
 }
 
 .report-breakdown-line-yaxis {
   position: relative;
-  width: 92px;
-  min-width: 92px;
+  width: 74px;
+  min-width: 74px;
 }
 
 .report-breakdown-line-yaxis-label {
@@ -2815,9 +2815,11 @@ textarea:focus {
   font-weight: 700;
   color: var(--muted);
   white-space: nowrap;
+  line-height: 1;
 }
 
 .report-breakdown-line-content {
+  width: max(100%, var(--line-chart-width));
   min-width: max-content;
 }
 
@@ -2859,13 +2861,14 @@ textarea:focus {
   margin-top: 4px;
   font-size: 0.72rem;
   color: var(--muted);
+  width: 100%;
 }
 
 .report-breakdown-line-axis-label {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  width: 76px;
+  width: 68px;
   text-align: center;
   line-height: 1.2;
 }
@@ -4151,13 +4154,13 @@ input[data-smart-picker-field][readonly] {
   }
 
   .report-breakdown-line-frame {
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 6px;
   }
 
   .report-breakdown-line-yaxis {
-    width: 72px;
-    min-width: 72px;
+    width: 62px;
+    min-width: 62px;
   }
 
   .report-breakdown-line-chart {
@@ -4170,7 +4173,7 @@ input[data-smart-picker-field][readonly] {
   }
 
   .report-breakdown-line-axis-label {
-    width: 62px;
+    width: 54px;
   }
 
   .report-breakdown-line-legend {

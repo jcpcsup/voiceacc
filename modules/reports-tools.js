@@ -769,6 +769,28 @@ export function createReportsTools(api) {
     }));
   }
 
+  function buildSmoothSvgPath(points) {
+    if (!Array.isArray(points) || !points.length) {
+      return "";
+    }
+    if (points.length === 1) {
+      return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    }
+    let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const previous = points[index - 1] || points[index];
+      const current = points[index];
+      const next = points[index + 1];
+      const afterNext = points[index + 2] || next;
+      const controlPoint1X = current.x + (next.x - previous.x) / 6;
+      const controlPoint1Y = current.y + (next.y - previous.y) / 6;
+      const controlPoint2X = next.x - (afterNext.x - current.x) / 6;
+      const controlPoint2Y = next.y - (afterNext.y - current.y) / 6;
+      path += ` C ${controlPoint1X.toFixed(2)} ${controlPoint1Y.toFixed(2)}, ${controlPoint2X.toFixed(2)} ${controlPoint2Y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+    }
+    return path;
+  }
+
   function buildBreakdownLineSeries(dataset, transactions, periods, periodTotals) {
     const baseFilters = getBaseReportFilters();
     const selectedTypes = getSelectedReportTypes();
@@ -866,8 +888,8 @@ export function createReportsTools(api) {
     if (!series.length) {
       return `<div class="report-pie-visual-wrap report-pie-visual-wrap-wide">${renderEmpty("No line data is available for this filtered range yet.")}</div>`;
     }
-    const pointSpacing = periods.length > 24 ? 56 : periods.length > 12 ? 64 : 72;
-    const width = Math.max(560, periods.length * pointSpacing);
+    const pointSpacing = periods.length > 24 ? 56 : periods.length > 12 ? 68 : 84;
+    const width = Math.max(720, periods.length * pointSpacing);
     const height = 320;
     const paddingLeft = 26;
     const paddingRight = 26;
@@ -884,7 +906,7 @@ export function createReportsTools(api) {
         (period, index) => `
           <span
             class="report-breakdown-line-axis-label"
-            style="left:${xForIndex(index).toFixed(2)}px"
+            style="left:${((xForIndex(index) / width) * 100).toFixed(4)}%"
           >${escapeHtml(period.label)}</span>
         `
       )
@@ -907,17 +929,21 @@ export function createReportsTools(api) {
 
     const paths = series
       .map((item, seriesIndex) => {
-        const points = item.points.map((point, index) => `${xForIndex(index).toFixed(2)},${yForValue(point.value).toFixed(2)}`);
+        const pathPoints = item.points.map((point, index) => ({
+          x: xForIndex(index),
+          y: yForValue(point.value),
+        }));
+        const smoothPath = buildSmoothSvgPath(pathPoints);
         return `
-          <polyline
+          <path
             class="report-line-series ${item.strokeWidth > 4 ? "report-line-series-type" : "report-line-series-category"}"
-            points="${points.join(" ")}"
+            d="${smoothPath}"
             fill="none"
             stroke="${escapeHtml(item.color)}"
             stroke-width="${item.strokeWidth}"
             stroke-linecap="round"
             stroke-linejoin="round"
-          ></polyline>
+          ></path>
           ${item.points
             .map((point, pointIndex) => {
               const detailIndex = `${indexPrefix}line:${seriesIndex}:${pointIndex}`;
@@ -965,13 +991,13 @@ export function createReportsTools(api) {
                 .join("")}
             </div>
             <div class="report-breakdown-line-viewport">
-              <div class="report-breakdown-line-content" style="width:${width}px">
+              <div class="report-breakdown-line-content" style="--line-chart-width:${width}px">
                 <svg class="report-breakdown-line-chart" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(dataset.title)} timeline">
                   ${gridLines}
                   <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.16)" stroke-width="1"></line>
                   ${paths}
                 </svg>
-                <div class="report-breakdown-line-axis" style="width:${width}px">${axes}</div>
+                <div class="report-breakdown-line-axis">${axes}</div>
               </div>
             </div>
           </div>
