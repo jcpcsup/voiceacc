@@ -2938,7 +2938,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       if (!values.length) {
         return;
       }
-      const candidateDate = String(transaction.updatedAt || transaction.createdAt || transaction.date || "");
+      const candidateDate = String(transaction.date || transaction.updatedAt || transaction.createdAt || "");
       values.forEach((value) => {
         const key = value.toLowerCase();
         const existing = stats.get(key) || {
@@ -2982,30 +2982,32 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function renderManagedValueItem(kind, entry) {
-    const config = getManagedValueConfig(kind);
     const nameLabel = kind === "tag" ? `#${entry.name}` : entry.name;
     const usageLabel = `${entry.count} ${entry.count === 1 ? "transaction" : "transactions"}`;
-    const metaPills = [
-      `<span class="meta-pill neutral">${escapeHtml(usageLabel)}</span>`,
-      `<span class="meta-pill neutral">${escapeHtml(formatManagedValueLastUsed(entry.lastUsed))}</span>`,
-      entry.catalogOnly ? '<span class="meta-pill neutral">Catalog only</span>' : "",
-    ]
-      .filter(Boolean)
-      .join("");
+    const lastUsedLabel = formatManagedValueLastUsed(entry.lastUsed);
     return `
       <div class="managed-value-item">
         <div class="managed-value-copy">
-          <strong>${escapeHtml(nameLabel)}</strong>
-          <p>${escapeHtml(config.title)} directory entry</p>
-          <div class="managed-value-pill-row">${metaPills}</div>
-        </div>
-        <div class="managed-value-actions">
-          <button class="icon-button" type="button" data-action="edit-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Edit ${escapeAttribute(config.singular)}">
-            ${iconRegistry.pen}
-          </button>
-          <button class="icon-button delete" type="button" data-action="delete-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Delete ${escapeAttribute(config.singular)}">
-            ${iconRegistry.bin}
-          </button>
+          <div class="managed-value-head">
+            <strong>${escapeHtml(nameLabel)}</strong>
+            <div class="managed-value-actions">
+              <button class="icon-button" type="button" data-action="edit-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Edit ${escapeAttribute(kind)}">
+                ${iconRegistry.pen}
+              </button>
+              <button class="icon-button delete" type="button" data-action="delete-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Delete ${escapeAttribute(kind)}">
+                ${iconRegistry.bin}
+              </button>
+            </div>
+          </div>
+          <div class="managed-value-meta-line">
+            <span>${escapeHtml(usageLabel)}</span>
+            <span>${escapeHtml(lastUsedLabel)}</span>
+          </div>
+          ${
+            entry.catalogOnly
+              ? '<div class="managed-value-pill-row"><span class="meta-pill neutral">Catalog only</span></div>'
+              : ""
+          }
         </div>
       </div>
     `;

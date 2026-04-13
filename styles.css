@@ -890,10 +890,7 @@ body.app-locked .app-shell {
 }
 
 .managed-value-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
+  display: block;
   padding: 14px 16px;
   border-radius: 20px;
   border: 1px solid var(--border);
@@ -904,15 +901,16 @@ body.app-locked .app-shell {
   min-width: 0;
 }
 
+.managed-value-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .managed-value-copy strong {
   display: block;
   font-size: 1rem;
-}
-
-.managed-value-copy p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 0.86rem;
 }
 
 .managed-value-pill-row {
@@ -920,6 +918,16 @@ body.app-locked .app-shell {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+
+.managed-value-meta-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .managed-value-actions {
@@ -935,6 +943,12 @@ body.app-locked .app-shell {
 
 .managed-value-actions .icon-button.delete {
   color: #d24542;
+}
+
+@media (min-width: 721px) {
+  .managed-value-list {
+    max-height: 860px;
+  }
 }
 
 .account-grid,
