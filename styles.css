@@ -2789,46 +2789,85 @@ textarea:focus {
   overflow-y: hidden;
   padding-bottom: 2px;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.report-breakdown-line-frame {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+}
+
+.report-breakdown-line-yaxis {
+  position: relative;
+  width: 92px;
+  min-width: 92px;
+}
+
+.report-breakdown-line-yaxis-label {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.report-breakdown-line-content {
+  min-width: max-content;
 }
 
 .report-breakdown-line-chart {
   display: block;
-  width: max(100%, 420px);
+  width: 100%;
   min-width: 100%;
-  height: 300px;
+  height: 320px;
   overflow: visible;
 }
 
 .report-line-series {
   opacity: 0.94;
+  pointer-events: none;
 }
 
 .report-line-series-type {
   opacity: 1;
 }
 
-.report-line-point {
+.report-line-point-visual {
+  pointer-events: none;
+}
+
+.report-line-point-hit {
   cursor: pointer;
   transition: transform 140ms ease, filter 140ms ease;
 }
 
-.report-line-point:hover,
-.report-line-point:focus-visible {
+.report-line-point-hit:hover,
+.report-line-point-hit:focus-visible {
   transform: scale(1.08);
   filter: brightness(1.06);
 }
 
 .report-breakdown-line-axis {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(34px, 1fr);
-  gap: 8px;
-  align-items: start;
-  width: 100%;
-  min-width: 420px;
+  position: relative;
+  height: 52px;
+  margin-top: 4px;
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.report-breakdown-line-axis-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 76px;
   text-align: center;
+  line-height: 1.2;
 }
 
 .report-breakdown-line-legend {
@@ -4111,14 +4150,27 @@ input[data-smart-picker-field][readonly] {
     gap: 6px;
   }
 
+  .report-breakdown-line-frame {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .report-breakdown-line-yaxis {
+    width: 72px;
+    min-width: 72px;
+  }
+
   .report-breakdown-line-chart {
-    width: max(100%, 520px);
     height: 240px;
   }
 
   .report-breakdown-line-axis {
-    min-width: 520px;
+    height: 46px;
     font-size: 0.66rem;
+  }
+
+  .report-breakdown-line-axis-label {
+    width: 62px;
   }
 
   .report-breakdown-line-legend {

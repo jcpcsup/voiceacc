@@ -1098,6 +1098,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!tooltip || !detail || !anchor) {
       return;
     }
+    if (
+      !pinned &&
+      !reportChartTooltipState.pinned &&
+      reportChartTooltipState.index === index &&
+      !tooltip.classList.contains("hidden")
+    ) {
+      positionReportChartTooltip(anchor, clientX, clientY);
+      return;
+    }
     reportChartTooltipState = {
       index,
       pinned,

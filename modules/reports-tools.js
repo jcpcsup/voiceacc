@@ -760,6 +760,15 @@ export function createReportsTools(api) {
     };
   }
 
+  function buildBreakdownLineTicks(maxValue, symbol, paddingTop, chartHeight) {
+    const tickValues = [maxValue, maxValue * (2 / 3), maxValue * (1 / 3), 0];
+    return tickValues.map((value) => ({
+      value,
+      label: formatMoney(value, symbol),
+      y: paddingTop + chartHeight - (Number(value || 0) / Math.max(maxValue, 1)) * chartHeight,
+    }));
+  }
+
   function buildBreakdownLineSeries(dataset, transactions, periods, periodTotals) {
     const baseFilters = getBaseReportFilters();
     const selectedTypes = getSelectedReportTypes();
@@ -857,20 +866,43 @@ export function createReportsTools(api) {
     if (!series.length) {
       return `<div class="report-pie-visual-wrap report-pie-visual-wrap-wide">${renderEmpty("No line data is available for this filtered range yet.")}</div>`;
     }
-    const width = Math.max(420, periods.length * 46);
-    const height = 300;
-    const paddingLeft = 16;
-    const paddingRight = 16;
-    const paddingTop = 12;
-    const paddingBottom = 16;
+    const pointSpacing = periods.length > 24 ? 56 : periods.length > 12 ? 64 : 72;
+    const width = Math.max(560, periods.length * pointSpacing);
+    const height = 320;
+    const paddingLeft = 26;
+    const paddingRight = 26;
+    const paddingTop = 18;
+    const paddingBottom = 28;
     const maxValue = Math.max(...series.flatMap((item) => item.points.map((point) => Number(point.value || 0))), 1);
     const chartHeight = height - paddingTop - paddingBottom;
     const chartWidth = width - paddingLeft - paddingRight;
     const xForIndex = (index) => paddingLeft + (index * chartWidth) / Math.max(periods.length - 1, 1);
     const yForValue = (value) => paddingTop + chartHeight - (Number(value || 0) / maxValue) * chartHeight;
-
+    const yTicks = buildBreakdownLineTicks(maxValue, dataset.symbol, paddingTop, chartHeight);
     const axes = periods
-      .map((period, index) => `<span>${escapeHtml(period.label)}</span>`)
+      .map(
+        (period, index) => `
+          <span
+            class="report-breakdown-line-axis-label"
+            style="left:${xForIndex(index).toFixed(2)}px"
+          >${escapeHtml(period.label)}</span>
+        `
+      )
+      .join("");
+    const gridLines = yTicks
+      .map(
+        (tick, index) => `
+          <line
+            x1="${paddingLeft}"
+            y1="${tick.y.toFixed(2)}"
+            x2="${width - paddingRight}"
+            y2="${tick.y.toFixed(2)}"
+            stroke="rgba(18, 59, 70, ${index === yTicks.length - 1 ? "0.18" : "0.10"})"
+            stroke-width="${index === yTicks.length - 1 ? "1.15" : "1"}"
+            stroke-dasharray="${index === yTicks.length - 1 ? "" : "4 6"}"
+          ></line>
+        `
+      )
       .join("");
 
     const paths = series
@@ -890,13 +922,23 @@ export function createReportsTools(api) {
             .map((point, pointIndex) => {
               const detailIndex = `${indexPrefix}line:${seriesIndex}:${pointIndex}`;
               detailMap.set(detailIndex, buildLinePointDetail(dataset, item, point, periods[pointIndex]));
+              const pointX = xForIndex(pointIndex).toFixed(2);
+              const pointY = yForValue(point.value).toFixed(2);
               return `
                 <circle
-                  class="report-line-point report-chart-hit ${item.strokeWidth > 4 ? "report-line-point-type" : ""}"
-                  cx="${xForIndex(pointIndex).toFixed(2)}"
-                  cy="${yForValue(point.value).toFixed(2)}"
-                  r="${item.strokeWidth > 4 ? 5.4 : 4.1}"
+                  class="report-line-point-visual ${item.strokeWidth > 4 ? "report-line-point-type" : ""}"
+                  cx="${pointX}"
+                  cy="${pointY}"
+                  r="${item.strokeWidth > 4 ? 5.4 : 4.2}"
                   fill="${escapeHtml(item.color)}"
+                ></circle>
+                <circle
+                  class="report-line-point-hit report-chart-hit"
+                  cx="${pointX}"
+                  cy="${pointY}"
+                  r="${item.strokeWidth > 4 ? 14 : 12}"
+                  fill="transparent"
+                  stroke="transparent"
                   data-action="show-report-chart-tooltip"
                   data-index="${detailIndex}"
                 ></circle>
@@ -910,15 +952,29 @@ export function createReportsTools(api) {
     return `
       <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
         <div class="report-breakdown-line-shell">
-          ${renderAmountScale(maxValue, dataset.symbol)}
-          <div class="report-breakdown-line-viewport">
-            <svg class="report-breakdown-line-chart" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(dataset.title)} timeline">
-              <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.12)" stroke-width="1"></line>
-              <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.12)" stroke-width="1"></line>
-              ${paths}
-            </svg>
+          <div class="report-breakdown-line-frame">
+            <div class="report-breakdown-line-yaxis" style="height:${height}px">
+              ${yTicks
+                .map(
+                  (tick) => `
+                    <span class="report-breakdown-line-yaxis-label" style="top:${tick.y.toFixed(2)}px">
+                      ${escapeHtml(tick.label)}
+                    </span>
+                  `
+                )
+                .join("")}
+            </div>
+            <div class="report-breakdown-line-viewport">
+              <div class="report-breakdown-line-content" style="width:${width}px">
+                <svg class="report-breakdown-line-chart" viewBox="0 0 ${width} ${height}" aria-label="${escapeHtml(dataset.title)} timeline">
+                  ${gridLines}
+                  <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="rgba(18, 59, 70, 0.16)" stroke-width="1"></line>
+                  ${paths}
+                </svg>
+                <div class="report-breakdown-line-axis" style="width:${width}px">${axes}</div>
+              </div>
+            </div>
           </div>
-          <div class="report-breakdown-line-axis">${axes}</div>
           ${
             selectedTypes.length > 1
               ? `<div class="report-breakdown-line-legend">
