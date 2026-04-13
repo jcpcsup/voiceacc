@@ -153,6 +153,7 @@ export function createDefaultState() {
       },
     ],
     counterparties: [],
+    lookupEntries: [],
     transactions: [],
   };
 }

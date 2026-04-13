@@ -24,6 +24,7 @@ export function createSupabaseTools(api) {
     SUPABASE_ACCOUNTS_TABLE,
     SUPABASE_CATEGORIES_TABLE,
     SUPABASE_COUNTERPARTIES_TABLE,
+    SUPABASE_LOOKUP_ENTRIES_TABLE,
     SUPABASE_TRANSACTIONS_TABLE,
     SUPABASE_LEGACY_STATE_TABLE,
     SUPABASE_TRANSACTION_SLIPS_BUCKET,
@@ -108,7 +109,11 @@ export function createSupabaseTools(api) {
     try {
       const remoteState = await loadNormalizedStateFromSupabase(cloudState.session.user.id);
       const hasRemoteRows =
-        remoteState.accounts.length || remoteState.categories.length || remoteState.counterparties.length || remoteState.transactions.length;
+        remoteState.accounts.length ||
+        remoteState.categories.length ||
+        remoteState.counterparties.length ||
+        remoteState.lookupEntries.length ||
+        remoteState.transactions.length;
 
       if (hasRemoteRows) {
         replaceState(remoteState);
@@ -181,6 +186,11 @@ export function createSupabaseTools(api) {
         state.counterparties.map((counterparty) => serializeCounterpartyForSupabase(counterparty, userId, syncedAt))
       );
       await syncSupabaseTable(
+        SUPABASE_LOOKUP_ENTRIES_TABLE,
+        state.lookupEntries.map((entry) => serializeLookupEntryForSupabase(entry, userId, syncedAt)),
+        true
+      );
+      await syncSupabaseTable(
         SUPABASE_TRANSACTIONS_TABLE,
         state.transactions.map((transaction) => serializeTransactionForSupabase(transaction, userId, syncedAt))
       );
@@ -211,13 +221,14 @@ export function createSupabaseTools(api) {
   }
 
   async function loadNormalizedStateFromSupabase(userId) {
-    const [accounts, categories, counterparties, transactions] = await Promise.all([
+      const [accounts, categories, counterparties, lookupEntries, transactions] = await Promise.all([
       fetchAllSupabaseRows(SUPABASE_ACCOUNTS_TABLE, userId, [
         { column: "sort_order", ascending: true },
         { column: "created_at", ascending: true },
       ]),
       fetchAllSupabaseRows(SUPABASE_CATEGORIES_TABLE, userId, [{ column: "name", ascending: true }]),
       fetchAllSupabaseRows(SUPABASE_COUNTERPARTIES_TABLE, userId, [{ column: "name", ascending: true }], true),
+      fetchAllSupabaseRows(SUPABASE_LOOKUP_ENTRIES_TABLE, userId, [{ column: "name", ascending: true }], true),
       fetchAllSupabaseRows(SUPABASE_TRANSACTIONS_TABLE, userId, [
         { column: "transaction_date", ascending: false },
         { column: "created_at", ascending: false },
@@ -228,6 +239,7 @@ export function createSupabaseTools(api) {
       accounts: accounts.map(deserializeSupabaseAccount),
       categories: categories.map(deserializeSupabaseCategory),
       counterparties: counterparties.map(deserializeSupabaseCounterparty),
+      lookupEntries: lookupEntries.map(deserializeSupabaseLookupEntry),
       transactions: transactions.map(deserializeSupabaseTransaction),
     });
   }
@@ -286,15 +298,24 @@ export function createSupabaseTools(api) {
     return data?.payload ? normalizeState(data.payload) : null;
   }
 
-  async function syncSupabaseTable(tableName, rows) {
+  async function syncSupabaseTable(tableName, rows, tolerateMissingTable = false) {
     const userId = cloudState.session.user.id;
-    const existingRows = await fetchAllSupabaseRows(tableName, userId, [{ column: "id", ascending: true }]);
+    const existingRows = await fetchAllSupabaseRows(tableName, userId, [{ column: "id", ascending: true }], tolerateMissingTable);
+    if (tolerateMissingTable && existingRows === null) {
+      return;
+    }
 
     if (rows.length) {
       const { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
         onConflict: "user_id,id",
       });
       if (upsertError) {
+        if (
+          tolerateMissingTable &&
+          (String(upsertError.code || "") === "PGRST205" || String(upsertError.message || "").toLowerCase().includes("could not find"))
+        ) {
+          return;
+        }
         throw upsertError;
       }
     }
@@ -305,6 +326,12 @@ export function createSupabaseTools(api) {
     if (staleIds.length) {
       const { error: deleteError } = await cloudState.client.from(tableName).delete().eq("user_id", userId).in("id", staleIds);
       if (deleteError) {
+        if (
+          tolerateMissingTable &&
+          (String(deleteError.code || "") === "PGRST205" || String(deleteError.message || "").toLowerCase().includes("could not find"))
+        ) {
+          return;
+        }
         throw deleteError;
       }
     }
@@ -429,6 +456,16 @@ export function createSupabaseTools(api) {
     };
   }
 
+  function serializeLookupEntryForSupabase(entry, userId, syncedAt) {
+    return {
+      user_id: userId,
+      id: entry.id,
+      kind: entry.kind,
+      name: entry.name,
+      updated_at: syncedAt,
+    };
+  }
+
   function serializeTransactionForSupabase(transaction, userId, syncedAt) {
     return {
       user_id: userId,
@@ -500,6 +537,16 @@ export function createSupabaseTools(api) {
     };
   }
 
+  function deserializeSupabaseLookupEntry(row) {
+    return {
+      id: row.id,
+      kind: row.kind || "",
+      name: row.name || "",
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || "",
+    };
+  }
+
   function deserializeSupabaseTransaction(row) {
     return {
       id: row.id,
@@ -531,6 +578,7 @@ export function createSupabaseTools(api) {
       ...remoteState.accounts.map((item) => item.updatedAt || ""),
       ...remoteState.categories.map((item) => item.updatedAt || ""),
       ...remoteState.counterparties.map((item) => item.updatedAt || ""),
+      ...remoteState.lookupEntries.map((item) => item.updatedAt || ""),
       ...remoteState.transactions.map((item) => item.updatedAt || ""),
     ].filter(Boolean);
     return timestamps.sort().at(-1) || "";

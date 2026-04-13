@@ -22,6 +22,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_ACCOUNTS_TABLE = "accounts";
   const SUPABASE_CATEGORIES_TABLE = "categories";
   const SUPABASE_COUNTERPARTIES_TABLE = "counterparties";
+  const SUPABASE_LOOKUP_ENTRIES_TABLE = "lookup_entries";
   const SUPABASE_TRANSACTIONS_TABLE = "transactions";
   const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
   const SUPABASE_TRANSACTION_SLIPS_BUCKET = "transaction-slips";
@@ -47,6 +48,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const state = {
     accounts: [],
     counterparties: [],
+    lookupEntries: [],
     categories: [],
     transactions: [],
   };
@@ -378,6 +380,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       SUPABASE_ACCOUNTS_TABLE,
       SUPABASE_CATEGORIES_TABLE,
       SUPABASE_COUNTERPARTIES_TABLE,
+      SUPABASE_LOOKUP_ENTRIES_TABLE,
       SUPABASE_TRANSACTIONS_TABLE,
       SUPABASE_LEGACY_STATE_TABLE,
       SUPABASE_TRANSACTION_SLIPS_BUCKET,
@@ -447,6 +450,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.querySelectorAll("[data-open-counterparty-modal]").forEach((button) => {
       button.addEventListener("click", () => openCounterpartyModal());
     });
+    document.querySelectorAll("[data-open-managed-value-modal]").forEach((button) => {
+      button.addEventListener("click", () => openManagedValueModal(button.dataset.openManagedValueModal || "counterparty"));
+    });
 
     document.querySelectorAll("[data-close-modal]").forEach((button) => {
       button.addEventListener("click", () => closeModal(button.dataset.closeModal));
@@ -506,6 +512,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
     document.getElementById("counterparty-form").addEventListener("submit", handleCounterpartySubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
+    document.getElementById("managed-value-form").addEventListener("submit", handleManagedValueSubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
     document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
     document.getElementById("reconciliation-import-safe-button")?.addEventListener("click", handleImportReconciliationImportSafeOnly);
@@ -638,6 +645,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     bindFilterInput("filter-start-date", "startDate");
     bindFilterInput("filter-end-date", "endDate");
     bindFilterInput("filter-sort", "sort");
+    ["filter-start-date", "filter-end-date"].forEach((id) => {
+      const input = document.getElementById(id);
+      input?.addEventListener("click", () => {
+        if (typeof input.showPicker === "function") {
+          try {
+            input.showPicker();
+          } catch (error) {
+            // Ignore browsers that restrict showPicker outside a trusted gesture.
+          }
+        }
+      });
+    });
 
     document.getElementById("report-range").addEventListener("change", (event) => {
       uiState.reports.range = event.target.value;
@@ -1249,8 +1268,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-project").value = uiState.filters.project || "";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
     document.getElementById("filter-sort").value = uiState.filters.sort || "dateDesc";
-    setInputDateValue("filter-start-date", formatDateFilterDisplay(uiState.filters.startDate || ""));
-    setInputDateValue("filter-end-date", formatDateFilterDisplay(uiState.filters.endDate || ""));
+    setInputDateValue("filter-start-date", normalizeDateInput(uiState.filters.startDate || ""));
+    setInputDateValue("filter-end-date", normalizeDateInput(uiState.filters.endDate || ""));
   }
 
   function setTransactionTemplatePanelExpanded(expanded) {
@@ -2330,6 +2349,12 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (action === "delete-category") {
       deleteCategory(id);
     }
+    if (action === "edit-managed-value") {
+      openManagedValueModal(actionTarget.dataset.kind || "counterparty", actionTarget.dataset.value || "");
+    }
+    if (action === "delete-managed-value") {
+      deleteManagedValue(actionTarget.dataset.kind || "counterparty", actionTarget.dataset.value || "");
+    }
     if (action === "use-example") {
       document.getElementById("dictation-input").value = actionTarget.dataset.statement || "";
       switchScreen("overview");
@@ -2431,6 +2456,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderTransactions();
     renderAccounts();
     renderCategories();
+    renderManagedValuePanels();
     renderReports();
     syncReportTypeButtons();
     syncReportRangeOptionLabels();
@@ -2849,6 +2875,347 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       : renderEmpty("No categories available yet.");
   }
 
+  function getManagedValueConfig(kind) {
+    if (kind === "counterparty") {
+      return {
+        title: "Payee / Payer",
+        singular: "payee or payer",
+        empty: "No payees or payers tracked yet.",
+        deleteMessage: "This will clear the payee / payer from every matching transaction.",
+        createLabel: "Payee / Payer",
+      };
+    }
+    if (kind === "project") {
+      return {
+        title: "Project",
+        singular: "project",
+        empty: "No projects tracked yet.",
+        deleteMessage: "This will clear the project from every matching transaction.",
+        createLabel: "Project",
+      };
+    }
+    return {
+      title: "Tag",
+      singular: "tag",
+      empty: "No tags tracked yet.",
+      deleteMessage: "This will remove the tag from every matching transaction.",
+      createLabel: "Tag",
+    };
+  }
+
+  function getManagedLookupEntries(kind) {
+    return state.lookupEntries.filter((entry) => entry.kind === kind && String(entry.name || "").trim());
+  }
+
+  function getManagedValueStats(kind) {
+    const stats = new Map();
+    getManagedLookupEntries(kind).forEach((entry) => {
+      const key = String(entry.name || "").trim().toLowerCase();
+      if (!key) {
+        return;
+      }
+      stats.set(key, {
+        id: entry.id,
+        kind,
+        name: String(entry.name || "").trim(),
+        count: 0,
+        lastUsed: String(entry.updatedAt || entry.createdAt || ""),
+        catalogOnly: true,
+      });
+    });
+
+    state.transactions.forEach((transaction) => {
+      const values =
+        kind === "tag"
+          ? (transaction.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean)
+          : [String(kind === "counterparty" ? transaction.counterparty : transaction.project || "").trim()].filter(Boolean);
+      if (!values.length) {
+        return;
+      }
+      const candidateDate = String(transaction.updatedAt || transaction.createdAt || transaction.date || "");
+      values.forEach((value) => {
+        const key = value.toLowerCase();
+        const existing = stats.get(key) || {
+          id: "",
+          kind,
+          name: value,
+          count: 0,
+          lastUsed: "",
+          catalogOnly: false,
+        };
+        existing.count += 1;
+        existing.catalogOnly = false;
+        if (!existing.name) {
+          existing.name = value;
+        }
+        if (candidateDate && candidateDate.localeCompare(existing.lastUsed || "") > 0) {
+          existing.lastUsed = candidateDate;
+        }
+        stats.set(key, existing);
+      });
+    });
+
+    return [...stats.values()].sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+      if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+        return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+      }
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  function formatManagedValueLastUsed(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "Not used yet";
+    }
+    const normalized = normalizeDateInput(raw);
+    return normalized || raw.slice(0, 10);
+  }
+
+  function renderManagedValueItem(kind, entry) {
+    const config = getManagedValueConfig(kind);
+    const nameLabel = kind === "tag" ? `#${entry.name}` : entry.name;
+    const usageLabel = `${entry.count} ${entry.count === 1 ? "transaction" : "transactions"}`;
+    const metaPills = [
+      `<span class="meta-pill neutral">${escapeHtml(usageLabel)}</span>`,
+      `<span class="meta-pill neutral">${escapeHtml(formatManagedValueLastUsed(entry.lastUsed))}</span>`,
+      entry.catalogOnly ? '<span class="meta-pill neutral">Catalog only</span>' : "",
+    ]
+      .filter(Boolean)
+      .join("");
+    return `
+      <div class="managed-value-item">
+        <div class="managed-value-copy">
+          <strong>${escapeHtml(nameLabel)}</strong>
+          <p>${escapeHtml(config.title)} directory entry</p>
+          <div class="managed-value-pill-row">${metaPills}</div>
+        </div>
+        <div class="managed-value-actions">
+          <button class="icon-button" type="button" data-action="edit-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Edit ${escapeAttribute(config.singular)}">
+            ${iconRegistry.pen}
+          </button>
+          <button class="icon-button delete" type="button" data-action="delete-managed-value" data-kind="${escapeAttribute(kind)}" data-value="${escapeAttribute(entry.name)}" aria-label="Delete ${escapeAttribute(config.singular)}">
+            ${iconRegistry.bin}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderManagedValuePanels() {
+    const mappings = [
+      { kind: "counterparty", id: "managed-counterparty-list" },
+      { kind: "project", id: "managed-project-list" },
+      { kind: "tag", id: "managed-tag-list" },
+    ];
+    mappings.forEach(({ kind, id }) => {
+      const container = document.getElementById(id);
+      if (!container) {
+        return;
+      }
+      const items = getManagedValueStats(kind);
+      container.innerHTML = items.length
+        ? items.map((entry) => renderManagedValueItem(kind, entry)).join("")
+        : renderEmpty(getManagedValueConfig(kind).empty);
+    });
+  }
+
+  function openManagedValueModal(kind, currentName = "") {
+    const config = getManagedValueConfig(kind);
+    const originalName = String(currentName || "").trim();
+    const existingEntry = getManagedLookupEntries(kind).find((entry) => entry.name.trim().toLowerCase() === originalName.toLowerCase());
+    document.getElementById("managed-value-id").value = existingEntry?.id || "";
+    document.getElementById("managed-value-kind").value = kind;
+    document.getElementById("managed-value-original-name").value = originalName;
+    document.getElementById("managed-value-name").value = originalName;
+    document.getElementById("managed-value-modal-title").textContent = originalName ? `Edit ${config.title}` : `Add ${config.title}`;
+    document.getElementById("managed-value-label").textContent = config.createLabel;
+    document.getElementById("managed-value-help").textContent = originalName
+      ? `Caution: renaming this ${config.singular} updates all matching transactions in the ledger.`
+      : `Create a reusable ${config.singular} so it appears in ranked suggestions even before it is used often.`;
+    openModal("managed-value-modal");
+    window.setTimeout(() => {
+      const input = document.getElementById("managed-value-name");
+      input.focus();
+      input.select();
+    }, 20);
+  }
+
+  function renameManagedValueInTransactions(kind, originalName, nextName) {
+    const originalKey = String(originalName || "").trim().toLowerCase();
+    if (!originalKey) {
+      return 0;
+    }
+    let updated = 0;
+    state.transactions = state.transactions.map((transaction) => {
+      if (kind === "counterparty") {
+        if (String(transaction.counterparty || "").trim().toLowerCase() !== originalKey) {
+          return transaction;
+        }
+        updated += 1;
+        return { ...transaction, counterparty: nextName };
+      }
+      if (kind === "project") {
+        if (String(transaction.project || "").trim().toLowerCase() !== originalKey) {
+          return transaction;
+        }
+        updated += 1;
+        return { ...transaction, project: nextName };
+      }
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : [];
+      let changed = false;
+      const nextTags = tags.map((tag) => {
+        if (String(tag || "").trim().toLowerCase() !== originalKey) {
+          return tag;
+        }
+        changed = true;
+        return nextName.toLowerCase();
+      });
+      if (!changed) {
+        return transaction;
+      }
+      updated += 1;
+      return {
+        ...transaction,
+        tags: [...new Set(nextTags.map((tag) => String(tag || "").trim()).filter(Boolean))],
+      };
+    });
+    return updated;
+  }
+
+  function clearManagedValueFromTransactions(kind, name) {
+    const valueKey = String(name || "").trim().toLowerCase();
+    if (!valueKey) {
+      return 0;
+    }
+    let updated = 0;
+    state.transactions = state.transactions.map((transaction) => {
+      if (kind === "counterparty") {
+        if (String(transaction.counterparty || "").trim().toLowerCase() !== valueKey) {
+          return transaction;
+        }
+        updated += 1;
+        return { ...transaction, counterparty: "" };
+      }
+      if (kind === "project") {
+        if (String(transaction.project || "").trim().toLowerCase() !== valueKey) {
+          return transaction;
+        }
+        updated += 1;
+        return { ...transaction, project: "" };
+      }
+      const tags = Array.isArray(transaction.tags) ? transaction.tags : [];
+      const nextTags = tags.filter((tag) => String(tag || "").trim().toLowerCase() !== valueKey);
+      if (nextTags.length === tags.length) {
+        return transaction;
+      }
+      updated += 1;
+      return { ...transaction, tags: nextTags };
+    });
+    return updated;
+  }
+
+  function handleManagedValueSubmit(event) {
+    event.preventDefault();
+    const kind = document.getElementById("managed-value-kind").value || "counterparty";
+    const config = getManagedValueConfig(kind);
+    const originalName = String(document.getElementById("managed-value-original-name").value || "").trim();
+    const nextName = String(document.getElementById("managed-value-name").value || "").trim();
+    if (!nextName) {
+      showToast(`Enter a ${config.singular} first.`);
+      return;
+    }
+    const duplicate = getManagedValueStats(kind).some(
+      (entry) => entry.name.trim().toLowerCase() === nextName.toLowerCase() && entry.name.trim().toLowerCase() !== originalName.toLowerCase()
+    );
+    if (duplicate) {
+      showToast(`${config.title} "${nextName}" already exists.`);
+      return;
+    }
+    const now = new Date().toISOString();
+    if (!originalName) {
+      state.lookupEntries.push({
+        id: uid("lkp"),
+        kind,
+        name: kind === "tag" ? nextName.toLowerCase() : nextName,
+        createdAt: now,
+        updatedAt: now,
+      });
+      persistAndRefresh();
+      closeModal("managed-value-modal");
+      showToast(`${config.title} saved.`);
+      return;
+    }
+
+    const normalizedOriginal = originalName.toLowerCase();
+    let touchedLookup = false;
+    state.lookupEntries = state.lookupEntries.map((entry) => {
+      if (entry.kind !== kind || entry.name.trim().toLowerCase() !== normalizedOriginal) {
+        return entry;
+      }
+      touchedLookup = true;
+      return {
+        ...entry,
+        name: kind === "tag" ? nextName.toLowerCase() : nextName,
+        updatedAt: now,
+      };
+    });
+    if (!touchedLookup) {
+      state.lookupEntries.push({
+        id: uid("lkp"),
+        kind,
+        name: kind === "tag" ? nextName.toLowerCase() : nextName,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    const affectedTransactions = renameManagedValueInTransactions(kind, originalName, nextName);
+    persistAndRefresh();
+    closeModal("managed-value-modal");
+    showToast(
+      affectedTransactions
+        ? `${config.title} updated across ${affectedTransactions} ${affectedTransactions === 1 ? "transaction" : "transactions"}.`
+        : `${config.title} updated.`
+    );
+  }
+
+  function deleteManagedValue(kind, name) {
+    const config = getManagedValueConfig(kind);
+    const affectedTransactions = state.transactions.filter((transaction) => {
+      if (kind === "counterparty") {
+        return String(transaction.counterparty || "").trim().toLowerCase() === String(name || "").trim().toLowerCase();
+      }
+      if (kind === "project") {
+        return String(transaction.project || "").trim().toLowerCase() === String(name || "").trim().toLowerCase();
+      }
+      return (transaction.tags || []).some((tag) => String(tag || "").trim().toLowerCase() === String(name || "").trim().toLowerCase());
+    }).length;
+    openConfirmModal({
+      eyebrow: "Delete",
+      title: `Delete this ${config.singular}?`,
+      message: affectedTransactions
+        ? `${config.deleteMessage} ${affectedTransactions} linked ${affectedTransactions === 1 ? "transaction will" : "transactions will"} be updated.`
+        : `This ${config.singular} will be removed from the directory.`,
+      submitLabel: "Delete",
+      onConfirm: () => {
+        const targetKey = String(name || "").trim().toLowerCase();
+        state.lookupEntries = state.lookupEntries.filter(
+          (entry) => !(entry.kind === kind && String(entry.name || "").trim().toLowerCase() === targetKey)
+        );
+        const touched = clearManagedValueFromTransactions(kind, name);
+        persistAndRefresh();
+        showToast(
+          touched
+            ? `${config.title} removed from ${touched} ${touched === 1 ? "transaction" : "transactions"}.`
+            : `${config.title} deleted.`
+        );
+      },
+    });
+  }
+
   function getCategoryUsageFrequency(categoryId) {
     let count = 0;
     let lastUsed = "";
@@ -3174,6 +3541,25 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       .map((entry) => entry.category);
   }
 
+  function mergeManagedLookupValues(kind, rankedEntries) {
+    const merged = [...rankedEntries];
+    const seen = new Set(merged.map((entry) => String(entry.value || "").trim().toLowerCase()));
+    getManagedLookupEntries(kind).forEach((entry) => {
+      const value = String(entry.name || "").trim();
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) {
+        return;
+      }
+      merged.push({
+        value,
+        count: 0,
+        lastUsed: String(entry.updatedAt || entry.createdAt || ""),
+      });
+      seen.add(key);
+    });
+    return merged;
+  }
+
   function getRankedTransactionValueSuggestions(field, type, categoryId, subcategory) {
     if (type === "transfer") {
       return [];
@@ -3202,7 +3588,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       targetMap.set(key, existing);
     });
 
-    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    const ranked = mergeManagedLookupValues(
+      "tag",
+      [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))]
+    );
     return ranked
       .sort((left, right) => {
         if (right.count !== left.count) {
@@ -3243,7 +3632,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       targetMap.set(key, existing);
     });
 
-    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    const ranked = mergeManagedLookupValues(
+      field === "counterparty" ? "counterparty" : "project",
+      [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))]
+    );
     return ranked
       .sort((left, right) => {
         if (right.count !== left.count) {
@@ -3286,7 +3678,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       });
     });
 
-    const ranked = [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))];
+    const ranked = mergeManagedLookupValues(
+      field === "counterparty" ? "counterparty" : "project",
+      [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))]
+    );
     return ranked
       .sort((left, right) => {
         if (right.count !== left.count) {

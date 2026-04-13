@@ -219,11 +219,11 @@
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-start-date">From</label>
-                  <input id="filter-start-date" type="text" inputmode="numeric" autocomplete="off" placeholder="mm/dd/yyyy" />
+                  <input id="filter-start-date" type="date" autocomplete="off" />
                 </div>
                 <div class="field-group">
                   <label class="field-label" for="filter-end-date">To</label>
-                  <input id="filter-end-date" type="text" inputmode="numeric" autocomplete="off" placeholder="mm/dd/yyyy" />
+                  <input id="filter-end-date" type="date" autocomplete="off" />
                 </div>
                 <div class="field-group field-span-2">
                   <div class="transaction-filter-snapshot" id="transaction-filter-snapshot"></div>
@@ -468,6 +468,50 @@
               </div>
               <div class="category-list" id="category-list"></div>
             </article>
+
+            <div class="managed-value-grid">
+              <article class="panel managed-value-panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Directory</p>
+                    <h3>Payee / Payer</h3>
+                  </div>
+                  <button class="ghost-button" type="button" data-open-managed-value-modal="counterparty">Add Payee / Payer</button>
+                </div>
+                <p class="supporting-text managed-value-caution">
+                  Caution: renaming updates all matching transactions, and deleting clears the linked payee or payer from those rows.
+                </p>
+                <div class="managed-value-list" id="managed-counterparty-list"></div>
+              </article>
+
+              <article class="panel managed-value-panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Directory</p>
+                    <h3>Projects</h3>
+                  </div>
+                  <button class="ghost-button" type="button" data-open-managed-value-modal="project">Add Project</button>
+                </div>
+                <p class="supporting-text managed-value-caution">
+                  Caution: renaming updates all matching transactions, and deleting clears the linked project from those rows.
+                </p>
+                <div class="managed-value-list" id="managed-project-list"></div>
+              </article>
+
+              <article class="panel managed-value-panel">
+                <div class="section-heading compact">
+                  <div>
+                    <p class="eyebrow">Directory</p>
+                    <h3>Tags</h3>
+                  </div>
+                  <button class="ghost-button" type="button" data-open-managed-value-modal="tag">Add Tag</button>
+                </div>
+                <p class="supporting-text managed-value-caution">
+                  Caution: renaming updates all matching transactions, and deleting removes the tag from every linked transaction.
+                </p>
+                <div class="managed-value-list" id="managed-tag-list"></div>
+              </article>
+            </div>
 
             <div class="report-grid">
               <article class="panel">
@@ -873,6 +917,37 @@
           <div class="modal-actions">
             <button class="secondary-button" type="button" data-close-modal="category-modal">Cancel</button>
             <button class="primary-button" type="submit">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="managed-value-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="managed-value-modal"></div>
+      <div class="modal-card modal-card-compact">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Directory</p>
+            <h2 id="managed-value-modal-title">Add Value</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="managed-value-modal" aria-label="Close">
+            X
+          </button>
+        </div>
+        <form id="managed-value-form">
+          <input id="managed-value-id" type="hidden" />
+          <input id="managed-value-kind" type="hidden" />
+          <input id="managed-value-original-name" type="hidden" />
+          <div class="field-group">
+            <label class="field-label" for="managed-value-name" id="managed-value-label">Value</label>
+            <input id="managed-value-name" type="text" autocomplete="off" />
+          </div>
+          <p class="supporting-text" id="managed-value-help">
+            Changes here can update existing transactions that already use this value.
+          </p>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" data-close-modal="managed-value-modal">Cancel</button>
+            <button class="primary-button" type="submit">Save Value</button>
           </div>
         </form>
       </div>

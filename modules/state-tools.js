@@ -41,6 +41,19 @@ export function createStateTools(api) {
               ...counterparty,
             }))
           : structuredClone(defaultState.counterparties || []),
+      lookupEntries:
+        Array.isArray(parsed.lookupEntries) && parsed.lookupEntries.length
+          ? parsed.lookupEntries
+              .map((entry) => ({
+                id: "",
+                kind: "",
+                name: "",
+                createdAt: "",
+                updatedAt: "",
+                ...entry,
+              }))
+              .filter((entry) => entry.id && entry.kind && String(entry.name || "").trim())
+          : structuredClone(defaultState.lookupEntries || []),
       categories:
         Array.isArray(parsed.categories) && parsed.categories.length
           ? parsed.categories
@@ -64,6 +77,7 @@ export function createStateTools(api) {
     const normalized = normalizeState(nextState);
     state.accounts = normalized.accounts;
     state.counterparties = normalized.counterparties;
+    state.lookupEntries = normalized.lookupEntries;
     state.categories = normalized.categories;
     state.transactions = normalized.transactions;
   }
@@ -72,6 +86,7 @@ export function createStateTools(api) {
     return {
       accounts: state.accounts,
       counterparties: state.counterparties,
+      lookupEntries: state.lookupEntries,
       categories: state.categories,
       transactions: state.transactions,
     };

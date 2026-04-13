@@ -54,6 +54,16 @@ create table if not exists public.counterparties (
   primary key (user_id, id)
 );
 
+create table if not exists public.lookup_entries (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  kind text not null check (kind in ('counterparty', 'project', 'tag')),
+  name text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, id)
+);
+
 create table if not exists public.transactions (
   user_id uuid not null references auth.users (id) on delete cascade,
   id text not null,
@@ -83,6 +93,7 @@ create table if not exists public.transactions (
 create index if not exists accounts_user_id_idx on public.accounts (user_id);
 create index if not exists categories_user_id_idx on public.categories (user_id);
 create index if not exists counterparties_user_id_idx on public.counterparties (user_id);
+create index if not exists lookup_entries_user_id_idx on public.lookup_entries (user_id);
 create index if not exists transactions_user_id_idx on public.transactions (user_id);
 create index if not exists transactions_user_id_date_idx on public.transactions (user_id, transaction_date desc);
 
@@ -128,6 +139,12 @@ before update on public.counterparties
 for each row
 execute function public.set_row_updated_at();
 
+drop trigger if exists lookup_entries_set_updated_at on public.lookup_entries;
+create trigger lookup_entries_set_updated_at
+before update on public.lookup_entries
+for each row
+execute function public.set_row_updated_at();
+
 drop trigger if exists transactions_set_updated_at on public.transactions;
 create trigger transactions_set_updated_at
 before update on public.transactions
@@ -137,6 +154,7 @@ execute function public.set_row_updated_at();
 alter table public.accounts enable row level security;
 alter table public.categories enable row level security;
 alter table public.counterparties enable row level security;
+alter table public.lookup_entries enable row level security;
 alter table public.transactions enable row level security;
 
 drop policy if exists "accounts_select_own" on public.accounts;
@@ -222,6 +240,35 @@ with check (auth.uid() = user_id);
 drop policy if exists "counterparties_delete_own" on public.counterparties;
 create policy "counterparties_delete_own"
 on public.counterparties
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "lookup_entries_select_own" on public.lookup_entries;
+create policy "lookup_entries_select_own"
+on public.lookup_entries
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "lookup_entries_insert_own" on public.lookup_entries;
+create policy "lookup_entries_insert_own"
+on public.lookup_entries
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "lookup_entries_update_own" on public.lookup_entries;
+create policy "lookup_entries_update_own"
+on public.lookup_entries
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "lookup_entries_delete_own" on public.lookup_entries;
+create policy "lookup_entries_delete_own"
+on public.lookup_entries
 for delete
 to authenticated
 using (auth.uid() = user_id);
