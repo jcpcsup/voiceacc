@@ -4154,26 +4154,30 @@ input[data-smart-picker-field][readonly] {
   }
 
   .report-breakdown-line-frame {
-    grid-template-columns: 62px minmax(0, 1fr);
-    gap: 6px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 2px;
   }
 
   .report-breakdown-line-yaxis {
-    width: 62px;
-    min-width: 62px;
+    width: 54px;
+    min-width: 54px;
+  }
+
+  .report-breakdown-line-yaxis-label {
+    font-size: 0.62rem;
   }
 
   .report-breakdown-line-chart {
-    height: 240px;
+    height: 320px;
   }
 
   .report-breakdown-line-axis {
     height: 46px;
-    font-size: 0.66rem;
+    font-size: 0.62rem;
   }
 
   .report-breakdown-line-axis-label {
-    width: 54px;
+    width: 44px;
   }
 
   .report-breakdown-line-legend {
