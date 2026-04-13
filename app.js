@@ -512,7 +512,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
     document.getElementById("counterparty-form").addEventListener("submit", handleCounterpartySubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
-    document.getElementById("managed-value-form").addEventListener("submit", handleManagedValueSubmit);
+    document.getElementById("managed-value-form")?.addEventListener("submit", handleManagedValueSubmit);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
     document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
     document.getElementById("reconciliation-import-safe-button")?.addEventListener("click", handleImportReconciliationImportSafeOnly);
@@ -2904,7 +2904,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function getManagedLookupEntries(kind) {
-    return state.lookupEntries.filter((entry) => entry.kind === kind && String(entry.name || "").trim());
+    const entries = Array.isArray(state.lookupEntries) ? state.lookupEntries : [];
+    return entries.filter((entry) => entry.kind === kind && String(entry.name || "").trim());
   }
 
   function getManagedValueStats(kind) {
@@ -3024,23 +3025,32 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function openManagedValueModal(kind, currentName = "") {
+    const idField = document.getElementById("managed-value-id");
+    const kindField = document.getElementById("managed-value-kind");
+    const originalField = document.getElementById("managed-value-original-name");
+    const nameField = document.getElementById("managed-value-name");
+    const titleField = document.getElementById("managed-value-modal-title");
+    const labelField = document.getElementById("managed-value-label");
+    const helpField = document.getElementById("managed-value-help");
+    if (!idField || !kindField || !originalField || !nameField || !titleField || !labelField || !helpField) {
+      return;
+    }
     const config = getManagedValueConfig(kind);
     const originalName = String(currentName || "").trim();
     const existingEntry = getManagedLookupEntries(kind).find((entry) => entry.name.trim().toLowerCase() === originalName.toLowerCase());
-    document.getElementById("managed-value-id").value = existingEntry?.id || "";
-    document.getElementById("managed-value-kind").value = kind;
-    document.getElementById("managed-value-original-name").value = originalName;
-    document.getElementById("managed-value-name").value = originalName;
-    document.getElementById("managed-value-modal-title").textContent = originalName ? `Edit ${config.title}` : `Add ${config.title}`;
-    document.getElementById("managed-value-label").textContent = config.createLabel;
-    document.getElementById("managed-value-help").textContent = originalName
+    idField.value = existingEntry?.id || "";
+    kindField.value = kind;
+    originalField.value = originalName;
+    nameField.value = originalName;
+    titleField.textContent = originalName ? `Edit ${config.title}` : `Add ${config.title}`;
+    labelField.textContent = config.createLabel;
+    helpField.textContent = originalName
       ? `Caution: renaming this ${config.singular} updates all matching transactions in the ledger.`
       : `Create a reusable ${config.singular} so it appears in ranked suggestions even before it is used often.`;
     openModal("managed-value-modal");
     window.setTimeout(() => {
-      const input = document.getElementById("managed-value-name");
-      input.focus();
-      input.select();
+      nameField.focus();
+      nameField.select();
     }, 20);
   }
 
@@ -3120,10 +3130,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function handleManagedValueSubmit(event) {
     event.preventDefault();
-    const kind = document.getElementById("managed-value-kind").value || "counterparty";
+    const kindField = document.getElementById("managed-value-kind");
+    const originalField = document.getElementById("managed-value-original-name");
+    const nameField = document.getElementById("managed-value-name");
+    if (!kindField || !originalField || !nameField) {
+      return;
+    }
+    const kind = kindField.value || "counterparty";
     const config = getManagedValueConfig(kind);
-    const originalName = String(document.getElementById("managed-value-original-name").value || "").trim();
-    const nextName = String(document.getElementById("managed-value-name").value || "").trim();
+    const originalName = String(originalField.value || "").trim();
+    const nextName = String(nameField.value || "").trim();
     if (!nextName) {
       showToast(`Enter a ${config.singular} first.`);
       return;
