@@ -2732,30 +2732,27 @@ textarea:focus {
 .report-breakdown-columns {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 8px;
   width: 100%;
   max-width: none;
-  min-height: 360px;
+  min-height: 420px;
 }
 
 .report-breakdown-columns-viewport {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
   padding-bottom: 2px;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
 }
 
 .report-breakdown-columns-content {
-  width: max(100%, var(--column-chart-width));
-  min-width: max-content;
+  width: 100%;
+  min-width: 0;
 }
 
 .report-breakdown-column-group {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
   flex: 1;
   min-width: 0;
@@ -2764,8 +2761,8 @@ textarea:focus {
 .report-breakdown-column-cluster {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 320px;
+  gap: 2px;
+  height: 390px;
   width: 100%;
   justify-content: center;
 }
@@ -2774,7 +2771,7 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  width: 20px;
+  width: 14px;
   height: 100%;
   padding: 0;
   border: 0;
@@ -2782,7 +2779,7 @@ textarea:focus {
 }
 
 .report-breakdown-column-button-sub {
-  width: 8px;
+  width: 5px;
 }
 
 .report-breakdown-column-fill {
@@ -2793,9 +2790,19 @@ textarea:focus {
 }
 
 .report-breakdown-column-label {
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 86px;
+  margin: 0 auto;
+  font-size: 0.68rem;
   color: var(--muted);
   text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
 }
 
 .report-breakdown-line-viewport {
@@ -4158,6 +4165,18 @@ input[data-smart-picker-field][readonly] {
   .report-breakdown-columns {
     gap: 10px;
     min-height: 190px;
+  }
+
+  .report-breakdown-columns-viewport {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .report-breakdown-columns-content {
+    width: max(100%, var(--column-chart-width));
+    min-width: max-content;
   }
 
   .report-breakdown-column-cluster {
