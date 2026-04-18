@@ -1366,17 +1366,23 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function calculateTransactionAmountFromDetails(detailsText = "") {
-    const pattern = /=\s*([0-9]+)\s*(?:,|$)/gm;
+    const pattern = /=\s*([0-9]+(?:\.[0-9]+)?(?:\s*\+\s*[0-9]+(?:\.[0-9]+)?)*)\s*(?=,|$)/gm;
     let total = 0;
     let hasMatch = false;
     const source = String(detailsText || "");
     let match = pattern.exec(source);
     while (match) {
       hasMatch = true;
-      total += Number(match[1] || 0);
+      const expression = String(match[1] || "");
+      const expressionTotal = expression
+        .split("+")
+        .map((part) => Number(String(part || "").trim()))
+        .filter((value) => Number.isFinite(value))
+        .reduce((sum, value) => sum + value, 0);
+      total += expressionTotal;
       match = pattern.exec(source);
     }
-    return hasMatch ? total : 0;
+    return hasMatch ? Number(total.toFixed(2)) : 0;
   }
 
   function ensureUniqueTransactionIds() {
