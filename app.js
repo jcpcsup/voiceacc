@@ -3735,7 +3735,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
 
     const ranked = mergeManagedLookupValues(
-      "tag",
+      field === "counterparty" ? "counterparty" : "project",
       [...exact.values(), ...[...fallback.values()].filter((entry) => !exact.has(entry.value.toLowerCase()))]
     );
     return ranked
