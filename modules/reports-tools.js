@@ -890,7 +890,8 @@ export function createReportsTools(api) {
     }
     const pointSpacing = periods.length > 24 ? 56 : periods.length > 12 ? 68 : 84;
     const width = Math.max(720, periods.length * pointSpacing);
-    const height = 320;
+    const isMobileViewport = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches;
+    const height = isMobileViewport ? 320 : 520;
     const paddingLeft = 26;
     const paddingRight = 26;
     const paddingTop = 18;
