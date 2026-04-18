@@ -1366,20 +1366,81 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function calculateTransactionAmountFromDetails(detailsText = "") {
-    const pattern = /=\s*([0-9]+(?:\.[0-9]+)?(?:\s*\+\s*[0-9]+(?:\.[0-9]+)?)*)\s*(?=,|$)/gm;
+    const pattern = /=\s*([^,\n\r]+)/gm;
     let total = 0;
     let hasMatch = false;
     const source = String(detailsText || "");
+    const normalizeExpression = (expressionText) => {
+      let normalized = String(expressionText || "").replace(/[×]/g, "*").replace(/[÷]/g, "/");
+      let previous = "";
+      while (normalized !== previous) {
+        previous = normalized;
+        normalized = normalized.replace(/([0-9A-Za-z.])\s*[xX]\s*([0-9A-Za-z.])/g, "$1*$2");
+      }
+      return normalized;
+    };
+    const parseOperand = (valueText) => {
+      const match = String(valueText || "").match(/-?\d+(?:\.\d+)?/);
+      return match ? Number(match[0]) : null;
+    };
+    const evaluateExpression = (expressionText) => {
+      const normalized = normalizeExpression(expressionText);
+      const rawTokens = normalized
+        .split(/([+\-*/])/)
+        .map((part) => String(part || "").trim())
+        .filter(Boolean);
+      const tokens = [];
+      rawTokens.forEach((token) => {
+        if (/^[+\-*/]$/.test(token)) {
+          tokens.push(token);
+          return;
+        }
+        const numericValue = parseOperand(token);
+        if (numericValue !== null) {
+          tokens.push(numericValue);
+        }
+      });
+      if (!tokens.length) {
+        return null;
+      }
+      if (typeof tokens[0] === "string" && /^[+\-]$/.test(tokens[0])) {
+        tokens.unshift(0);
+      }
+      const collapsed = [tokens[0]];
+      for (let index = 1; index < tokens.length; index += 2) {
+        const operator = tokens[index];
+        const nextValue = tokens[index + 1];
+        if (typeof operator !== "string" || typeof nextValue !== "number") {
+          continue;
+        }
+        if (operator === "*" || operator === "/") {
+          const previousValue = Number(collapsed.pop() || 0);
+          collapsed.push(operator === "*" ? previousValue * nextValue : nextValue === 0 ? previousValue : previousValue / nextValue);
+        } else {
+          collapsed.push(operator, nextValue);
+        }
+      }
+      let result = Number(collapsed[0] || 0);
+      for (let index = 1; index < collapsed.length; index += 2) {
+        const operator = collapsed[index];
+        const nextValue = Number(collapsed[index + 1] || 0);
+        if (operator === "+") {
+          result += nextValue;
+        }
+        if (operator === "-") {
+          result -= nextValue;
+        }
+      }
+      return result;
+    };
     let match = pattern.exec(source);
     while (match) {
-      hasMatch = true;
-      const expression = String(match[1] || "");
-      const expressionTotal = expression
-        .split("+")
-        .map((part) => Number(String(part || "").trim()))
-        .filter((value) => Number.isFinite(value))
-        .reduce((sum, value) => sum + value, 0);
-      total += expressionTotal;
+      const expression = String(match[1] || "").trim();
+      const expressionTotal = evaluateExpression(expression);
+      if (Number.isFinite(expressionTotal)) {
+        hasMatch = true;
+        total += expressionTotal;
+      }
       match = pattern.exec(source);
     }
     return hasMatch ? Number(total.toFixed(2)) : 0;
