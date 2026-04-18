@@ -1386,6 +1386,22 @@ export function createReportsTools(api) {
       .filter((transaction) => transaction.date >= startIso && transaction.date <= endIso && selectedTypes.includes(transaction.type))
       .forEach((transaction) => {
         if (transaction.type === "transfer") {
+          const currentTransfer = categoryMap.get("transfer") || {
+            label: "Transfers",
+            color: "#2f86ff",
+            value: 0,
+            count: 0,
+            filters: {
+              ...baseFilters,
+              type: "transfer",
+              startDate: startIso,
+              endDate: endIso,
+            },
+          };
+          currentTransfer.value += Number(transaction.amount || 0);
+          currentTransfer.count += 1;
+          currentTransfer.filters = mergeDateSpan(currentTransfer.filters, transaction.date);
+          categoryMap.set("transfer", currentTransfer);
           return;
         }
         const category = getCategory(transaction.categoryId);
