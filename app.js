@@ -453,6 +453,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.querySelectorAll("[data-open-managed-value-modal]").forEach((button) => {
       button.addEventListener("click", () => openManagedValueModal(button.dataset.openManagedValueModal || "counterparty"));
     });
+    ["managed-counterparty-search", "managed-project-search", "managed-tag-search"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", renderManagedValuePanels);
+    });
 
     document.querySelectorAll("[data-close-modal]").forEach((button) => {
       button.addEventListener("click", () => closeModal(button.dataset.closeModal));
@@ -3091,19 +3094,25 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function renderManagedValuePanels() {
     const mappings = [
-      { kind: "counterparty", id: "managed-counterparty-list" },
-      { kind: "project", id: "managed-project-list" },
-      { kind: "tag", id: "managed-tag-list" },
+      { kind: "counterparty", id: "managed-counterparty-list", searchId: "managed-counterparty-search" },
+      { kind: "project", id: "managed-project-list", searchId: "managed-project-search" },
+      { kind: "tag", id: "managed-tag-list", searchId: "managed-tag-search" },
     ];
-    mappings.forEach(({ kind, id }) => {
+    mappings.forEach(({ kind, id, searchId }) => {
       const container = document.getElementById(id);
       if (!container) {
         return;
       }
-      const items = getManagedValueStats(kind);
+      const searchTerm = String(document.getElementById(searchId)?.value || "").trim().toLowerCase();
+      const items = getManagedValueStats(kind).filter((entry) => {
+        if (!searchTerm) {
+          return true;
+        }
+        return String(entry.name || "").toLowerCase().includes(searchTerm);
+      });
       container.innerHTML = items.length
         ? items.map((entry) => renderManagedValueItem(kind, entry)).join("")
-        : renderEmpty(getManagedValueConfig(kind).empty);
+        : renderEmpty(searchTerm ? `No matching ${getManagedValueConfig(kind).title.toLowerCase()} found.` : getManagedValueConfig(kind).empty);
     });
   }
 

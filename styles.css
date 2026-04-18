@@ -872,6 +872,14 @@ body.app-locked .app-shell {
   margin: 0;
 }
 
+.managed-value-search-group {
+  margin-top: 2px;
+}
+
+.managed-value-search-group input[type="search"] {
+  background: rgba(255, 255, 255, 0.92);
+}
+
 .managed-value-list {
   display: grid;
   gap: 12px;
