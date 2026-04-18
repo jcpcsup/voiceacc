@@ -651,6 +651,7 @@ export function createModalTools(api) {
     if (nextSlipPath) {
       clearTransactionSlipPreviewCache(nextSlipPath);
     }
+    syncManagedLookupEntriesFromTransaction(savedTransaction);
     persistAndRefresh();
     if (saveAndNew && savedTransaction) {
       prepareNewTransactionFromSavedPayload(savedTransaction);
@@ -670,6 +671,44 @@ export function createModalTools(api) {
       return;
     }
     category.subcategories = [...(category.subcategories || []), titleCase(trimmed)];
+  }
+
+  function upsertManagedLookupEntry(kind, name) {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) {
+      return;
+    }
+    const normalizedName = kind === "tag" ? trimmed.toLowerCase() : trimmed;
+    const normalizedKey = normalizedName.toLowerCase();
+    const now = new Date().toISOString();
+    let matched = false;
+    state.lookupEntries = (Array.isArray(state.lookupEntries) ? state.lookupEntries : []).map((entry) => {
+      if (entry.kind !== kind || String(entry.name || "").trim().toLowerCase() !== normalizedKey) {
+        return entry;
+      }
+      matched = true;
+      return {
+        ...entry,
+        name: normalizedName,
+        updatedAt: now,
+      };
+    });
+    if (!matched) {
+      state.lookupEntries.push({
+        id: uid("lkp"),
+        kind,
+        name: normalizedName,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  function syncManagedLookupEntriesFromTransaction(payload) {
+    upsertManagedLookupEntry("counterparty", payload.counterparty);
+    upsertManagedLookupEntry("project", payload.project);
+    const safeTags = Array.isArray(payload.tags) ? payload.tags : splitTags(payload.tags || "");
+    safeTags.forEach((tag) => upsertManagedLookupEntry("tag", tag));
   }
 
   function handleAccountSubmit(event) {
