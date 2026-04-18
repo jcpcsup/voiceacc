@@ -1141,44 +1141,50 @@ export function createReportsTools(api) {
 
   function renderBreakdownColumns(dataset, detailMap, indexPrefix = "") {
     const maxValue = Math.max(...dataset.segments.map((segment) => segment.value), 1);
+    const columnWidth = Array.isArray(dataset.segments) && dataset.segments.length > 6 ? 72 : 88;
+    const chartWidth = Math.max(560, dataset.segments.length * columnWidth);
     return `
       <div class="report-pie-visual-wrap report-pie-visual-wrap-wide">
         <div class="report-breakdown-columns-shell">
           ${renderAmountScale(maxValue, dataset.symbol)}
-          <div class="report-breakdown-columns">
-          ${dataset.segments
-            .map((segment, index) => {
-              detailMap.set(`${indexPrefix}segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
-              return `
-                <div class="report-breakdown-column-group">
-                  <div class="report-breakdown-column-cluster">
-                    <button class="report-breakdown-column-button report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="${indexPrefix}segment:${index}">
-                      <span class="report-breakdown-column-fill" style="height:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
-                        segment.color
-                      )}"></span>
-                    </button>
-                    ${
-                      Array.isArray(segment.accounts) && segment.accounts.length
-                        ? segment.accounts
-                            .map((account, accountIndex) => {
-                              detailMap.set(`${indexPrefix}account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
-                              return `
-                                <button class="report-breakdown-column-button report-breakdown-column-button-sub report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="${indexPrefix}account:${index}:${accountIndex}">
-                                  <span class="report-breakdown-column-fill" style="height:${(account.value / maxValue) * 100}%; background:${escapeHtml(
-                                    account.color
-                                  )}"></span>
-                                </button>
-                              `;
-                            })
-                            .join("")
-                        : ""
-                    }
-                  </div>
-                  <span class="report-breakdown-column-label">${escapeHtml(segment.label)}</span>
-                </div>
-              `;
-            })
-            .join("")}
+          <div class="report-breakdown-columns-viewport">
+            <div class="report-breakdown-columns-content" style="--column-chart-width:${chartWidth}px">
+              <div class="report-breakdown-columns">
+              ${dataset.segments
+                .map((segment, index) => {
+                  detailMap.set(`${indexPrefix}segment:${index}`, buildSegmentDetail(dataset, segment, dataset.title));
+                  return `
+                    <div class="report-breakdown-column-group">
+                      <div class="report-breakdown-column-cluster">
+                        <button class="report-breakdown-column-button report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="${indexPrefix}segment:${index}">
+                          <span class="report-breakdown-column-fill" style="height:${(segment.value / maxValue) * 100}%; background:${escapeHtml(
+                            segment.color
+                          )}"></span>
+                        </button>
+                        ${
+                          Array.isArray(segment.accounts) && segment.accounts.length
+                            ? segment.accounts
+                                .map((account, accountIndex) => {
+                                  detailMap.set(`${indexPrefix}account:${index}:${accountIndex}`, buildAccountDetail(dataset, segment, account));
+                                  return `
+                                    <button class="report-breakdown-column-button report-breakdown-column-button-sub report-chart-hit" type="button" data-action="show-report-chart-tooltip" data-index="${indexPrefix}account:${index}:${accountIndex}">
+                                      <span class="report-breakdown-column-fill" style="height:${(account.value / maxValue) * 100}%; background:${escapeHtml(
+                                        account.color
+                                      )}"></span>
+                                    </button>
+                                  `;
+                                })
+                                .join("")
+                            : ""
+                        }
+                      </div>
+                      <span class="report-breakdown-column-label">${escapeHtml(segment.label)}</span>
+                    </div>
+                  `;
+                })
+                .join("")}
+              </div>
+            </div>
           </div>
         </div>
       </div>

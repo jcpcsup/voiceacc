@@ -2738,6 +2738,21 @@ textarea:focus {
   min-height: 360px;
 }
 
+.report-breakdown-columns-viewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.report-breakdown-columns-content {
+  width: max(100%, var(--column-chart-width));
+  min-width: max-content;
+}
+
 .report-breakdown-column-group {
   display: grid;
   gap: 8px;
