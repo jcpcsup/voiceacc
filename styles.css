@@ -1614,6 +1614,16 @@ textarea:focus {
   text-align: right;
 }
 
+.transaction-amount-has-counterparty-impact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 14px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.66);
+}
+
 .transaction-amount-inline {
   display: none;
 }

@@ -119,6 +119,11 @@ export function createSearchTools(api) {
     ) {
       return false;
     }
+    if (filters.trackedCounterparty && filters.trackedCounterparty !== "all") {
+      if (transaction.counterpartyId !== filters.trackedCounterparty || !String(transaction.counterpartyEffect || "").trim()) {
+        return false;
+      }
+    }
     if (
       filters.project &&
       !String(transaction.project || "").toLowerCase().includes(filters.project.toLowerCase())
@@ -148,6 +153,7 @@ export function createSearchTools(api) {
       category: "all",
       subcategory: "",
       counterparty: "",
+      trackedCounterparty: "all",
       project: "",
       tag: "",
       startDate: "",
@@ -161,6 +167,7 @@ export function createSearchTools(api) {
     document.getElementById("filter-category").value = "all";
     document.getElementById("filter-subcategory").value = "";
     document.getElementById("filter-counterparty").value = "";
+    document.getElementById("filter-tracked-counterparty").value = "all";
     document.getElementById("filter-project").value = "";
     document.getElementById("filter-tag").value = "";
     document.getElementById("filter-start-date").value = "";

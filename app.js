@@ -107,6 +107,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       category: "all",
       subcategory: "",
       counterparty: "",
+      trackedCounterparty: "all",
       project: "",
       tag: "",
       startDate: "",
@@ -645,6 +646,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     bindFilterInput("filter-category", "category");
     bindFilterInput("filter-subcategory", "subcategory");
     bindFilterInput("filter-counterparty", "counterparty");
+    bindFilterInput("filter-tracked-counterparty", "trackedCounterparty");
     bindFilterInput("filter-project", "project");
     bindFilterInput("filter-tag", "tag");
     bindFilterInput("filter-start-date", "startDate");
@@ -1217,6 +1219,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     uiState.filters.category = filters.categoryId || "all";
     uiState.filters.subcategory = filters.subcategory || "";
     uiState.filters.counterparty = filters.counterparty || "";
+    uiState.filters.trackedCounterparty = filters.trackedCounterparty || "all";
     uiState.filters.project = filters.project || "";
     uiState.filters.tag = filters.tag || "";
     uiState.filters.startDate = startDate;
@@ -1279,6 +1282,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("filter-subcategory").value = uiState.filters.subcategory || "";
     renderTransactionFilterValueSuggestions();
     document.getElementById("filter-counterparty").value = uiState.filters.counterparty || "";
+    document.getElementById("filter-tracked-counterparty").value = uiState.filters.trackedCounterparty || "all";
     document.getElementById("filter-project").value = uiState.filters.project || "";
     document.getElementById("filter-tag").value = uiState.filters.tag || "";
     document.getElementById("filter-sort").value = uiState.filters.sort || "dateDesc";
@@ -2621,6 +2625,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (uiState.filters.counterparty) {
       chips.push(renderTransactionFilterChip("counterparty", `Payee/Payer: ${uiState.filters.counterparty}`));
     }
+    if (uiState.filters.trackedCounterparty && uiState.filters.trackedCounterparty !== "all") {
+      const counterparty = getCounterparty(uiState.filters.trackedCounterparty);
+      chips.push(renderTransactionFilterChip("trackedCounterparty", `Counterparty: ${counterparty?.name || "Unknown"}`));
+    }
     if (uiState.filters.project) {
       chips.push(renderTransactionFilterChip("project", `Project: ${uiState.filters.project}`));
     }
@@ -2669,6 +2677,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     if (key === "counterparty") {
       uiState.filters.counterparty = "";
+    }
+    if (key === "trackedCounterparty") {
+      uiState.filters.trackedCounterparty = "all";
     }
     if (key === "project") {
       uiState.filters.project = "";
@@ -3457,6 +3468,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   function renderSelectOptions() {
     populateAccountSelect(document.getElementById("filter-account"), true);
     populateCategorySelect(document.getElementById("filter-category"), true);
+    populateCounterpartySelect(document.getElementById("filter-tracked-counterparty"), true);
     populateAccountSelect(document.getElementById("report-account"), true);
 
     populateAccountSelect(document.getElementById("transaction-account"), false, "Select account");
@@ -4054,8 +4066,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (!counterparty) {
       return;
     }
-    uiState.filters.counterparty = counterparty.name;
+    uiState.filters = {
+      search: "",
+      type: "all",
+      account: "all",
+      category: "all",
+      subcategory: "",
+      counterparty: "",
+      trackedCounterparty: counterparty.id,
+      project: "",
+      tag: "",
+      startDate: "",
+      endDate: "",
+      sort: "dateDesc",
+    };
     uiState.transactionPage = 1;
+    setTransactionFiltersExpanded(true);
     switchScreen("transactions");
     renderTransactions();
     showToast(`Showing ledger entries for ${counterparty.name}.`);
@@ -4175,6 +4201,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       </div>
     `;
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
+    const hasCounterpartyImpact = Boolean(String(transaction.counterpartyId || "").trim() && String(transaction.counterpartyEffect || "").trim());
     const detailPillParts = [
       transaction.counterparty
         ? `<span class="meta-pill transaction-pill-payee">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
@@ -4219,7 +4246,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                   </div>
                 </div>
                 <div class="transaction-header-side">
-                  <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+                  <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)} ${
+                    hasCounterpartyImpact ? "transaction-amount-has-counterparty-impact" : ""
+                  }">${formatMoney(
                     transaction.amount,
                     transactionSymbol
                   )}</strong>
@@ -4235,7 +4264,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             </div>
           </div>
           <div class="item-actions transaction-card-actions">
-            <strong class="money transaction-amount transaction-amount-desktop transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+            <strong class="money transaction-amount transaction-amount-desktop transaction-amount-${escapeHtml(transaction.type)} ${
+              hasCounterpartyImpact ? "transaction-amount-has-counterparty-impact" : ""
+            }">${formatMoney(
               transaction.amount,
               transactionSymbol
             )}</strong>
