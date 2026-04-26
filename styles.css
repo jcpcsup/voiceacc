@@ -1042,6 +1042,10 @@ body.app-locked .app-shell {
 .category-chart-row .mini-trend-card {
   margin-top: 0;
   min-width: 0;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: rgba(247, 252, 251, 0.96);
 }
 
 .mini-trend-copy {
@@ -1078,6 +1082,8 @@ body.app-locked .app-shell {
   display: block;
   width: 100%;
   height: 56px;
+  background: transparent;
+  overflow: visible;
 }
 
 .mini-trend-axis {
