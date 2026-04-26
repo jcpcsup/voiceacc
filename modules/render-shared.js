@@ -39,7 +39,6 @@ export function createRenderSharedTools(api) {
       const y = height - padding - normalized * (height - padding * 2);
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     });
-    const areaPath = [`M ${padding} ${height - padding}`, ...coords.map((point) => `L ${point.replace(",", " ")}`), `L ${width - padding} ${height - padding}`, "Z"].join(" ");
     return `
       <div class="mini-trend-card">
         <div class="mini-trend-copy">
@@ -51,7 +50,9 @@ export function createRenderSharedTools(api) {
           <span>${escapeHtml(formatMoney(min, baseSymbol))}</span>
         </div>
         <svg class="mini-trend-chart" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-          <path d="${areaPath}" fill="${escapeHtml(withAlpha(safeColor, 0.18))}"></path>
+          <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="${escapeHtml(
+            withAlpha(safeColor, 0.12)
+          )}" stroke-width="1"></line>
           <polyline points="${coords.join(" ")}" fill="none" stroke="${escapeHtml(safeColor)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
         </svg>
         <div class="mini-trend-axis">
