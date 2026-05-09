@@ -4670,8 +4670,11 @@ input[data-smart-picker-field][readonly] {
   }
 
   .transaction-mobile-actions {
-    display: grid;
-    justify-items: end;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 38px;
   }
 
   .transaction-card-actions {
@@ -4769,11 +4772,13 @@ input[data-smart-picker-field][readonly] {
 
   .tracked-counterparty-pill-mobile {
     display: inline-flex;
-    min-height: 26px;
-    padding: 4px 10px;
+    width: 38px;
+    min-height: 24px;
+    padding: 2px 4px;
     border-radius: 12px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     letter-spacing: 0.01em;
+    text-align: center;
   }
 
   .transaction-secondary-meta-mobile {
