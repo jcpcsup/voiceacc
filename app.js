@@ -4252,12 +4252,26 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         ? Number(transaction.counterpartyAmount || 0)
         : Number(transaction.amount || 0)
       : 0;
-    const trackedAmountPill =
-      hasCounterpartyImpact && trackedCounterpartyAmount > 0
-        ? `<span class="tracked-counterparty-pill tracked-counterparty-pill-${escapeHtml(transaction.type)}">
-            <span class="tracked-counterparty-pill-mark">T</span>
-            <span class="tracked-counterparty-pill-value">${formatMoney(trackedCounterpartyAmount, transactionSymbol)}</span>
-          </span>`
+    const trackedCounterpartyTone = String(transaction.counterpartyEffect || "").startsWith("receivable")
+      ? "receivable"
+      : String(transaction.counterpartyEffect || "").startsWith("payable")
+        ? "payable"
+        : "";
+    const trackedCounterpartyCompactValue = Number.isInteger(trackedCounterpartyAmount)
+      ? String(trackedCounterpartyAmount)
+      : String(Number(trackedCounterpartyAmount.toFixed(2)));
+    const trackedAmountPillDesktop =
+      hasCounterpartyImpact && trackedCounterpartyAmount > 0 && trackedCounterpartyTone
+        ? `<span class="tracked-counterparty-pill tracked-counterparty-pill-${escapeHtml(trackedCounterpartyTone)} tracked-counterparty-pill-desktop">${formatMoney(
+            trackedCounterpartyAmount,
+            transactionSymbol
+          )}</span>`
+        : "";
+    const trackedAmountPillMobile =
+      hasCounterpartyImpact && trackedCounterpartyAmount > 0 && trackedCounterpartyTone
+        ? `<span class="tracked-counterparty-pill tracked-counterparty-pill-${escapeHtml(trackedCounterpartyTone)} tracked-counterparty-pill-mobile">${escapeHtml(
+            trackedCounterpartyCompactValue
+          )}</span>`
         : "";
     const detailPillParts = [
       transaction.counterparty
@@ -4269,7 +4283,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       .filter(Boolean);
     const detailPillsInline = detailPillParts.join('<span class="transaction-header-separator transaction-inline-separator">|</span>');
     const detailPills = detailPillParts.join("");
-    const accountStripMarkup = `${accountPills}${trackedAmountPill}`;
+    const desktopAccountClusterMarkup =
+      trackedAmountPillDesktop && transaction.type !== "transfer"
+        ? `<div class="transaction-account-cluster">
+            <div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>
+            <div class="transaction-tracked-strip transaction-tracked-strip-desktop">${trackedAmountPillDesktop}</div>
+          </div>`
+        : `<div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>`;
     return `
       <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}" data-action="edit-transaction-card" data-id="${escapeHtml(
         transaction.id
@@ -4285,6 +4305,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                 <button class="icon-button transaction-icon-action delete" type="button" data-action="delete-transaction" data-id="${escapeHtml(transaction.id)}" aria-label="Delete transaction">
                   ${iconRegistry.bin}
                 </button>
+                ${trackedAmountPillMobile}
               </div>
             </div>
             <div class="transaction-details">
@@ -4308,7 +4329,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                     transaction.amount,
                     transactionSymbol
                   )}</strong>
-                  <div class="transaction-account-strip transaction-account-strip-mobile">${accountStripMarkup}</div>
+                  <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
                 </div>
               </div>
               ${detailPills ? `<div class="transaction-tags transaction-tags-secondary transaction-secondary-meta-mobile">${detailPills}</div>` : ""}
@@ -4324,7 +4345,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
               transaction.amount,
               transactionSymbol
             )}</strong>
-            <div class="transaction-account-strip transaction-account-strip-desktop">${accountStripMarkup}</div>
+            ${desktopAccountClusterMarkup}
           </div>
         </div>
       </article>

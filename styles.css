@@ -1807,12 +1807,23 @@ textarea:focus {
   gap: 8px;
 }
 
+.transaction-account-cluster {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
 .transaction-account-strip-desktop {
   justify-content: flex-end;
 }
 
 .transaction-account-strip-mobile {
   display: none;
+}
+
+.transaction-tracked-strip {
+  display: flex;
+  align-items: center;
 }
 
 .account-theme-pill {
@@ -1831,47 +1842,33 @@ textarea:focus {
   --tracked-pill-color: #1ca866;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   border-radius: 999px;
   border: 1px solid var(--tracked-pill-color);
-  background: rgba(255, 255, 255, 0.94);
+  background: color-mix(in srgb, var(--tracked-pill-color) 8%, white);
   color: var(--tracked-pill-color);
-  overflow: hidden;
   white-space: nowrap;
-}
-
-.tracked-counterparty-pill-expense {
-  --tracked-pill-color: #ee2f2c;
-}
-
-.tracked-counterparty-pill-income {
-  --tracked-pill-color: #72b445;
-}
-
-.tracked-counterparty-pill-transfer {
-  --tracked-pill-color: #149ab7;
-}
-
-.tracked-counterparty-pill-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  padding: 6px 10px;
-  background: var(--tracked-pill-color);
-  color: #ffffff;
-  font-size: 1.02rem;
   font-weight: 800;
   line-height: 1;
 }
 
-.tracked-counterparty-pill-value {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.tracked-counterparty-pill-receivable {
+  --tracked-pill-color: #63b243;
+}
+
+.tracked-counterparty-pill-payable {
+  --tracked-pill-color: #ef3d34;
+}
+
+.tracked-counterparty-pill-desktop {
+  min-height: 31px;
   padding: 6px 12px;
   font-size: 0.78rem;
-  font-weight: 800;
   letter-spacing: 0.01em;
+}
+
+.tracked-counterparty-pill-mobile {
+  display: none;
 }
 
 .transaction-card-actions {
@@ -4674,6 +4671,7 @@ input[data-smart-picker-field][readonly] {
 
   .transaction-mobile-actions {
     display: grid;
+    justify-items: end;
   }
 
   .transaction-card-actions {
@@ -4762,6 +4760,20 @@ input[data-smart-picker-field][readonly] {
     display: flex;
     justify-content: flex-end;
     flex-wrap: nowrap;
+  }
+
+  .transaction-tracked-strip-desktop,
+  .tracked-counterparty-pill-desktop {
+    display: none;
+  }
+
+  .tracked-counterparty-pill-mobile {
+    display: inline-flex;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    letter-spacing: 0.01em;
   }
 
   .transaction-secondary-meta-mobile {
