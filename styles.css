@@ -1803,6 +1803,7 @@ textarea:focus {
 .transaction-account-strip {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -1824,6 +1825,53 @@ textarea:focus {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.tracked-counterparty-pill {
+  --tracked-pill-color: #1ca866;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--tracked-pill-color);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--tracked-pill-color);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tracked-counterparty-pill-expense {
+  --tracked-pill-color: #ee2f2c;
+}
+
+.tracked-counterparty-pill-income {
+  --tracked-pill-color: #72b445;
+}
+
+.tracked-counterparty-pill-transfer {
+  --tracked-pill-color: #149ab7;
+}
+
+.tracked-counterparty-pill-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 6px 10px;
+  background: var(--tracked-pill-color);
+  color: #ffffff;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tracked-counterparty-pill-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .transaction-card-actions {

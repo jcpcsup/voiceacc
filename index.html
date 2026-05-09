@@ -684,6 +684,17 @@
                 <option value="payableDecrease">Decrease payable</option>
               </select>
             </div>
+            <div class="field-group" id="field-counterparty-amount">
+              <label class="field-label" for="transaction-counterparty-amount">Tracked Amount</label>
+              <input
+                id="transaction-counterparty-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Select an asset / liability impact first"
+                disabled
+              />
+            </div>
             <div class="field-group field-span-2 transaction-slip-field">
               <div class="transaction-slip-copy">
                 <label class="field-label" for="transaction-slip-file">Slip Image</label>

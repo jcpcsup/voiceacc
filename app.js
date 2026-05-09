@@ -326,6 +326,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     escapeHtml,
     escapeRegExp,
     calculateTransactionAmountFromDetails,
+    syncTransactionCounterpartyAmountUi,
     todayIso,
     shiftIsoDate,
     showToast,
@@ -465,6 +466,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-type").addEventListener("change", () => {
       syncTransactionTypeFields();
       renderTransactionSmartFieldOptions();
+      syncTransactionCounterpartyAmountUi();
+    });
+    document.getElementById("transaction-amount").addEventListener("input", () => {
+      syncTransactionCounterpartyAmountUi();
+    });
+    document.getElementById("transaction-amount").addEventListener("change", () => {
+      syncTransactionCounterpartyAmountUi();
     });
     document.getElementById("transaction-account").addEventListener("change", (event) => {
       applyLatestTransactionSelection("account", event.target.value);
@@ -487,6 +495,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       applyLatestTransactionSelection("counterparty", event.target.value);
     });
     document.getElementById("transaction-tracked-counterparty").addEventListener("change", syncTrackedCounterpartySelection);
+    document.getElementById("transaction-counterparty-effect").addEventListener("change", () => {
+      syncTransactionCounterpartyAmountUi();
+    });
     document.getElementById("transaction-project").addEventListener("change", (event) => {
       applyLatestTransactionSelection("project", event.target.value);
     });
@@ -1554,6 +1565,31 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (derivedAmount > 0) {
       amountField.value = String(derivedAmount);
     }
+    syncTransactionCounterpartyAmountUi();
+  }
+
+  function syncTransactionCounterpartyAmountUi(options = {}) {
+    const trackedAmountField = document.getElementById("transaction-counterparty-amount");
+    const effectField = document.getElementById("transaction-counterparty-effect");
+    const amountField = document.getElementById("transaction-amount");
+    const typeField = document.getElementById("transaction-type");
+    if (!trackedAmountField || !effectField || !amountField || !typeField) {
+      return;
+    }
+    const type = typeField.value || "expense";
+    const hasEffect = Boolean(String(effectField.value || "").trim());
+    const shouldEnable = type !== "transfer" && hasEffect;
+    trackedAmountField.disabled = !shouldEnable;
+    trackedAmountField.placeholder = shouldEnable ? "Defaults to full amount" : "Select an asset / liability impact first";
+    if (!shouldEnable) {
+      trackedAmountField.value = "";
+      return;
+    }
+    const currentValue = String(trackedAmountField.value || "").trim();
+    const amountValue = Number(amountField.value || 0);
+    if ((options.forceDefault || !currentValue) && amountValue > 0) {
+      trackedAmountField.value = String(amountValue);
+    }
   }
 
   function syncTransactionTemplateControls() {
@@ -1576,6 +1612,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
       counterpartyId: type === "transfer" ? "" : document.getElementById("transaction-tracked-counterparty").value || "",
       counterpartyEffect: type === "transfer" ? "" : document.getElementById("transaction-counterparty-effect").value || "",
+      counterpartyAmount:
+        type === "transfer" ? 0 : Number(document.getElementById("transaction-counterparty-amount").value || 0),
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
       details: document.getElementById("transaction-details").value.trim(),
@@ -1601,6 +1639,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("transaction-counterparty").value = draft.counterparty || "";
     document.getElementById("transaction-tracked-counterparty").value = draft.counterpartyId || "";
     document.getElementById("transaction-counterparty-effect").value = draft.counterpartyEffect || "";
+    document.getElementById("transaction-counterparty-amount").value =
+      draft.counterpartyEffect && Number(draft.counterpartyAmount || 0) > 0
+        ? String(Number(draft.counterpartyAmount || 0))
+        : "";
     document.getElementById("transaction-project").value = draft.project || "";
     document.getElementById("transaction-tags").value = Array.isArray(draft.tags) ? draft.tags.join(", ") : "";
     document.getElementById("transaction-details").value = draft.details || "";
@@ -1611,6 +1653,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       syncTransactionAmountFromDetails();
     }
     syncTrackedCounterpartySelection();
+    syncTransactionCounterpartyAmountUi();
     setTransactionTemplatePanelExpanded(false);
   }
 
@@ -1635,6 +1678,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       counterparty: String(document.getElementById("transaction-counterparty")?.value || "").trim(),
       trackedCounterparty: String(document.getElementById("transaction-tracked-counterparty")?.value || "").trim(),
       counterpartyEffect: String(document.getElementById("transaction-counterparty-effect")?.value || "").trim(),
+      counterpartyAmount: String(document.getElementById("transaction-counterparty-amount")?.value || "").trim(),
       project: String(document.getElementById("transaction-project")?.value || "").trim(),
       tags: String(document.getElementById("transaction-tags")?.value || "").trim(),
       details: String(document.getElementById("transaction-details")?.value || "").trim(),
@@ -1647,6 +1691,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       counterparty: ["counterparty"],
       trackedCounterparty: ["counterparty"],
       counterpartyEffect: ["counterparty"],
+      counterpartyAmount: ["counterparty"],
       project: ["project"],
     };
     const ignoredKeys = new Set(fieldKeyMap[ignored] || []);
@@ -4202,6 +4247,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     `;
     const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
     const hasCounterpartyImpact = Boolean(String(transaction.counterpartyId || "").trim() && String(transaction.counterpartyEffect || "").trim());
+    const trackedCounterpartyAmount = hasCounterpartyImpact
+      ? Number(transaction.counterpartyAmount || 0) > 0
+        ? Number(transaction.counterpartyAmount || 0)
+        : Number(transaction.amount || 0)
+      : 0;
+    const trackedAmountPill =
+      hasCounterpartyImpact && trackedCounterpartyAmount > 0
+        ? `<span class="tracked-counterparty-pill tracked-counterparty-pill-${escapeHtml(transaction.type)}">
+            <span class="tracked-counterparty-pill-mark">T</span>
+            <span class="tracked-counterparty-pill-value">${formatMoney(trackedCounterpartyAmount, transactionSymbol)}</span>
+          </span>`
+        : "";
     const detailPillParts = [
       transaction.counterparty
         ? `<span class="meta-pill transaction-pill-payee">${escapeHtml(counterpartyLabel)}: ${escapeHtml(transaction.counterparty)}</span>`
@@ -4212,6 +4269,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       .filter(Boolean);
     const detailPillsInline = detailPillParts.join('<span class="transaction-header-separator transaction-inline-separator">|</span>');
     const detailPills = detailPillParts.join("");
+    const accountStripMarkup = `${accountPills}${trackedAmountPill}`;
     return `
       <article class="transaction-item ${escapeHtml(transaction.type)}" style="--card-color:${escapeHtml(cardColor)}" data-action="edit-transaction-card" data-id="${escapeHtml(
         transaction.id
@@ -4246,13 +4304,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
                   </div>
                 </div>
                 <div class="transaction-header-side">
-                  <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)} ${
-                    hasCounterpartyImpact ? "transaction-amount-has-counterparty-impact" : ""
-                  }">${formatMoney(
+                  <strong class="money transaction-amount transaction-amount-inline transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
                     transaction.amount,
                     transactionSymbol
                   )}</strong>
-                  <div class="transaction-account-strip transaction-account-strip-mobile">${accountPills}</div>
+                  <div class="transaction-account-strip transaction-account-strip-mobile">${accountStripMarkup}</div>
                 </div>
               </div>
               ${detailPills ? `<div class="transaction-tags transaction-tags-secondary transaction-secondary-meta-mobile">${detailPills}</div>` : ""}
@@ -4264,13 +4320,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
             </div>
           </div>
           <div class="item-actions transaction-card-actions">
-            <strong class="money transaction-amount transaction-amount-desktop transaction-amount-${escapeHtml(transaction.type)} ${
-              hasCounterpartyImpact ? "transaction-amount-has-counterparty-impact" : ""
-            }">${formatMoney(
+            <strong class="money transaction-amount transaction-amount-desktop transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
               transaction.amount,
               transactionSymbol
             )}</strong>
-            <div class="transaction-account-strip transaction-account-strip-desktop">${accountPills}</div>
+            <div class="transaction-account-strip transaction-account-strip-desktop">${accountStripMarkup}</div>
           </div>
         </div>
       </article>

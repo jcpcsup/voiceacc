@@ -92,7 +92,7 @@ export function createAccountsCategoriesTools(api) {
         (transaction) =>
           `${transaction.id}:${transaction.updatedAt || transaction.createdAt || ""}:${transaction.type}:${transaction.amount}:${transaction.date}:${
             transaction.accountId || ""
-          }:${transaction.fromAccountId || ""}:${transaction.toAccountId || ""}:${transaction.categoryId || ""}:${transaction.counterpartyId || ""}:${transaction.counterpartyEffect || ""}`
+          }:${transaction.fromAccountId || ""}:${transaction.toAccountId || ""}:${transaction.categoryId || ""}:${transaction.counterpartyId || ""}:${transaction.counterpartyEffect || ""}:${transaction.counterpartyAmount || ""}`
       )
       .join("|");
     return `${monthAnchor}::${accountPart}::${counterpartyPart}::${transactionPart}`;
@@ -383,20 +383,28 @@ export function createAccountsCategoriesTools(api) {
       if (transaction.date >= thisMonth.start && transaction.date <= today) {
         addCategoryCurrentMonthAmount(snapshot, transaction.categoryId, amount, transaction.date, today);
       }
-      applyCounterpartyAggregate(snapshot, transaction.counterpartyId, transaction.counterpartyEffect, amount, transaction.date);
+      const trackedCounterpartyAmount =
+        Number(transaction.counterpartyAmount || 0) > 0 ? Number(transaction.counterpartyAmount || 0) : amount;
+      applyCounterpartyAggregate(
+        snapshot,
+        transaction.counterpartyId,
+        transaction.counterpartyEffect,
+        trackedCounterpartyAmount,
+        transaction.date
+      );
       if (transaction.counterpartyId && transaction.counterpartyEffect) {
         let netDelta = 0;
         if (transaction.counterpartyEffect === "receivableIncrease") {
-          netDelta = amount;
+          netDelta = trackedCounterpartyAmount;
         }
         if (transaction.counterpartyEffect === "receivableDecrease") {
-          netDelta = -amount;
+          netDelta = -trackedCounterpartyAmount;
         }
         if (transaction.counterpartyEffect === "payableIncrease") {
-          netDelta = -amount;
+          netDelta = -trackedCounterpartyAmount;
         }
         if (transaction.counterpartyEffect === "payableDecrease") {
-          netDelta = amount;
+          netDelta = trackedCounterpartyAmount;
         }
         if (transaction.date < thisMonth.start) {
           snapshot.currentMonthStartingNetByCounterparty.set(

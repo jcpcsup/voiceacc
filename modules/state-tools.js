@@ -72,12 +72,14 @@ export function createStateTools(api) {
         ? parsed.transactions.map((transaction) => ({
             counterpartyId: "",
             counterpartyEffect: "",
+            counterpartyAmount: 0,
             slipPath: "",
             slipResolution: "720",
             slipMimeType: "",
             slipUpdatedAt: "",
             ...transaction,
             tags: normalizeTags(transaction?.tags),
+            counterpartyAmount: Number(transaction?.counterpartyAmount || 0),
             slipResolution: String(transaction?.slipResolution || 720),
           }))
         : [],

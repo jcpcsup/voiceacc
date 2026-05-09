@@ -26,6 +26,7 @@ export function createModalTools(api) {
     escapeHtml,
     escapeRegExp,
     calculateTransactionAmountFromDetails,
+    syncTransactionCounterpartyAmountUi,
     todayIso,
     shiftIsoDate,
     showToast,
@@ -53,6 +54,10 @@ export function createModalTools(api) {
     document.getElementById("transaction-subcategory").closest(".field-group").classList.toggle("hidden", isTransfer);
     document.getElementById("field-tracked-counterparty").classList.toggle("hidden", isTransfer);
     document.getElementById("field-counterparty-effect").classList.toggle("hidden", isTransfer);
+    document.getElementById("field-counterparty-amount").classList.toggle("hidden", isTransfer);
+    if (typeof syncTransactionCounterpartyAmountUi === "function") {
+      syncTransactionCounterpartyAmountUi();
+    }
   }
 
   function syncCategoryBudgetState() {
@@ -343,6 +348,9 @@ export function createModalTools(api) {
       renderSubcategoryOptions();
       document.getElementById("transaction-subcategory").value = "";
       document.getElementById("transaction-counterparty").value = "";
+      document.getElementById("transaction-tracked-counterparty").value = "";
+      document.getElementById("transaction-counterparty-effect").value = "";
+      document.getElementById("transaction-counterparty-amount").value = "";
       document.getElementById("transaction-project").value = "";
       document.getElementById("transaction-tags").value = "";
       document.getElementById("transaction-details").value = "";
@@ -451,10 +459,17 @@ export function createModalTools(api) {
     document.getElementById("transaction-counterparty").value = transaction.counterparty || "";
     document.getElementById("transaction-tracked-counterparty").value = transaction.counterpartyId || "";
     document.getElementById("transaction-counterparty-effect").value = transaction.counterpartyEffect || "";
+    document.getElementById("transaction-counterparty-amount").value =
+      transaction.counterpartyEffect
+        ? String(Number(transaction.counterpartyAmount || 0) > 0 ? Number(transaction.counterpartyAmount || 0) : Number(transaction.amount || 0))
+        : "";
     document.getElementById("transaction-project").value = transaction.project || "";
     document.getElementById("transaction-tags").value = (transaction.tags || []).join(", ");
     document.getElementById("transaction-details").value = transaction.details || "";
     applyTransactionSlipStateFromTransaction(transaction);
+    if (typeof syncTransactionCounterpartyAmountUi === "function") {
+      syncTransactionCounterpartyAmountUi();
+    }
   }
 
   function setTransactionSubmitMode(mode = "save") {
@@ -535,6 +550,7 @@ export function createModalTools(api) {
       counterparty: document.getElementById("transaction-counterparty").value.trim(),
       counterpartyId: type === "transfer" ? "" : document.getElementById("transaction-tracked-counterparty").value,
       counterpartyEffect: type === "transfer" ? "" : document.getElementById("transaction-counterparty-effect").value,
+      counterpartyAmount: type === "transfer" ? 0 : Number(document.getElementById("transaction-counterparty-amount").value || 0),
       project: document.getElementById("transaction-project").value.trim(),
       tags: splitTags(document.getElementById("transaction-tags").value),
       details,
@@ -576,9 +592,21 @@ export function createModalTools(api) {
       if (!payload.counterparty) {
         payload.counterparty = getCounterparty(payload.counterpartyId)?.name || "";
       }
+      if (!payload.counterpartyAmount || payload.counterpartyAmount <= 0) {
+        payload.counterpartyAmount = amount;
+      }
+      if (!Number.isFinite(payload.counterpartyAmount) || payload.counterpartyAmount <= 0) {
+        showToast("Enter a valid tracked amount.");
+        return;
+      }
+      if (payload.counterpartyAmount > amount) {
+        showToast("Tracked amount cannot be greater than the full amount.");
+        return;
+      }
     } else {
       payload.counterpartyId = "";
       payload.counterpartyEffect = "";
+      payload.counterpartyAmount = 0;
     }
 
     if (payload.categoryId && payload.subcategory) {
@@ -1292,6 +1320,7 @@ export function createModalTools(api) {
         counterparty: row.payeeOrPayer || row.counterparty || "",
         counterpartyId: row.counterpartyId || "",
         counterpartyEffect: row.counterpartyEffect || "",
+        counterpartyAmount: Number(row.counterpartyAmount || 0),
         project: row.project || "",
         tags: splitTags(row.tags || ""),
         details: row.details || "",
@@ -1300,6 +1329,11 @@ export function createModalTools(api) {
       };
       if (payload.counterpartyEffect) {
         payload.counterpartyId = ensureTrackedCounterparty(payload.counterparty, payload.counterpartyId);
+        if (!(payload.counterpartyAmount > 0)) {
+          payload.counterpartyAmount = payload.amount;
+        }
+      } else {
+        payload.counterpartyAmount = 0;
       }
       upsertById(state.transactions, payload);
   }

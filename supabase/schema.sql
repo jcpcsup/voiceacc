@@ -78,6 +78,7 @@ create table if not exists public.transactions (
   counterparty text not null default '',
   counterparty_id text not null default '',
   counterparty_effect text not null default '',
+  counterparty_amount numeric(14, 2) not null default 0,
   project text not null default '',
   tags text[] not null default '{}',
   details text not null default '',
@@ -114,6 +115,9 @@ add column if not exists counterparty_id text not null default '';
 
 alter table public.transactions
 add column if not exists counterparty_effect text not null default '';
+
+alter table public.transactions
+add column if not exists counterparty_amount numeric(14, 2) not null default 0;
 
 alter table public.accounts
 add column if not exists include_in_total_balance boolean not null default true;
