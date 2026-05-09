@@ -306,9 +306,21 @@ export function createSupabaseTools(api) {
     }
 
     if (rows.length) {
-      const { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
+      let { error: upsertError } = await cloudState.client.from(tableName).upsert(rows, {
         onConflict: "user_id,id",
       });
+      if (
+        upsertError &&
+        tableName === SUPABASE_TRANSACTIONS_TABLE &&
+        String(upsertError.code || "") === "PGRST204" &&
+        String(upsertError.message || "").includes("counterparty_amount")
+      ) {
+        const legacyRows = rows.map(({ counterparty_amount, ...row }) => row);
+        const retryResult = await cloudState.client.from(tableName).upsert(legacyRows, {
+          onConflict: "user_id,id",
+        });
+        upsertError = retryResult.error || null;
+      }
       if (upsertError) {
         if (
           tolerateMissingTable &&
