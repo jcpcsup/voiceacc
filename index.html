@@ -582,7 +582,7 @@
 
     <div class="modal hidden" id="transaction-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal="transaction-modal"></div>
-      <div class="modal-card">
+      <div class="modal-card transaction-modal-card">
         <div class="modal-header">
           <div>
             <p class="eyebrow">Capture</p>
@@ -592,7 +592,7 @@
             X
           </button>
         </div>
-        <form id="transaction-form">
+        <form id="transaction-form" class="transaction-form">
           <input id="transaction-id" type="hidden" />
           <div class="inline-notice hidden" id="transaction-parser-notice"></div>
           <div class="transaction-template-tools">
@@ -721,7 +721,7 @@
                 <button class="ghost-button hidden" type="button" id="transaction-slip-remove-button">Remove Image</button>
               </div>
             </div>
-            <div class="field-group field-span-2">
+            <div class="field-group field-span-2 transaction-tags-field">
               <label class="field-label" for="transaction-tags">Tags</label>
               <input id="transaction-tags" type="text" placeholder="comma, separated, tags" />
             </div>
@@ -854,7 +854,7 @@
         </div>
         <form id="counterparty-form">
           <input id="counterparty-id" type="hidden" />
-          <div class="form-grid">
+          <div class="form-grid transaction-form-grid">
             <div class="field-group">
               <label class="field-label" for="counterparty-name">Counterparty Name</label>
               <input id="counterparty-name" type="text" required />
@@ -876,7 +876,7 @@
               <label class="field-label" for="counterparty-color">Theme Color</label>
               <input id="counterparty-color" type="color" value="#6657ca" />
             </div>
-            <div class="field-group field-span-2">
+            <div class="field-group field-span-2 transaction-details-field">
               <label class="field-label" for="counterparty-notes">Notes</label>
               <textarea id="counterparty-notes" rows="3"></textarea>
             </div>

@@ -3740,6 +3740,10 @@ textarea:focus {
   width: min(100%, 980px);
 }
 
+.transaction-modal-card {
+  width: min(100%, 820px);
+}
+
 .suggestion-picker-card {
   width: min(100%, 760px);
 }
@@ -4022,6 +4026,137 @@ input[data-smart-picker-field][readonly] {
   color: var(--muted);
   border: 1px dashed rgba(18, 59, 70, 0.16);
   border-radius: 20px;
+}
+
+@media (min-width: 901px) {
+  #transaction-modal {
+    padding: 72px 24px 108px;
+  }
+
+  .transaction-modal-card {
+    width: min(calc(100vw - 48px), 1180px);
+    max-height: calc(100vh - 180px);
+    max-height: calc(100dvh - 180px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .transaction-modal-card .modal-header {
+    flex: 0 0 auto;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(13, 47, 61, 0.08);
+    background: rgba(248, 252, 251, 0.96);
+  }
+
+  .transaction-form {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 18px 24px 0;
+  }
+
+  .transaction-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+
+  .transaction-form-grid .field-span-2 {
+    grid-column: span 2;
+  }
+
+  .transaction-form-grid input,
+  .transaction-form-grid select,
+  .transaction-form-grid textarea {
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  .transaction-form-grid .field-label {
+    margin-bottom: 5px;
+    font-size: 0.86rem;
+  }
+
+  .transaction-template-tools {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 20px;
+  }
+
+  .transaction-template-header strong {
+    font-size: 0.94rem;
+  }
+
+  .transaction-slip-field {
+    grid-row: span 3;
+    padding: 14px;
+    border: 1px solid rgba(13, 47, 61, 0.08);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(239, 247, 245, 0.72));
+  }
+
+  .transaction-slip-controls {
+    grid-template-columns: minmax(0, 1fr) 118px;
+    gap: 10px;
+  }
+
+  .transaction-slip-preview-shell {
+    min-height: 128px;
+    border-radius: 16px;
+  }
+
+  .transaction-slip-preview-image {
+    max-height: 150px;
+  }
+
+  .transaction-slip-meta-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .transaction-details-field textarea {
+    min-height: 92px;
+  }
+
+  .transaction-modal-card .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    justify-content: flex-end;
+    margin: 18px -24px 0;
+    padding: 14px 24px 18px;
+    border-top: 1px solid rgba(13, 47, 61, 0.08);
+    background: linear-gradient(180deg, rgba(248, 252, 251, 0.84), rgba(248, 252, 251, 0.98) 42%);
+    backdrop-filter: blur(16px);
+  }
+
+  #transaction-duplicate-button {
+    margin-right: auto;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1120px) {
+  .transaction-modal-card {
+    width: min(calc(100vw - 48px), 980px);
+  }
+
+  .transaction-form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .transaction-form-grid .field-span-2,
+  .transaction-slip-field,
+  .transaction-tags-field,
+  .transaction-details-field {
+    grid-column: span 3;
+  }
+
+  .transaction-slip-field {
+    grid-row: auto;
+  }
 }
 
 @keyframes fade-in {
