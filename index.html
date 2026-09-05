@@ -158,7 +158,10 @@
                 <p class="eyebrow">Ledger</p>
                 <h2>Transactions</h2>
               </div>
-              <button class="primary-button" type="button" id="add-transaction-button">Add Transaction</button>
+              <div class="section-actions">
+                <button class="secondary-button" type="button" id="bulk-add-expenses-button">Bulk Add Expenses</button>
+                <button class="primary-button" type="button" id="add-transaction-button">Add Transaction</button>
+              </div>
             </div>
 
             <div class="search-panel transaction-search-panel" id="transaction-search-panel">
@@ -737,6 +740,54 @@
             <button class="primary-button" type="submit">Save</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="bulk-expense-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="bulk-expense-modal"></div>
+      <div class="modal-card bulk-expense-modal-card">
+        <div class="modal-header bulk-expense-header">
+          <div>
+            <p class="eyebrow">Spreadsheet Entry</p>
+            <h2>Bulk Add Expenses</h2>
+          </div>
+          <div class="bulk-expense-header-controls">
+            <label class="field-label" for="bulk-expense-date">Date</label>
+            <input id="bulk-expense-date" type="date" required />
+            <button class="icon-button" type="button" data-close-modal="bulk-expense-modal" aria-label="Close">
+              X
+            </button>
+          </div>
+        </div>
+        <div class="bulk-expense-body">
+          <div class="bulk-expense-table-shell">
+            <table class="bulk-expense-table" aria-label="Bulk expense rows">
+              <thead>
+                <tr>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Account</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Subcategory</th>
+                  <th scope="col">Payee</th>
+                  <th scope="col">Project</th>
+                  <th scope="col">Details</th>
+                  <th scope="col" class="bulk-expense-actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-expense-table-body"></tbody>
+            </table>
+          </div>
+          <datalist id="bulk-expense-payee-options"></datalist>
+          <datalist id="bulk-expense-project-options"></datalist>
+          <p class="supporting-text bulk-expense-status" id="bulk-expense-status" aria-live="polite">
+            Double-click or double-tap a row to edit it. Draft rows are saved locally until they are committed.
+          </p>
+        </div>
+        <div class="modal-actions bulk-expense-actions">
+          <button class="ghost-button danger-outline" type="button" id="bulk-expense-clear-button">Clear Draft</button>
+          <button class="secondary-button" type="button" data-close-modal="bulk-expense-modal">Cancel</button>
+          <button class="primary-button" type="button" id="bulk-expense-save-button">Save Expenses</button>
+        </div>
       </div>
     </div>
 

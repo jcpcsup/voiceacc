@@ -28,6 +28,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const SUPABASE_TRANSACTION_SLIPS_BUCKET = "transaction-slips";
   const STORAGE_KEY = "ledgerflow-voice-v1";
   const TEMPLATE_STORAGE_KEY = `${STORAGE_KEY}-templates`;
+  const BULK_EXPENSE_STORAGE_KEY = `${STORAGE_KEY}-bulk-expense-draft`;
+  const BULK_EXPENSE_BATCH_SIZE = 25;
   const TRANSACTIONS_PAGE_SIZE = 20;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
@@ -76,6 +78,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let uiState;
   let transactionTemplates = loadTransactionTemplates();
   const transactionSlipUrlCache = new Map();
+  let bulkExpenseRows = [];
+  let bulkExpenseActiveRowId = "";
+  let bulkExpenseTapState = { rowId: "", at: 0 };
+  let bulkExpenseIsSaving = false;
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
     storageKey: STORAGE_KEY,
@@ -425,6 +431,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
     document.getElementById("quick-add-button")?.addEventListener("click", () => openTransactionModal());
     document.getElementById("add-transaction-button").addEventListener("click", () => openTransactionModal());
+    document.getElementById("bulk-add-expenses-button")?.addEventListener("click", openBulkExpenseModal);
     document.getElementById("topbar-add-button").addEventListener("click", () => openTransactionModal());
     document.getElementById("topbar-mic-button").addEventListener("click", handleTopBarMic);
     document.getElementById("listen-button").addEventListener("click", toggleListening);
@@ -524,6 +531,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
 
     document.getElementById("transaction-form").addEventListener("submit", handleTransactionSubmit);
+    document.getElementById("bulk-expense-date")?.addEventListener("change", handleBulkExpenseDateChange);
+    document.getElementById("bulk-expense-table-body")?.addEventListener("click", handleBulkExpenseTableClick);
+    document.getElementById("bulk-expense-table-body")?.addEventListener("dblclick", handleBulkExpenseTableDoubleClick);
+    document.getElementById("bulk-expense-table-body")?.addEventListener("input", handleBulkExpenseTableInput);
+    document.getElementById("bulk-expense-table-body")?.addEventListener("change", handleBulkExpenseTableInput);
+    document.getElementById("bulk-expense-clear-button")?.addEventListener("click", clearBulkExpenseDraft);
+    document.getElementById("bulk-expense-save-button")?.addEventListener("click", handleBulkExpenseSave);
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
     document.getElementById("counterparty-form").addEventListener("submit", handleCounterpartySubmit);
     document.getElementById("category-form").addEventListener("submit", handleCategorySubmit);
@@ -2420,6 +2434,548 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     switchScreen("overview");
     document.getElementById("dictation-input").focus();
     toggleListening();
+  }
+
+  function openBulkExpenseModal() {
+    loadBulkExpenseDraft();
+    ensureBulkExpenseTrailingBlankRow();
+    bulkExpenseActiveRowId = bulkExpenseRows.find((row) => bulkExpenseRowHasValues(row))?.id || bulkExpenseRows[0]?.id || "";
+    renderBulkExpenseRows();
+    updateBulkExpenseStatus();
+    openModal("bulk-expense-modal");
+  }
+
+  function createBulkExpenseRow(values = {}) {
+    return {
+      id: values.id || uid("bulk"),
+      transactionId: values.transactionId || "",
+      amount: values.amount || "",
+      accountId: values.accountId || "",
+      categoryId: values.categoryId || "",
+      subcategory: values.subcategory || "",
+      counterparty: values.counterparty || "",
+      project: values.project || "",
+      details: values.details || "",
+    };
+  }
+
+  function normalizeBulkExpenseRow(row) {
+    return createBulkExpenseRow({
+      id: row?.id || "",
+      transactionId: row?.transactionId || "",
+      amount: String(row?.amount || "").trim(),
+      accountId: String(row?.accountId || "").trim(),
+      categoryId: String(row?.categoryId || "").trim(),
+      subcategory: String(row?.subcategory || "").trim(),
+      counterparty: String(row?.counterparty || "").trim(),
+      project: String(row?.project || "").trim(),
+      details: String(row?.details || "").trim(),
+    });
+  }
+
+  function loadBulkExpenseDraft() {
+    const dateInput = document.getElementById("bulk-expense-date");
+    try {
+      const raw = window.localStorage.getItem(BULK_EXPENSE_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      bulkExpenseRows = Array.isArray(parsed?.rows)
+        ? parsed.rows.map(normalizeBulkExpenseRow).filter((row) => row.id)
+        : [];
+      dateInput.value = normalizeDateInput(parsed?.date || "") || todayIso();
+    } catch (error) {
+      console.error(error);
+      bulkExpenseRows = [];
+      dateInput.value = todayIso();
+    }
+    if (!bulkExpenseRows.length) {
+      bulkExpenseRows = [createBulkExpenseRow()];
+    }
+  }
+
+  function persistBulkExpenseDraft() {
+    try {
+      window.localStorage.setItem(
+        BULK_EXPENSE_STORAGE_KEY,
+        JSON.stringify({
+          date: document.getElementById("bulk-expense-date")?.value || todayIso(),
+          rows: bulkExpenseRows,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+    } catch (error) {
+      console.error(error);
+      updateBulkExpenseStatus("Draft could not be saved locally. Keep this modal open until you save.");
+    }
+  }
+
+  function clearBulkExpenseDraft() {
+    openConfirmModal({
+      eyebrow: "Clear Draft",
+      title: "Clear bulk expense draft?",
+      message: "This removes the current bulk-entry draft from this browser. Saved ledger transactions are not affected.",
+      submitLabel: "Clear Draft",
+      onConfirm: () => {
+        bulkExpenseRows = [createBulkExpenseRow()];
+        bulkExpenseActiveRowId = bulkExpenseRows[0].id;
+        document.getElementById("bulk-expense-date").value = todayIso();
+        persistBulkExpenseDraft();
+        renderBulkExpenseRows("amount");
+        updateBulkExpenseStatus("Draft cleared. Ready for new expense rows.");
+      },
+    });
+  }
+
+  function bulkExpenseRowHasValues(row) {
+    return Boolean(
+      String(row?.amount || "").trim() ||
+        row?.accountId ||
+        row?.categoryId ||
+        String(row?.subcategory || "").trim() ||
+        String(row?.counterparty || "").trim() ||
+        String(row?.project || "").trim() ||
+        String(row?.details || "").trim()
+    );
+  }
+
+  function ensureBulkExpenseTrailingBlankRow() {
+    if (!bulkExpenseRows.length) {
+      bulkExpenseRows.push(createBulkExpenseRow());
+      return true;
+    }
+    const last = bulkExpenseRows[bulkExpenseRows.length - 1];
+    if (bulkExpenseRowHasValues(last)) {
+      bulkExpenseRows.push(createBulkExpenseRow());
+      return true;
+    }
+    return false;
+  }
+
+  function renderBulkExpenseRows(focusField = "") {
+    const tableBody = document.getElementById("bulk-expense-table-body");
+    if (!tableBody) {
+      return;
+    }
+    ensureBulkExpenseTrailingBlankRow();
+    renderBulkExpenseDatalists();
+    tableBody.innerHTML = bulkExpenseRows.map((row, index) => renderBulkExpenseRow(row, index)).join("");
+    updateBulkExpenseStatus();
+    if (focusField && bulkExpenseActiveRowId) {
+      window.setTimeout(() => {
+        const input = tableBody.querySelector(`[data-bulk-row-id="${escapeAttribute(bulkExpenseActiveRowId)}"] [data-bulk-field="${escapeAttribute(focusField)}"]`);
+        input?.focus();
+        if (typeof input?.select === "function") {
+          input.select();
+        }
+      }, 0);
+    }
+  }
+
+  function renderBulkExpenseRow(row, index) {
+    const active = row.id === bulkExpenseActiveRowId;
+    const isBlank = !bulkExpenseRowHasValues(row);
+    const rowLabel = isBlank ? "Double-click to add" : `Row ${index + 1}`;
+    const cells = active
+      ? [
+          renderBulkExpenseAmountField(row),
+          renderBulkExpenseAccountField(row),
+          renderBulkExpenseCategoryField(row),
+          renderBulkExpenseSubcategoryField(row),
+          renderBulkExpenseTextField(row, "counterparty", "Payee"),
+          renderBulkExpenseTextField(row, "project", "Project"),
+          renderBulkExpenseTextField(row, "details", "Details"),
+        ]
+      : [
+          renderBulkExpenseReadonlyCell(formatBulkExpenseAmount(row.amount), rowLabel),
+          renderBulkExpenseReadonlyCell(getAccount(row.accountId)?.name || "", "Account"),
+          renderBulkExpenseReadonlyCell(getCategory(row.categoryId)?.name || "", "Category"),
+          renderBulkExpenseReadonlyCell(row.subcategory || "", "Subcategory"),
+          renderBulkExpenseReadonlyCell(row.counterparty || "", "Payee"),
+          renderBulkExpenseReadonlyCell(row.project || "", "Project"),
+          renderBulkExpenseReadonlyCell(row.details || "", "Details"),
+        ];
+    return `
+      <tr class="bulk-expense-row ${active ? "bulk-expense-row-active" : ""}" data-bulk-row-id="${escapeAttribute(row.id)}">
+        ${cells.map((cell) => `<td>${cell}</td>`).join("")}
+        <td>
+          <div class="bulk-expense-row-actions">
+            <button class="ghost-button" type="button" data-bulk-action="edit-row" data-bulk-row-id="${escapeAttribute(row.id)}">${active ? "Editing" : isBlank ? "Add" : "Edit"}</button>
+            ${
+              !isBlank
+                ? `<button class="ghost-button danger-outline" type="button" data-bulk-action="delete-row" data-bulk-row-id="${escapeAttribute(row.id)}">Del</button>`
+                : ""
+            }
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function renderBulkExpenseReadonlyCell(value, emptyLabel) {
+    const text = String(value || "").trim();
+    return `<span class="bulk-expense-cell-value ${text ? "" : "empty"}">${escapeHtml(text || emptyLabel || "-")}</span>`;
+  }
+
+  function renderBulkExpenseAmountField(row) {
+    return `<input data-bulk-field="amount" type="number" min="0" step="0.01" value="${escapeAttribute(row.amount)}" placeholder="0.00" />`;
+  }
+
+  function renderBulkExpenseAccountField(row) {
+    const options = ['<option value="">Account</option>']
+      .concat(state.accounts.map((account) => `<option value="${escapeAttribute(account.id)}" ${account.id === row.accountId ? "selected" : ""}>${escapeHtml(account.name)}</option>`))
+      .join("");
+    return `<select data-bulk-field="accountId">${options}</select>`;
+  }
+
+  function renderBulkExpenseCategoryField(row) {
+    const expenseCategories = state.categories.filter((category) => category.type === "expense");
+    const options = ['<option value="">Category</option>']
+      .concat(
+        expenseCategories.map(
+          (category) => `<option value="${escapeAttribute(category.id)}" ${category.id === row.categoryId ? "selected" : ""}>${escapeHtml(category.name)}</option>`
+        )
+      )
+      .join("");
+    return `<select data-bulk-field="categoryId">${options}</select>`;
+  }
+
+  function renderBulkExpenseSubcategoryField(row) {
+    const optionsId = `bulk-subcategory-options-${row.id}`;
+    const subcategories = getBulkExpenseSubcategoryOptions(row.categoryId);
+    return `
+      <input data-bulk-field="subcategory" type="text" list="${escapeAttribute(optionsId)}" value="${escapeAttribute(row.subcategory)}" placeholder="Subcategory" />
+      <datalist id="${escapeAttribute(optionsId)}">
+        ${subcategories.map((item) => `<option value="${escapeAttribute(item)}"></option>`).join("")}
+      </datalist>
+    `;
+  }
+
+  function renderBulkExpenseTextField(row, field, placeholder) {
+    const optionsId = field === "counterparty" ? "bulk-expense-payee-options" : field === "project" ? "bulk-expense-project-options" : "";
+    const datalist = optionsId ? ` list="${optionsId}"` : "";
+    return `<input data-bulk-field="${escapeAttribute(field)}" type="text"${datalist} value="${escapeAttribute(row[field] || "")}" placeholder="${escapeAttribute(placeholder)}" />`;
+  }
+
+  function renderBulkExpenseDatalists() {
+    populateBulkExpenseDatalist("bulk-expense-payee-options", getBulkExpenseTextSuggestions("counterparty"));
+    populateBulkExpenseDatalist("bulk-expense-project-options", getBulkExpenseTextSuggestions("project"));
+  }
+
+  function populateBulkExpenseDatalist(id, values) {
+    const datalist = document.getElementById(id);
+    if (!datalist) {
+      return;
+    }
+    datalist.innerHTML = values.map((value) => `<option value="${escapeAttribute(value)}"></option>`).join("");
+  }
+
+  function getBulkExpenseTextSuggestions(field) {
+    const values = new Map();
+    const addValue = (value, weight = 0) => {
+      const trimmed = String(value || "").trim();
+      if (!trimmed) {
+        return;
+      }
+      const key = trimmed.toLowerCase();
+      values.set(key, {
+        label: trimmed,
+        weight: Math.max(Number(values.get(key)?.weight || 0), weight),
+      });
+    };
+    state.transactions.forEach((transaction, index) => {
+      addValue(field === "counterparty" ? transaction.counterparty : transaction.project, state.transactions.length - index);
+    });
+    state.lookupEntries
+      .filter((entry) => entry.kind === field)
+      .forEach((entry) => addValue(entry.name, state.transactions.length + 1));
+    return [...values.values()]
+      .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
+      .slice(0, 50)
+      .map((entry) => entry.label);
+  }
+
+  function getBulkExpenseSubcategoryOptions(categoryId) {
+    const category = getCategory(categoryId);
+    if (!category) {
+      return [];
+    }
+    const values = new Set();
+    getRankedSubcategorySuggestions(categoryId).forEach((item) => values.add(item));
+    (category.subcategories || []).forEach((item) => values.add(item));
+    return [...values].filter(Boolean);
+  }
+
+  function handleBulkExpenseDateChange() {
+    persistBulkExpenseDraft();
+    updateBulkExpenseStatus();
+  }
+
+  function handleBulkExpenseTableDoubleClick(event) {
+    const row = event.target.closest("[data-bulk-row-id]");
+    if (!row) {
+      return;
+    }
+    activateBulkExpenseRow(row.dataset.bulkRowId || "", getBulkFieldName(event.target) || "amount");
+  }
+
+  function handleBulkExpenseTableClick(event) {
+    const actionButton = event.target.closest("[data-bulk-action]");
+    if (actionButton) {
+      const rowId = actionButton.dataset.bulkRowId || "";
+      if (actionButton.dataset.bulkAction === "edit-row") {
+        activateBulkExpenseRow(rowId, "amount");
+      }
+      if (actionButton.dataset.bulkAction === "delete-row") {
+        deleteBulkExpenseRow(rowId);
+      }
+      return;
+    }
+
+    const row = event.target.closest("[data-bulk-row-id]");
+    if (!row || event.target.closest("input, select, button")) {
+      return;
+    }
+    const now = Date.now();
+    const rowId = row.dataset.bulkRowId || "";
+    if (bulkExpenseTapState.rowId === rowId && now - bulkExpenseTapState.at < 460) {
+      activateBulkExpenseRow(rowId, "amount");
+    }
+    bulkExpenseTapState = { rowId, at: now };
+  }
+
+  function activateBulkExpenseRow(rowId, focusField = "amount") {
+    if (!bulkExpenseRows.some((row) => row.id === rowId)) {
+      return;
+    }
+    bulkExpenseActiveRowId = rowId;
+    renderBulkExpenseRows(focusField);
+  }
+
+  function deleteBulkExpenseRow(rowId) {
+    bulkExpenseRows = bulkExpenseRows.filter((row) => row.id !== rowId);
+    ensureBulkExpenseTrailingBlankRow();
+    bulkExpenseActiveRowId = bulkExpenseRows[0]?.id || "";
+    persistBulkExpenseDraft();
+    renderBulkExpenseRows();
+  }
+
+  function handleBulkExpenseTableInput(event) {
+    const field = getBulkFieldName(event.target);
+    const rowEl = event.target.closest("[data-bulk-row-id]");
+    if (!field || !rowEl) {
+      return;
+    }
+    const row = bulkExpenseRows.find((item) => item.id === rowEl.dataset.bulkRowId);
+    if (!row) {
+      return;
+    }
+    row[field] = event.target.value;
+    if (field === "categoryId") {
+      const allowed = new Set(getBulkExpenseSubcategoryOptions(row.categoryId).map((item) => item.toLowerCase()));
+      if (row.subcategory && allowed.size && !allowed.has(row.subcategory.toLowerCase())) {
+        row.subcategory = "";
+      }
+    }
+    const appended = ensureBulkExpenseTrailingBlankRow();
+    persistBulkExpenseDraft();
+    if (appended || field === "categoryId") {
+      renderBulkExpenseRows(field === "categoryId" ? "subcategory" : field);
+      return;
+    }
+    updateBulkExpenseStatus();
+  }
+
+  function getBulkFieldName(target) {
+    return target?.dataset?.bulkField || "";
+  }
+
+  async function handleBulkExpenseSave() {
+    const saveButton = document.getElementById("bulk-expense-save-button");
+    if (bulkExpenseIsSaving) {
+      return;
+    }
+    const validRows = bulkExpenseRows.filter(bulkExpenseRowHasValues);
+    const date = normalizeDateInput(document.getElementById("bulk-expense-date")?.value || "");
+    const validationError = validateBulkExpenseRows(validRows, date);
+    if (validationError) {
+      bulkExpenseActiveRowId = validationError.rowId || bulkExpenseActiveRowId;
+      renderBulkExpenseRows(validationError.field || "amount");
+      updateBulkExpenseStatus(validationError.message);
+      return;
+    }
+    if (!validRows.length) {
+      updateBulkExpenseStatus("Add at least one expense row before saving.");
+      return;
+    }
+
+    bulkExpenseIsSaving = true;
+    if (saveButton) {
+      saveButton.disabled = true;
+    }
+    validRows.forEach((row) => {
+      if (!row.transactionId) {
+        row.transactionId = uid("tx");
+      }
+    });
+    persistBulkExpenseDraft();
+
+    let savedCount = 0;
+    let finalStatusMessage = "";
+    try {
+      for (let index = 0; index < validRows.length; index += BULK_EXPENSE_BATCH_SIZE) {
+        const chunk = validRows.slice(index, index + BULK_EXPENSE_BATCH_SIZE);
+        updateBulkExpenseStatus(`Saving ${Math.min(index + chunk.length, validRows.length)} of ${validRows.length} expenses...`);
+        chunk.forEach((row) => saveBulkExpenseRow(row, date));
+        savedCount += chunk.length;
+        bulkExpenseRows = bulkExpenseRows.filter((row) => !chunk.some((savedRow) => savedRow.id === row.id));
+        ensureBulkExpenseTrailingBlankRow();
+        persistBulkExpenseDraft();
+        persistState();
+        renderAll();
+        if (uiState.isAuthenticated) {
+          await syncStateToSupabase(false);
+        }
+      }
+      bulkExpenseActiveRowId = bulkExpenseRows[0]?.id || "";
+      renderBulkExpenseRows();
+      finalStatusMessage = `Saved ${savedCount} expense${savedCount === 1 ? "" : "s"}. Draft is clear.`;
+      updateBulkExpenseStatus(finalStatusMessage);
+      showToast(`Saved ${savedCount} bulk expense${savedCount === 1 ? "" : "s"}.`);
+    } catch (error) {
+      console.error(error);
+      persistBulkExpenseDraft();
+      finalStatusMessage = `Saved ${savedCount}; remaining draft rows were kept locally. Try saving again.`;
+      updateBulkExpenseStatus(finalStatusMessage);
+      showToast("Bulk save paused. Unsaved rows are still in the draft.");
+    } finally {
+      bulkExpenseIsSaving = false;
+      if (saveButton) {
+        saveButton.disabled = bulkExpenseRows.filter(bulkExpenseRowHasValues).length === 0;
+      }
+      if (finalStatusMessage) {
+        updateBulkExpenseStatus(finalStatusMessage);
+      }
+    }
+  }
+
+  function validateBulkExpenseRows(rows, date) {
+    if (!date) {
+      return { rowId: rows[0]?.id || "", field: "amount", message: "Pick a valid date before saving expenses." };
+    }
+    for (const row of rows) {
+      const amount = Number(row.amount || 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { rowId: row.id, field: "amount", message: "Every expense row needs a valid amount." };
+      }
+      if (!row.accountId) {
+        return { rowId: row.id, field: "accountId", message: "Every expense row needs an account." };
+      }
+    }
+    return null;
+  }
+
+  function saveBulkExpenseRow(row, date) {
+    const now = new Date().toISOString();
+    const payload = {
+      id: row.transactionId || uid("tx"),
+      type: "expense",
+      amount: Number(row.amount || 0),
+      date,
+      accountId: row.accountId,
+      fromAccountId: "",
+      toAccountId: "",
+      categoryId: row.categoryId || "",
+      subcategory: String(row.subcategory || "").trim(),
+      counterparty: String(row.counterparty || "").trim(),
+      counterpartyId: "",
+      counterpartyEffect: "",
+      counterpartyAmount: 0,
+      project: String(row.project || "").trim(),
+      tags: [],
+      details: String(row.details || "").trim(),
+      slipPath: "",
+      slipResolution: "720",
+      slipMimeType: "",
+      slipUpdatedAt: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (payload.categoryId && payload.subcategory) {
+      ensureBulkExpenseSubcategory(payload.categoryId, payload.subcategory);
+    }
+    syncBulkExpenseLookupEntries(payload);
+    const existingIndex = state.transactions.findIndex((transaction) => transaction.id === payload.id);
+    if (existingIndex >= 0) {
+      state.transactions[existingIndex] = {
+        ...state.transactions[existingIndex],
+        ...payload,
+        createdAt: state.transactions[existingIndex].createdAt || payload.createdAt,
+      };
+      return;
+    }
+    state.transactions.push(payload);
+  }
+
+  function ensureBulkExpenseSubcategory(categoryId, subcategory) {
+    const category = getCategory(categoryId);
+    const trimmed = String(subcategory || "").trim();
+    if (!category || !trimmed) {
+      return;
+    }
+    const exists = (category.subcategories || []).some((item) => item.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      category.subcategories = [...(category.subcategories || []), titleCase(trimmed)];
+    }
+  }
+
+  function syncBulkExpenseLookupEntries(payload) {
+    upsertBulkExpenseLookupEntry("counterparty", payload.counterparty);
+    upsertBulkExpenseLookupEntry("project", payload.project);
+  }
+
+  function upsertBulkExpenseLookupEntry(kind, name) {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) {
+      return;
+    }
+    const normalizedKey = trimmed.toLowerCase();
+    const now = new Date().toISOString();
+    let matched = false;
+    state.lookupEntries = (Array.isArray(state.lookupEntries) ? state.lookupEntries : []).map((entry) => {
+      if (entry.kind !== kind || String(entry.name || "").trim().toLowerCase() !== normalizedKey) {
+        return entry;
+      }
+      matched = true;
+      return { ...entry, name: trimmed, updatedAt: now };
+    });
+    if (!matched) {
+      state.lookupEntries.push({
+        id: uid("lkp"),
+        kind,
+        name: trimmed,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  function formatBulkExpenseAmount(value) {
+    const amount = Number(value || 0);
+    return Number.isFinite(amount) && amount > 0 ? formatMoney(amount, getPrimaryCurrencySymbol()) : "";
+  }
+
+  function updateBulkExpenseStatus(message = "") {
+    const status = document.getElementById("bulk-expense-status");
+    const saveButton = document.getElementById("bulk-expense-save-button");
+    if (!status) {
+      return;
+    }
+    const rowsReady = bulkExpenseRows.filter(bulkExpenseRowHasValues).length;
+    status.textContent =
+      message ||
+      `${rowsReady} expense row${rowsReady === 1 ? "" : "s"} ready. Draft autosaves locally; saved rows are removed from the draft after each batch.`;
+    if (saveButton) {
+      saveButton.disabled = bulkExpenseIsSaving || rowsReady === 0;
+    }
   }
 
   function handleGlobalSearchKeydown(event) {

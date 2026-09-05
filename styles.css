@@ -515,6 +515,7 @@ body.app-locked .app-shell {
 }
 
 .section-heading,
+.section-actions,
 .results-bar,
 .modal-header,
 .modal-actions {
@@ -2009,6 +2010,172 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.bulk-expense-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex: 0 0 auto;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(13, 47, 61, 0.08);
+  background: rgba(248, 252, 251, 0.98);
+}
+
+.bulk-expense-header-controls {
+  display: grid;
+  grid-template-columns: 168px 42px;
+  align-items: end;
+  gap: 10px;
+}
+
+.bulk-expense-header-controls .field-label {
+  grid-column: 1;
+  margin-bottom: -2px;
+  font-size: 0.78rem;
+}
+
+.bulk-expense-header-controls input {
+  grid-column: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.bulk-expense-header-controls .icon-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.bulk-expense-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 16px 18px 0;
+}
+
+.bulk-expense-table-shell {
+  min-height: 0;
+  max-height: 372px;
+  overflow: auto;
+  border: 1px solid rgba(13, 47, 61, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.bulk-expense-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.bulk-expense-table th,
+.bulk-expense-table td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(13, 47, 61, 0.08);
+  border-right: 1px solid rgba(13, 47, 61, 0.06);
+  vertical-align: top;
+}
+
+.bulk-expense-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(239, 247, 245, 0.98);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.bulk-expense-table th:nth-child(1) {
+  width: 110px;
+}
+
+.bulk-expense-table th:nth-child(2),
+.bulk-expense-table th:nth-child(3),
+.bulk-expense-table th:nth-child(4) {
+  width: 150px;
+}
+
+.bulk-expense-table th:nth-child(5),
+.bulk-expense-table th:nth-child(6) {
+  width: 150px;
+}
+
+.bulk-expense-table th:nth-child(8) {
+  width: 96px;
+}
+
+.bulk-expense-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.bulk-expense-table td:last-child,
+.bulk-expense-table th:last-child {
+  border-right: 0;
+}
+
+.bulk-expense-row {
+  min-height: 58px;
+  cursor: default;
+}
+
+.bulk-expense-row-active {
+  background: rgba(18, 200, 164, 0.055);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.bulk-expense-cell-value {
+  min-height: 38px;
+  display: block;
+  padding: 9px 2px;
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.bulk-expense-cell-value.empty {
+  color: var(--muted);
+}
+
+.bulk-expense-table input,
+.bulk-expense-table select {
+  min-height: 40px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.bulk-expense-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bulk-expense-row-actions .ghost-button {
+  padding: 9px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.bulk-expense-status {
+  padding: 10px 4px 0;
+}
+
+.bulk-expense-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-top: 0;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(13, 47, 61, 0.08);
+  background: rgba(248, 252, 251, 0.98);
+}
+
+#bulk-expense-clear-button {
+  margin-right: auto;
 }
 
 .compact-tags {
@@ -3744,6 +3911,15 @@ textarea:focus {
   width: min(100%, 820px);
 }
 
+.bulk-expense-modal-card {
+  width: min(90vw, 1320px);
+  max-height: min(680px, calc(100dvh - 148px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
 .suggestion-picker-card {
   width: min(100%, 760px);
 }
@@ -5007,5 +5183,55 @@ input[data-smart-picker-field][readonly] {
     width: 100%;
     padding: 20px;
     border-radius: 24px;
+  }
+
+  #bulk-expense-modal {
+    padding: 0;
+  }
+
+  .bulk-expense-modal-card {
+    width: 100%;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .bulk-expense-header {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .bulk-expense-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .bulk-expense-header-controls {
+    grid-template-columns: minmax(132px, 1fr) 40px;
+    width: 100%;
+  }
+
+  .bulk-expense-body {
+    padding: 12px 10px 0;
+  }
+
+  .bulk-expense-table-shell {
+    max-height: none;
+    border-radius: 16px;
+  }
+
+  .bulk-expense-table {
+    min-width: 980px;
+  }
+
+  .bulk-expense-actions {
+    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .bulk-expense-actions .primary-button,
+  .bulk-expense-actions .secondary-button,
+  .bulk-expense-actions .ghost-button {
+    flex: 1 1 auto;
   }
 }
