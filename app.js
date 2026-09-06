@@ -540,6 +540,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("bulk-expense-table-body")?.addEventListener("keydown", handleBulkExpenseTableKeydown);
     document.getElementById("bulk-expense-table-body")?.addEventListener("input", handleBulkExpenseTableInput);
     document.getElementById("bulk-expense-table-body")?.addEventListener("change", handleBulkExpenseTableInput);
+    document.getElementById("bulk-expense-fullscreen-button")?.addEventListener("click", toggleBulkExpenseFullscreen);
     document.getElementById("bulk-expense-clear-button")?.addEventListener("click", clearBulkExpenseDraft);
     document.getElementById("bulk-expense-save-button")?.addEventListener("click", handleBulkExpenseSave);
     document.getElementById("account-form").addEventListener("submit", handleAccountSubmit);
@@ -2468,7 +2469,40 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     toggleListening();
   }
 
+  const BULK_EXPENSE_FULLSCREEN_QUERY =
+    "(max-width: 720px), (max-height: 520px) and (orientation: landscape)";
+  let bulkExpenseFullscreen = null;
+
+  function bulkExpenseFullscreenDefault() {
+    return window.matchMedia(BULK_EXPENSE_FULLSCREEN_QUERY).matches;
+  }
+
+  function applyBulkExpenseFullscreen() {
+    const modal = document.getElementById("bulk-expense-modal");
+    const card = modal?.querySelector(".bulk-expense-modal-card");
+    const button = document.getElementById("bulk-expense-fullscreen-button");
+    if (!modal || !card) return;
+    const isFullscreen = bulkExpenseFullscreen === null ? bulkExpenseFullscreenDefault() : bulkExpenseFullscreen;
+    const isExplicit = bulkExpenseFullscreen !== null;
+    card.classList.toggle("is-fullscreen", isExplicit && isFullscreen);
+    card.classList.toggle("is-windowed", isExplicit && !isFullscreen);
+    modal.classList.toggle("has-fullscreen-card", isExplicit && isFullscreen);
+    modal.classList.toggle("has-windowed-card", isExplicit && !isFullscreen);
+    if (button) {
+      button.setAttribute("aria-pressed", isFullscreen ? "true" : "false");
+      button.setAttribute("aria-label", isFullscreen ? "Exit full screen" : "Enter full screen");
+      button.setAttribute("title", isFullscreen ? "Exit full screen" : "Full screen");
+    }
+  }
+
+  function toggleBulkExpenseFullscreen() {
+    const isFullscreen = bulkExpenseFullscreen === null ? bulkExpenseFullscreenDefault() : bulkExpenseFullscreen;
+    bulkExpenseFullscreen = !isFullscreen;
+    applyBulkExpenseFullscreen();
+  }
+
   function openBulkExpenseModal() {
+    applyBulkExpenseFullscreen();
     loadBulkExpenseDraft();
     ensureBulkExpenseTrailingBlankRow();
     bulkExpenseActiveRowId = bulkExpenseRows.find((row) => bulkExpenseRowHasValues(row))?.id || bulkExpenseRows[0]?.id || "";

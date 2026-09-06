@@ -2024,7 +2024,7 @@ textarea:focus {
 
 .bulk-expense-header-controls {
   display: grid;
-  grid-template-columns: 168px 42px;
+  grid-template-columns: 168px 42px 42px;
   align-items: end;
   gap: 10px;
 }
@@ -2041,9 +2041,39 @@ textarea:focus {
   border-radius: 12px;
 }
 
-.bulk-expense-header-controls .icon-button {
+.bulk-expense-header-controls .bulk-expense-fullscreen-button {
   grid-column: 2;
   grid-row: 1 / span 2;
+}
+
+.bulk-expense-header-controls .icon-button {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.bulk-expense-fullscreen-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bulk-expense-fullscreen-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bulk-expense-fullscreen-button .bulk-expense-fullscreen-exit,
+.bulk-expense-modal-card.is-fullscreen .bulk-expense-fullscreen-button .bulk-expense-fullscreen-enter {
+  display: none;
+}
+
+.bulk-expense-modal-card.is-fullscreen .bulk-expense-fullscreen-button .bulk-expense-fullscreen-exit {
+  display: block;
 }
 
 .bulk-expense-body {
@@ -3935,6 +3965,32 @@ textarea:focus {
   padding: 0;
 }
 
+.bulk-expense-modal-card.is-fullscreen {
+  width: 100vw;
+  max-width: 100vw;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+#bulk-expense-modal.has-fullscreen-card {
+  padding: 0;
+}
+
+.bulk-expense-modal-card.is-windowed {
+  width: min(96vw, 1480px);
+  max-width: min(96vw, 1480px);
+  min-height: 0;
+  max-height: calc(100dvh - 32px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+}
+
+#bulk-expense-modal.has-windowed-card {
+  padding: 16px 12px;
+}
+
 .suggestion-picker-card {
   width: min(100%, 760px);
 }
@@ -5236,7 +5292,7 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .bulk-expense-header-controls {
-    grid-template-columns: minmax(132px, 1fr) 40px;
+    grid-template-columns: minmax(132px, 1fr) 40px 40px;
     width: 100%;
   }
 
@@ -5283,8 +5339,8 @@ input[data-bulk-smart-field][readonly] {
     min-height: 100dvh;
     max-height: 100dvh;
     display: grid;
-    grid-template-columns: minmax(118px, max-content) minmax(126px, 168px) minmax(250px, 1fr) 38px;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(150px, max-content) 170px 34px minmax(220px, 1fr) 34px;
+    grid-template-rows: 42px minmax(0, 1fr);
     column-gap: 8px;
     border-radius: 0;
     border: 0;
@@ -5294,10 +5350,11 @@ input[data-bulk-smart-field][readonly] {
     grid-column: 1 / -1;
     grid-row: 1;
     display: grid;
-    grid-template-columns: minmax(118px, max-content) minmax(126px, 168px) minmax(250px, 1fr) 38px;
+    grid-template-columns: minmax(150px, max-content) 170px 34px minmax(220px, 1fr) 34px;
     column-gap: 8px;
     align-items: center;
-    padding: 10px 12px;
+    min-height: 42px;
+    padding: 4px 10px;
   }
 
   .bulk-expense-header > div:first-child {
@@ -5307,10 +5364,13 @@ input[data-bulk-smart-field][readonly] {
 
   .bulk-expense-header .eyebrow {
     font-size: 0.62rem;
+    line-height: 1;
   }
 
   .bulk-expense-header h2 {
     font-size: 1.12rem;
+    line-height: 1.05;
+    margin-top: 2px;
   }
 
   .bulk-expense-header-controls {
@@ -5318,21 +5378,36 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .bulk-expense-header-controls .field-label {
-    grid-column: 2;
-    grid-row: 1;
+    display: none;
   }
 
   .bulk-expense-header-controls input {
     grid-column: 2;
-    grid-row: 2;
-    min-height: 38px;
-    padding: 8px 10px;
+    grid-row: 1;
+    height: 34px;
+    min-height: 34px;
+    padding: 6px 10px;
   }
 
   .bulk-expense-header-controls .icon-button {
-    grid-column: 4;
-    grid-row: 1 / span 2;
+    grid-column: 5;
+    grid-row: 1;
     justify-self: end;
+    width: 34px;
+    height: 34px;
+    font-size: 1.15rem;
+    border-radius: 12px;
+  }
+
+  .bulk-expense-header-controls .bulk-expense-fullscreen-button {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: center;
+  }
+
+  .bulk-expense-fullscreen-button svg {
+    width: 17px;
+    height: 17px;
   }
 
   .bulk-expense-body {
@@ -5356,7 +5431,7 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .bulk-expense-actions {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
     z-index: 4;
     align-self: center;
@@ -5378,7 +5453,7 @@ input[data-bulk-smart-field][readonly] {
   .bulk-expense-actions .secondary-button,
   .bulk-expense-actions .ghost-button {
     flex: 0 0 auto;
-    min-height: 36px;
+    min-height: 34px;
     padding: 8px 10px;
     border-radius: 12px;
     font-size: 0.74rem;
