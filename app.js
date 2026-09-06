@@ -432,6 +432,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("quick-add-button")?.addEventListener("click", () => openTransactionModal());
     document.getElementById("add-transaction-button").addEventListener("click", () => openTransactionModal());
     document.getElementById("bulk-add-expenses-button")?.addEventListener("click", openBulkExpenseModal);
+    document.getElementById("topbar-bulk-add-button")?.addEventListener("click", openBulkExpenseModal);
     document.getElementById("topbar-add-button").addEventListener("click", () => openTransactionModal());
     document.getElementById("topbar-mic-button").addEventListener("click", handleTopBarMic);
     document.getElementById("listen-button").addEventListener("click", toggleListening);
@@ -2446,20 +2447,32 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function createBulkExpenseRow(values = {}) {
+    const defaults = getBulkExpenseDefaults();
     return {
       id: values.id || uid("bulk"),
       transactionId: values.transactionId || "",
       amount: values.amount || "",
-      accountId: values.accountId || "",
-      categoryId: values.categoryId || "",
-      subcategory: values.subcategory || "",
-      counterparty: values.counterparty || "",
-      project: values.project || "",
+      accountId: values.accountId || defaults.accountId || "",
+      categoryId: values.categoryId || defaults.categoryId || "",
+      subcategory: values.subcategory || defaults.subcategory || "",
+      counterparty: values.counterparty || defaults.counterparty || "",
+      project: values.project || defaults.project || "",
       details: values.details || "",
+      touched: Boolean(values.touched),
     };
   }
 
   function normalizeBulkExpenseRow(row) {
+    const hasTouchedFlag = Object.prototype.hasOwnProperty.call(row || {}, "touched");
+    const hasStoredValues = Boolean(
+      String(row?.amount || "").trim() ||
+        String(row?.accountId || "").trim() ||
+        String(row?.categoryId || "").trim() ||
+        String(row?.subcategory || "").trim() ||
+        String(row?.counterparty || "").trim() ||
+        String(row?.project || "").trim() ||
+        String(row?.details || "").trim()
+    );
     return createBulkExpenseRow({
       id: row?.id || "",
       transactionId: row?.transactionId || "",
@@ -2470,6 +2483,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       counterparty: String(row?.counterparty || "").trim(),
       project: String(row?.project || "").trim(),
       details: String(row?.details || "").trim(),
+      touched: hasTouchedFlag ? Boolean(row?.touched) : hasStoredValues,
     });
   }
 
@@ -2526,15 +2540,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function bulkExpenseRowHasValues(row) {
-    return Boolean(
-      String(row?.amount || "").trim() ||
-        row?.accountId ||
-        row?.categoryId ||
-        String(row?.subcategory || "").trim() ||
-        String(row?.counterparty || "").trim() ||
-        String(row?.project || "").trim() ||
-        String(row?.details || "").trim()
-    );
+    return Boolean(row?.touched || String(row?.amount || "").trim() || String(row?.details || "").trim());
   }
 
   function ensureBulkExpenseTrailingBlankRow() {
@@ -2563,8 +2569,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       window.setTimeout(() => {
         const input = tableBody.querySelector(`[data-bulk-row-id="${escapeAttribute(bulkExpenseActiveRowId)}"] [data-bulk-field="${escapeAttribute(focusField)}"]`);
         input?.focus();
-        if (typeof input?.select === "function") {
-          input.select();
+        if (typeof input?.setSelectionRange === "function") {
+          try {
+            const cursorPosition = String(input.value || "").length;
+            input.setSelectionRange(cursorPosition, cursorPosition);
+          } catch (error) {
+            // Some input types, such as number, do not support selection ranges.
+          }
         }
       }, 0);
     }
@@ -2621,16 +2632,19 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function renderBulkExpenseAccountField(row) {
     const options = ['<option value="">Account</option>']
-      .concat(state.accounts.map((account) => `<option value="${escapeAttribute(account.id)}" ${account.id === row.accountId ? "selected" : ""}>${escapeHtml(account.name)}</option>`))
+      .concat(
+        getBulkExpenseRankedAccounts().map(
+          (account) => `<option value="${escapeAttribute(account.id)}" ${account.id === row.accountId ? "selected" : ""}>${escapeHtml(account.name)}</option>`
+        )
+      )
       .join("");
     return `<select data-bulk-field="accountId">${options}</select>`;
   }
 
   function renderBulkExpenseCategoryField(row) {
-    const expenseCategories = state.categories.filter((category) => category.type === "expense");
     const options = ['<option value="">Category</option>']
       .concat(
-        expenseCategories.map(
+        getBulkExpenseRankedCategories().map(
           (category) => `<option value="${escapeAttribute(category.id)}" ${category.id === row.categoryId ? "selected" : ""}>${escapeHtml(category.name)}</option>`
         )
       )
@@ -2650,9 +2664,20 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function renderBulkExpenseTextField(row, field, placeholder) {
-    const optionsId = field === "counterparty" ? "bulk-expense-payee-options" : field === "project" ? "bulk-expense-project-options" : "";
-    const datalist = optionsId ? ` list="${optionsId}"` : "";
-    return `<input data-bulk-field="${escapeAttribute(field)}" type="text"${datalist} value="${escapeAttribute(row[field] || "")}" placeholder="${escapeAttribute(placeholder)}" />`;
+    if (field === "details") {
+      return `<textarea data-bulk-field="details" rows="3" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(row.details || "")}</textarea>`;
+    }
+    const optionsId = field === "counterparty" || field === "project" ? `bulk-${field}-options-${row.id}` : "";
+    const datalist = optionsId
+      ? `<datalist id="${escapeAttribute(optionsId)}">
+          ${getBulkExpenseTextSuggestions(field, row.categoryId, row.subcategory)
+            .map((value) => `<option value="${escapeAttribute(value)}"></option>`)
+            .join("")}
+        </datalist>`
+      : "";
+    return `<input data-bulk-field="${escapeAttribute(field)}" type="text"${
+      optionsId ? ` list="${escapeAttribute(optionsId)}"` : ""
+    } value="${escapeAttribute(row[field] || "")}" placeholder="${escapeAttribute(placeholder)}" />${datalist}`;
   }
 
   function renderBulkExpenseDatalists() {
@@ -2668,29 +2693,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     datalist.innerHTML = values.map((value) => `<option value="${escapeAttribute(value)}"></option>`).join("");
   }
 
-  function getBulkExpenseTextSuggestions(field) {
-    const values = new Map();
-    const addValue = (value, weight = 0) => {
-      const trimmed = String(value || "").trim();
-      if (!trimmed) {
-        return;
-      }
-      const key = trimmed.toLowerCase();
-      values.set(key, {
-        label: trimmed,
-        weight: Math.max(Number(values.get(key)?.weight || 0), weight),
-      });
-    };
-    state.transactions.forEach((transaction, index) => {
-      addValue(field === "counterparty" ? transaction.counterparty : transaction.project, state.transactions.length - index);
-    });
-    state.lookupEntries
-      .filter((entry) => entry.kind === field)
-      .forEach((entry) => addValue(entry.name, state.transactions.length + 1));
-    return [...values.values()]
-      .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
-      .slice(0, 50)
-      .map((entry) => entry.label);
+  function getBulkExpenseTextSuggestions(field, categoryId = "", subcategory = "") {
+    return getRankedTransactionValueSuggestions(field, "expense", categoryId, subcategory).slice(0, 50);
   }
 
   function getBulkExpenseSubcategoryOptions(categoryId) {
@@ -2702,6 +2706,53 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     getRankedSubcategorySuggestions(categoryId).forEach((item) => values.add(item));
     (category.subcategories || []).forEach((item) => values.add(item));
     return [...values].filter(Boolean);
+  }
+
+  function getBulkExpenseDefaults() {
+    const account = getBulkExpenseRankedAccounts()[0];
+    const category = getBulkExpenseRankedCategories()[0];
+    const subcategory = category ? getBulkExpenseSubcategoryOptions(category.id)[0] || "" : "";
+    return {
+      accountId: account?.id || "",
+      categoryId: category?.id || "",
+      subcategory,
+      counterparty: getBulkExpenseTextSuggestions("counterparty", category?.id || "", subcategory)[0] || "",
+      project: getBulkExpenseTextSuggestions("project", category?.id || "", subcategory)[0] || "",
+    };
+  }
+
+  function getBulkExpenseRankedAccounts() {
+    const counts = new Map();
+    const lastUsed = new Map();
+    state.transactions.forEach((transaction) => {
+      if (transaction.type !== "expense" || !transaction.accountId) {
+        return;
+      }
+      const key = String(transaction.accountId);
+      counts.set(key, (counts.get(key) || 0) + 1);
+      lastUsed.set(key, String(transaction.updatedAt || transaction.createdAt || transaction.date || ""));
+    });
+    return state.accounts
+      .map((account, index) => ({
+        account,
+        count: counts.get(account.id) || 0,
+        lastUsed: lastUsed.get(account.id) || "",
+        index,
+      }))
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        if ((right.lastUsed || "") !== (left.lastUsed || "")) {
+          return String(right.lastUsed || "").localeCompare(String(left.lastUsed || ""));
+        }
+        return left.index - right.index;
+      })
+      .map((entry) => entry.account);
+  }
+
+  function getBulkExpenseRankedCategories() {
+    return getRankedTransactionCategorySuggestions("expense");
   }
 
   function handleBulkExpenseDateChange() {
@@ -2731,7 +2782,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
 
     const row = event.target.closest("[data-bulk-row-id]");
-    if (!row || event.target.closest("input, select, button")) {
+    if (!row || event.target.closest("input, select, textarea, button")) {
       return;
     }
     const now = Date.now();
@@ -2769,10 +2820,24 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       return;
     }
     row[field] = event.target.value;
+    row.touched = true;
     if (field === "categoryId") {
       const allowed = new Set(getBulkExpenseSubcategoryOptions(row.categoryId).map((item) => item.toLowerCase()));
       if (row.subcategory && allowed.size && !allowed.has(row.subcategory.toLowerCase())) {
-        row.subcategory = "";
+        row.subcategory = getBulkExpenseSubcategoryOptions(row.categoryId)[0] || "";
+      }
+      if (!row.subcategory) {
+        row.subcategory = getBulkExpenseSubcategoryOptions(row.categoryId)[0] || "";
+      }
+    }
+    if (field === "details") {
+      const derivedAmount = calculateTransactionAmountFromDetails(row.details);
+      if (derivedAmount > 0) {
+        row.amount = String(derivedAmount);
+        const amountInput = rowEl.querySelector('[data-bulk-field="amount"]');
+        if (amountInput) {
+          amountInput.value = row.amount;
+        }
       }
     }
     const appended = ensureBulkExpenseTrailingBlankRow();

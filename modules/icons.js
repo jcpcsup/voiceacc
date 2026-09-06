@@ -3,6 +3,7 @@ import { svgIcon } from "./utils.js";
 export const iconRegistry = {
   overview: svgIcon("M3 11.5L12 4l9 7.5v8.5H14v-5h-4v5H3z"),
   transactions: svgIcon("M5 6h14M5 12h14M5 18h14"),
+  table: svgIcon("M4 5h16v14H4z M4 10h16 M4 15h16 M10 5v14 M16 5v14"),
   accounts: svgIcon("M4 6h16v12H4z M8 10h4"),
   reports: svgIcon("M5 18V9M12 18V5M19 18v-7"),
   more: svgIcon("M6 6h4v4H6z M14 6h4v4h-4z M6 14h4v4H6z M14 14h4v4h-4z"),

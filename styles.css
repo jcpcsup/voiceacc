@@ -2065,7 +2065,7 @@ textarea:focus {
 
 .bulk-expense-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1260px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -2106,8 +2106,12 @@ textarea:focus {
   width: 150px;
 }
 
+.bulk-expense-table th:nth-child(7) {
+  width: 280px;
+}
+
 .bulk-expense-table th:nth-child(8) {
-  width: 96px;
+  width: 118px;
 }
 
 .bulk-expense-table tr:last-child td {
@@ -2143,15 +2147,25 @@ textarea:focus {
 }
 
 .bulk-expense-table input,
-.bulk-expense-table select {
+.bulk-expense-table select,
+.bulk-expense-table textarea {
+  width: 100%;
   min-height: 40px;
   padding: 9px 10px;
   border-radius: 12px;
   font-size: 0.9rem;
 }
 
+.bulk-expense-table textarea {
+  min-height: 88px;
+  line-height: 1.4;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
 .bulk-expense-row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -3912,7 +3926,7 @@ textarea:focus {
 }
 
 .bulk-expense-modal-card {
-  width: min(90vw, 1320px);
+  width: min(98vw, 1480px);
   max-height: min(680px, calc(100dvh - 148px));
   display: flex;
   flex-direction: column;
@@ -5222,7 +5236,15 @@ input[data-smart-picker-field][readonly] {
   }
 
   .bulk-expense-table {
-    min-width: 980px;
+    min-width: 1180px;
+  }
+
+  .bulk-expense-table th:nth-child(7) {
+    width: 300px;
+  }
+
+  .bulk-expense-table textarea {
+    min-height: 108px;
   }
 
   .bulk-expense-actions {
@@ -5233,5 +5255,51 @@ input[data-smart-picker-field][readonly] {
   .bulk-expense-actions .secondary-button,
   .bulk-expense-actions .ghost-button {
     flex: 1 1 auto;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #bulk-expense-modal {
+    padding: 6px;
+  }
+
+  .bulk-expense-modal-card {
+    width: calc(100vw - 12px);
+    min-height: calc(100dvh - 12px);
+    max-height: calc(100dvh - 12px);
+    border-radius: 16px;
+  }
+
+  .bulk-expense-header {
+    padding: 10px 12px;
+  }
+
+  .bulk-expense-header h2 {
+    font-size: 1.12rem;
+  }
+
+  .bulk-expense-header-controls {
+    grid-template-columns: minmax(128px, 168px) 38px;
+  }
+
+  .bulk-expense-body {
+    padding: 8px 8px 0;
+  }
+
+  .bulk-expense-table-shell {
+    max-height: none;
+    border-radius: 14px;
+  }
+
+  .bulk-expense-table textarea {
+    min-height: 72px;
+  }
+
+  .bulk-expense-status {
+    padding-top: 6px;
+  }
+
+  .bulk-expense-actions {
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
   }
 }
