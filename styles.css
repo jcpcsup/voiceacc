@@ -5427,8 +5427,19 @@ input[data-bulk-smart-field][readonly] {
     max-height: 80px;
   }
 
+  /* Keep the aria-live status in the a11y tree, but take it out of the
+     layout so the table gets the full height. Matches .sr-only. */
   .bulk-expense-status {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   .bulk-expense-actions {
