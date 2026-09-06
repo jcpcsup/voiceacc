@@ -5461,3 +5461,143 @@ input[data-bulk-smart-field][readonly] {
     white-space: nowrap;
   }
 }
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #smart-field-picker-modal {
+    align-items: center;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .suggestion-picker-card {
+    width: min(100%, 760px);
+    max-height: calc(100dvh - 16px);
+    overflow: hidden;
+    padding: 10px 12px;
+    border-radius: 18px;
+    display: grid;
+    grid-template-columns: max-content minmax(150px, 1fr) 34px;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: center;
+  }
+
+  /* Flatten the header, body and field wrapper so the search input can sit
+     on the header row between the title and the close button. */
+  .suggestion-picker-card .modal-header,
+  .suggestion-picker-card .suggestion-picker-body,
+  .suggestion-picker-card .suggestion-picker-body > .field-group {
+    display: contents;
+  }
+
+  .suggestion-picker-card .modal-header > div:first-child {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .suggestion-picker-card .eyebrow {
+    font-size: 0.6rem;
+    line-height: 1;
+  }
+
+  .suggestion-picker-card .modal-header h2 {
+    margin: 2px 0 0;
+    font-size: 1.05rem;
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+
+  .suggestion-picker-card #smart-field-picker-label {
+    display: none;
+  }
+
+  .suggestion-picker-card #smart-field-picker-input {
+    grid-column: 2;
+    grid-row: 1;
+    height: 34px;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+
+  .suggestion-picker-card .modal-header .icon-button {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    width: 34px;
+    height: 34px;
+    font-size: 1.15rem;
+    border-radius: 12px;
+  }
+
+  .suggestion-picker-meta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .suggestion-picker-meta .meta-pill {
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+
+  .suggestion-picker-note {
+    font-size: 0.68rem;
+    line-height: 1.2;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .suggestion-picker-list {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-height: 0;
+    /* The card's height is indefinite (max-height only), so a 1fr row would
+       resolve to max-content and overflow. Cap the scroller directly instead:
+       card padding + header + meta + actions + row gaps ~= 160px. */
+    max-height: calc(100dvh - 160px);
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 6px;
+    padding-right: 2px;
+  }
+
+  .suggestion-picker-option {
+    min-height: 32px;
+    padding: 5px 9px;
+    border-radius: 11px;
+    font-size: 0.78rem;
+    line-height: 1.15;
+  }
+
+  .suggestion-picker-empty {
+    min-height: 60px;
+  }
+
+  .suggestion-picker-card .modal-actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    margin-top: 0;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .suggestion-picker-card .modal-actions .primary-button,
+  .suggestion-picker-card .modal-actions .secondary-button,
+  .suggestion-picker-card .modal-actions .ghost-button {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 7px 12px;
+    border-radius: 12px;
+    font-size: 0.74rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
