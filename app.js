@@ -69,6 +69,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let smartFieldPickerState = {
     field: "",
     targetId: "",
+    mode: "transaction",
+    bulkRowId: "",
     options: [],
     selectedValue: "",
     lastTapValue: "",
@@ -535,6 +537,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("bulk-expense-date")?.addEventListener("change", handleBulkExpenseDateChange);
     document.getElementById("bulk-expense-table-body")?.addEventListener("click", handleBulkExpenseTableClick);
     document.getElementById("bulk-expense-table-body")?.addEventListener("dblclick", handleBulkExpenseTableDoubleClick);
+    document.getElementById("bulk-expense-table-body")?.addEventListener("keydown", handleBulkExpenseTableKeydown);
     document.getElementById("bulk-expense-table-body")?.addEventListener("input", handleBulkExpenseTableInput);
     document.getElementById("bulk-expense-table-body")?.addEventListener("change", handleBulkExpenseTableInput);
     document.getElementById("bulk-expense-clear-button")?.addEventListener("click", clearBulkExpenseDraft);
@@ -1929,6 +1932,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     smartFieldPickerState = {
       field,
       targetId: config.targetId,
+      mode: "transaction",
+      bulkRowId: "",
       options: config.options,
       selectedValue: config.currentValue || "",
       lastTapValue: "",
@@ -1983,15 +1988,25 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function applySmartFieldPickerValue(valueOverride = null) {
     const field = smartFieldPickerState.field;
-    const target = document.getElementById(smartFieldPickerState.targetId);
-    if (!field || !target) {
+    if (!field) {
       return;
     }
     const rawValue =
       valueOverride && typeof valueOverride === "object" && "target" in valueOverride
         ? document.getElementById("smart-field-picker-input").value
         : valueOverride ?? document.getElementById("smart-field-picker-input").value ?? "";
-    const value = String(rawValue).trim();
+    const value =
+      smartFieldPickerState.mode === "bulkExpense" && !String(rawValue).trim()
+        ? smartFieldPickerState.selectedValue || ""
+        : String(rawValue).trim();
+    if (smartFieldPickerState.mode === "bulkExpense") {
+      applyBulkSmartFieldPickerValue(value);
+      return;
+    }
+    const target = document.getElementById(smartFieldPickerState.targetId);
+    if (!target) {
+      return;
+    }
     target.value = value;
     target.setAttribute("value", value);
     target.dispatchEvent(new Event("input", { bubbles: true }));
@@ -2008,8 +2023,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
 
   function clearSmartFieldPickerValue() {
     const input = document.getElementById("smart-field-picker-input");
+    if (!input) {
+      return;
+    }
+    if (smartFieldPickerState.mode === "bulkExpense") {
+      applyBulkSmartFieldPickerDraftValue("");
+      input.value = "";
+      smartFieldPickerState.selectedValue = "";
+      smartFieldPickerState.lastTapValue = "";
+      smartFieldPickerState.lastTapAt = 0;
+      syncSmartFieldPickerActiveOption("");
+      renderSmartFieldPickerOptions();
+      window.setTimeout(() => input.focus(), 20);
+      return;
+    }
     const target = document.getElementById(smartFieldPickerState.targetId);
-    if (!input || !target) {
+    if (!target) {
       return;
     }
     input.value = "";
@@ -2032,6 +2061,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     smartFieldPickerState = {
       field: "",
       targetId: "",
+      mode: "transaction",
+      bulkRowId: "",
       options: [],
       selectedValue: "",
       lastTapValue: "",
@@ -2564,6 +2595,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     ensureBulkExpenseTrailingBlankRow();
     renderBulkExpenseDatalists();
     tableBody.innerHTML = bulkExpenseRows.map((row, index) => renderBulkExpenseRow(row, index)).join("");
+    syncBulkExpenseDetailsTextareaHeights();
     updateBulkExpenseStatus();
     if (focusField && bulkExpenseActiveRowId) {
       window.setTimeout(() => {
@@ -2653,31 +2685,18 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function renderBulkExpenseSubcategoryField(row) {
-    const optionsId = `bulk-subcategory-options-${row.id}`;
-    const subcategories = getBulkExpenseSubcategoryOptions(row.categoryId);
-    return `
-      <input data-bulk-field="subcategory" type="text" list="${escapeAttribute(optionsId)}" value="${escapeAttribute(row.subcategory)}" placeholder="Subcategory" />
-      <datalist id="${escapeAttribute(optionsId)}">
-        ${subcategories.map((item) => `<option value="${escapeAttribute(item)}"></option>`).join("")}
-      </datalist>
-    `;
+    return `<input data-bulk-field="subcategory" data-bulk-smart-field="subcategory" type="text" value="${escapeAttribute(
+      row.subcategory
+    )}" placeholder="Subcategory" readonly />`;
   }
 
   function renderBulkExpenseTextField(row, field, placeholder) {
     if (field === "details") {
-      return `<textarea data-bulk-field="details" rows="3" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(row.details || "")}</textarea>`;
+      return `<textarea data-bulk-field="details" rows="1" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(row.details || "")}</textarea>`;
     }
-    const optionsId = field === "counterparty" || field === "project" ? `bulk-${field}-options-${row.id}` : "";
-    const datalist = optionsId
-      ? `<datalist id="${escapeAttribute(optionsId)}">
-          ${getBulkExpenseTextSuggestions(field, row.categoryId, row.subcategory)
-            .map((value) => `<option value="${escapeAttribute(value)}"></option>`)
-            .join("")}
-        </datalist>`
-      : "";
-    return `<input data-bulk-field="${escapeAttribute(field)}" type="text"${
-      optionsId ? ` list="${escapeAttribute(optionsId)}"` : ""
-    } value="${escapeAttribute(row[field] || "")}" placeholder="${escapeAttribute(placeholder)}" />${datalist}`;
+    return `<input data-bulk-field="${escapeAttribute(field)}" data-bulk-smart-field="${escapeAttribute(field)}" type="text" value="${escapeAttribute(
+      row[field] || ""
+    )}" placeholder="${escapeAttribute(placeholder)}" readonly />`;
   }
 
   function renderBulkExpenseDatalists() {
@@ -2755,6 +2774,119 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return getRankedTransactionCategorySuggestions("expense");
   }
 
+  function syncBulkExpenseDetailsTextareaHeights() {
+    document.querySelectorAll('#bulk-expense-table-body textarea[data-bulk-field="details"]').forEach(syncBulkExpenseDetailsTextareaHeight);
+  }
+
+  function syncBulkExpenseDetailsTextareaHeight(textarea) {
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const style = window.getComputedStyle(textarea);
+    const lineHeight = Number.parseFloat(style.lineHeight) || 20;
+    const verticalPadding =
+      (Number.parseFloat(style.paddingTop) || 0) +
+      (Number.parseFloat(style.paddingBottom) || 0) +
+      (textarea.offsetHeight - textarea.clientHeight);
+    const lines = Math.min(String(textarea.value || "").split(/\r\n|\r|\n/).length || 1, 3);
+    const maxHeight = Math.ceil(lineHeight * 3 + verticalPadding);
+    const preferredHeight = Math.ceil(lineHeight * lines + verticalPadding);
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, preferredHeight), maxHeight)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }
+
+  function getBulkSmartFieldPickerConfig(rowId, field) {
+    const row = bulkExpenseRows.find((item) => item.id === rowId);
+    if (!row) {
+      return null;
+    }
+    if (field === "subcategory") {
+      return {
+        title: "Choose Subcategory",
+        label: "Subcategory",
+        currentValue: row.subcategory || "",
+        options: getBulkExpenseSubcategoryOptions(row.categoryId),
+        placeholder: "Type a new subcategory or choose a ranked one",
+        note: "Shows every subcategory for this category in popular order.",
+      };
+    }
+    if (field === "counterparty") {
+      return {
+        title: "Choose Payee",
+        label: "Payee",
+        currentValue: row.counterparty || "",
+        options: getBulkExpenseTextSuggestions("counterparty", row.categoryId, row.subcategory),
+        placeholder: "Type a new payee or choose a ranked one",
+        note: "Shows every matching payee in popular order.",
+      };
+    }
+    if (field === "project") {
+      return {
+        title: "Choose Project",
+        label: "Project",
+        currentValue: row.project || "",
+        options: getBulkExpenseTextSuggestions("project", row.categoryId, row.subcategory),
+        placeholder: "Type a new project or choose a ranked one",
+        note: "Shows every matching project in popular order.",
+      };
+    }
+    return null;
+  }
+
+  function openBulkSmartFieldPicker(rowId, field) {
+    const config = getBulkSmartFieldPickerConfig(rowId, field);
+    if (!config) {
+      return;
+    }
+    bulkExpenseActiveRowId = rowId;
+    smartFieldPickerState = {
+      field,
+      targetId: "",
+      mode: "bulkExpense",
+      bulkRowId: rowId,
+      options: config.options,
+      selectedValue: config.currentValue || "",
+      lastTapValue: "",
+      lastTapAt: 0,
+    };
+    document.getElementById("smart-field-picker-title").textContent = config.title;
+    document.getElementById("smart-field-picker-label").textContent = config.label;
+    document.getElementById("smart-field-picker-note").textContent = `${config.note} Single tap selects, then double tap the same value or use "Use Value" to apply it.`;
+    document.getElementById("smart-field-picker-input").value = "";
+    document.getElementById("smart-field-picker-input").placeholder = config.placeholder;
+    renderSmartFieldPickerOptions();
+    openModal("smart-field-picker-modal");
+    window.setTimeout(() => {
+      const input = document.getElementById("smart-field-picker-input");
+      input.focus();
+      input.select();
+    }, 20);
+  }
+
+  function applyBulkSmartFieldPickerDraftValue(value) {
+    const field = smartFieldPickerState.field;
+    const row = bulkExpenseRows.find((item) => item.id === smartFieldPickerState.bulkRowId);
+    if (!field || !row) {
+      return null;
+    }
+    row[field] = String(value || "").trim();
+    row.touched = true;
+    ensureBulkExpenseTrailingBlankRow();
+    persistBulkExpenseDraft();
+    renderBulkExpenseRows(field);
+    return row;
+  }
+
+  function applyBulkSmartFieldPickerValue(value) {
+    const row = applyBulkSmartFieldPickerDraftValue(value);
+    if (!row) {
+      return;
+    }
+    closeModal("smart-field-picker-modal");
+    resetSmartFieldPicker();
+  }
+
   function handleBulkExpenseDateChange() {
     persistBulkExpenseDraft();
     updateBulkExpenseStatus();
@@ -2769,6 +2901,13 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   }
 
   function handleBulkExpenseTableClick(event) {
+    const smartField = event.target.closest("[data-bulk-smart-field]");
+    if (smartField) {
+      const rowId = smartField.closest("[data-bulk-row-id]")?.dataset?.bulkRowId || "";
+      openBulkSmartFieldPicker(rowId, smartField.dataset.bulkSmartField || "");
+      return;
+    }
+
     const actionButton = event.target.closest("[data-bulk-action]");
     if (actionButton) {
       const rowId = actionButton.dataset.bulkRowId || "";
@@ -2791,6 +2930,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       activateBulkExpenseRow(rowId, "amount");
     }
     bulkExpenseTapState = { rowId, at: now };
+  }
+
+  function handleBulkExpenseTableKeydown(event) {
+    const smartField = event.target.closest("[data-bulk-smart-field]");
+    if (!smartField || !["Enter", " ", "ArrowDown"].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const rowId = smartField.closest("[data-bulk-row-id]")?.dataset?.bulkRowId || "";
+    openBulkSmartFieldPicker(rowId, smartField.dataset.bulkSmartField || "");
   }
 
   function activateBulkExpenseRow(rowId, focusField = "amount") {
@@ -2831,6 +2980,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       }
     }
     if (field === "details") {
+      syncBulkExpenseDetailsTextareaHeight(event.target);
       const derivedAmount = calculateTransactionAmountFromDetails(row.details);
       if (derivedAmount > 0) {
         row.amount = String(derivedAmount);

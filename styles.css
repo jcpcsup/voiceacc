@@ -2157,9 +2157,10 @@ textarea:focus {
 }
 
 .bulk-expense-table textarea {
-  min-height: 88px;
+  min-height: 40px;
+  max-height: 88px;
   line-height: 1.4;
-  resize: vertical;
+  resize: none;
   white-space: pre-wrap;
 }
 
@@ -4079,6 +4080,19 @@ input[data-smart-picker-field][readonly] {
   padding-right: 34px;
 }
 
+input[data-bulk-smart-field][readonly] {
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(13, 47, 61, 0.45) 50%),
+    linear-gradient(135deg, rgba(13, 47, 61, 0.45) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
 .inline-notice {
   margin-bottom: 14px;
   padding: 14px 16px;
@@ -5244,7 +5258,8 @@ input[data-smart-picker-field][readonly] {
   }
 
   .bulk-expense-table textarea {
-    min-height: 108px;
+    min-height: 40px;
+    max-height: 92px;
   }
 
   .bulk-expense-actions {
@@ -5260,18 +5275,38 @@ input[data-smart-picker-field][readonly] {
 
 @media (max-height: 520px) and (orientation: landscape) {
   #bulk-expense-modal {
-    padding: 6px;
+    padding: 0;
   }
 
   .bulk-expense-modal-card {
-    width: calc(100vw - 12px);
-    min-height: calc(100dvh - 12px);
-    max-height: calc(100dvh - 12px);
-    border-radius: 16px;
+    width: 100vw;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    display: grid;
+    grid-template-columns: minmax(118px, max-content) minmax(126px, 168px) minmax(250px, 1fr) 38px;
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 8px;
+    border-radius: 0;
+    border: 0;
   }
 
   .bulk-expense-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(118px, max-content) minmax(126px, 168px) minmax(250px, 1fr) 38px;
+    column-gap: 8px;
+    align-items: center;
     padding: 10px 12px;
+  }
+
+  .bulk-expense-header > div:first-child {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .bulk-expense-header .eyebrow {
+    font-size: 0.62rem;
   }
 
   .bulk-expense-header h2 {
@@ -5279,10 +5314,30 @@ input[data-smart-picker-field][readonly] {
   }
 
   .bulk-expense-header-controls {
-    grid-template-columns: minmax(128px, 168px) 38px;
+    display: contents;
+  }
+
+  .bulk-expense-header-controls .field-label {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .bulk-expense-header-controls input {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 38px;
+    padding: 8px 10px;
+  }
+
+  .bulk-expense-header-controls .icon-button {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    justify-self: end;
   }
 
   .bulk-expense-body {
+    grid-column: 1 / -1;
+    grid-row: 2;
     padding: 8px 8px 0;
   }
 
@@ -5292,7 +5347,8 @@ input[data-smart-picker-field][readonly] {
   }
 
   .bulk-expense-table textarea {
-    min-height: 72px;
+    min-height: 40px;
+    max-height: 80px;
   }
 
   .bulk-expense-status {
@@ -5300,6 +5356,33 @@ input[data-smart-picker-field][readonly] {
   }
 
   .bulk-expense-actions {
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    grid-column: 3;
+    grid-row: 1;
+    z-index: 4;
+    align-self: center;
+    justify-self: end;
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: auto;
+    margin: 0 10px 0 0;
+    padding: 0;
+    border-top: 0;
+    background: transparent;
+  }
+
+  #bulk-expense-clear-button {
+    margin-right: 0;
+  }
+
+  .bulk-expense-actions .primary-button,
+  .bulk-expense-actions .secondary-button,
+  .bulk-expense-actions .ghost-button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 0.74rem;
+    line-height: 1;
+    white-space: nowrap;
   }
 }
