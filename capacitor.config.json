@@ -1,6 +1,6 @@
 {
   "appId": "com.ledgerflow.voice",
-  "appName": "LedgerFlow Voice",
+  "appName": "LedgerFlow",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

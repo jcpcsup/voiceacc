@@ -274,7 +274,7 @@ export function createSecurityTools(api) {
     if (window.Capacitor?.isNativePlatform() && window.Capacitor.Plugins?.BiometricAuth) {
       try {
         const result = await window.Capacitor.Plugins.BiometricAuth.authenticate({
-          reason: "Unlock LedgerFlow Voice",
+          reason: "Unlock LedgerFlow",
           cancelTitle: "Use PIN",
         });
         if (result && result.hasCredentials !== false) {

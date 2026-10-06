@@ -192,7 +192,7 @@ export function createCsvTools(api) {
           await navigator.share({
             files: [file],
             title: filename,
-            text: `LedgerFlow Voice CSV Export (${rows.length} rows)`,
+            text: `LedgerFlow CSV Export (${rows.length} rows)`,
           });
           if (announce) {
             showToast(`${filename} exported.`);

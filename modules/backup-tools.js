@@ -30,7 +30,7 @@ export function createBackupTools(api) {
       // 1. Ledger Data JSON
       const serializable = buildSerializableState();
       const payload = {
-        app: "LedgerFlow Voice",
+        app: "LedgerFlow",
         schemaVersion: 1,
         exportedAt: new Date().toISOString(),
         ...serializable,
@@ -145,7 +145,7 @@ export function createBackupTools(api) {
           await navigator.share({
             files: [file],
             title: filename,
-            text: `LedgerFlow Voice Full Backup Archive (${filename})`,
+            text: `LedgerFlow Full Backup Archive (${filename})`,
           });
           return;
         }

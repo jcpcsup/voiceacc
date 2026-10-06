@@ -1497,24 +1497,43 @@ export function createModalTools(api) {
         } catch (_) {}
       } else {
         try {
-          const hasPerm = await window.Capacitor.Plugins.SpeechRecognition.hasPermission();
-          if (!hasPerm.permission) {
-            const req = await window.Capacitor.Plugins.SpeechRecognition.requestPermission();
-            if (!req.permission) {
-              showToast("Microphone permission denied.");
-              return;
+          const plugin = window.Capacitor.Plugins.SpeechRecognition;
+          let perm = null;
+          if (typeof plugin.checkPermissions === "function") {
+            perm = await plugin.checkPermissions();
+          }
+          if (!perm || perm.speechRecognition !== "granted") {
+            if (typeof plugin.requestPermissions === "function") {
+              perm = await plugin.requestPermissions();
             }
           }
+          if (!perm || perm.speechRecognition !== "granted") {
+            showToast("Microphone permission denied.");
+            return;
+          }
+
           uiState.isListening = true;
           refreshListeningUi();
 
-          window.Capacitor.Plugins.SpeechRecognition.addListener("partialResults", (data) => {
-            if (data && data.matches && data.matches.length > 0) {
-              document.getElementById("dictation-input").value = data.matches[0].trim();
-            }
-          });
+          if (typeof plugin.removeAllListeners === "function") {
+            try {
+              await plugin.removeAllListeners();
+            } catch (_) {}
+          }
 
-          const result = await window.Capacitor.Plugins.SpeechRecognition.start({
+          if (typeof plugin.addListener === "function") {
+            await plugin.addListener("partialResults", (data) => {
+              if (data && Array.isArray(data.matches) && data.matches.length > 0) {
+                const text = data.matches[0].trim();
+                if (text) {
+                  const input = document.getElementById("dictation-input");
+                  if (input) input.value = text;
+                }
+              }
+            });
+          }
+
+          const result = await plugin.start({
             language: "en-US",
             maxResults: 1,
             prompt: "Speak your expense...",
@@ -1522,8 +1541,12 @@ export function createModalTools(api) {
             popup: false,
           });
 
-          if (result && result.matches && result.matches.length > 0) {
-            document.getElementById("dictation-input").value = result.matches[0].trim();
+          if (result && Array.isArray(result.matches) && result.matches.length > 0) {
+            const finalText = result.matches[0].trim();
+            if (finalText) {
+              const input = document.getElementById("dictation-input");
+              if (input) input.value = finalText;
+            }
           }
         } catch (err) {
           console.warn("Speech recognition error:", err);

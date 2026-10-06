@@ -12,12 +12,22 @@ export function createVoiceTools(api) {
 
   async function checkPermissions() {
     if (isNative() && window.Capacitor?.Plugins?.SpeechRecognition) {
-      const hasPerm = await window.Capacitor.Plugins.SpeechRecognition.hasPermission();
-      if (!hasPerm.permission) {
-        const req = await window.Capacitor.Plugins.SpeechRecognition.requestPermission();
-        return Boolean(req.permission);
+      const plugin = window.Capacitor.Plugins.SpeechRecognition;
+      try {
+        let perm = null;
+        if (typeof plugin.checkPermissions === "function") {
+          perm = await plugin.checkPermissions();
+        }
+        if (!perm || perm.speechRecognition !== "granted") {
+          if (typeof plugin.requestPermissions === "function") {
+            perm = await plugin.requestPermissions();
+          }
+        }
+        return perm?.speechRecognition === "granted";
+      } catch (e) {
+        console.warn("Speech permission check error:", e);
+        return false;
       }
-      return true;
     }
     return true;
   }
