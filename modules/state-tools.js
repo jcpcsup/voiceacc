@@ -1,4 +1,4 @@
-import { loadPersistedState, savePersistedState } from "./storage.js?v=20261006a";
+import { loadPersistedState, savePersistedState } from "./storage.js";
 
 export function createStateTools(api) {
   const { storageKey, defaultState, state } = api;

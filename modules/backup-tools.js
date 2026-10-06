@@ -1,5 +1,5 @@
 // LedgerFlow Lossless Backup & Restore Engine (JSZip + Attachments)
-import { getAllSlipsForBackup, importSlipFromBackup } from "./storage.js?v=20261006a";
+import { getAllSlipsForBackup, importSlipFromBackup } from "./storage.js";
 
 export function createBackupTools(api) {
   const {

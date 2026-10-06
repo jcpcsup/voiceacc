@@ -1,5 +1,5 @@
 // LedgerFlow Security Engine: PBKDF2 4-Digit PIN & Biometrics
-import { getSecuritySettings, saveSecuritySettings } from "./storage.js?v=20261006a";
+import { getSecuritySettings, saveSecuritySettings } from "./storage.js";
 
 export function createSecurityTools(api) {
   const { showToast, onUnlockSuccess } = api;

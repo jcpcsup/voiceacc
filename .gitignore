@@ -13,6 +13,7 @@ android/.idea/
 .gradle/
 *.apk
 *.aab
+apk/
 
 # OS files
 .DS_Store

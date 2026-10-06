@@ -7,9 +7,20 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>LedgerFlow Voice</title>
-    <link rel="stylesheet" href="./styles.css?v=20261005c" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script>
+      window.addEventListener('error', function(e) {
+        var b = document.getElementById('runtime-error-banner');
+        if (b) { b.style.display = 'block'; b.textContent = 'Script Error: ' + (e.message || e); }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var b = document.getElementById('runtime-error-banner');
+        if (b) { b.style.display = 'block'; b.textContent = 'Unhandled Rejection: ' + (e.reason?.message || e.reason || e); }
+      });
+    </script>
   </head>
   <body>
+    <div id="runtime-error-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:999999; background:#dc2626; color:#ffffff; padding:12px 16px; font-size:12px; font-family:monospace; word-break:break-all; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
     <div class="app-shell">
       <div class="ambient ambient-a"></div>
       <div class="ambient ambient-b"></div>
@@ -1355,7 +1366,7 @@
     </div>
 
     <script src="./modules/jszip.min.js"></script>
-    <script type="module" src="./app.js?v=20261006a"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
 

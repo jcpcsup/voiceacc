@@ -1,4 +1,4 @@
-import { uid } from "./utils.js?v=20261005c";
+import { uid } from "./utils.js";
 
 export function createDefaultState() {
   return {

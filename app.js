@@ -1,19 +1,19 @@
-import { createDefaultState } from "./modules/default-state.js?v=20261005c";
-import { iconRegistry } from "./modules/icons.js?v=20261005c";
-import { createCalendarTools } from "./modules/calendar-tools.js?v=20261005c";
-import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js?v=20261005c";
-import { createCsvTools } from "./modules/csv-tools.js?v=20261005c";
-import { createFormatterTools } from "./modules/formatters.js?v=20261005c";
-import { createModalTools } from "./modules/modal-tools.js?v=20261005c";
-import { captureFields, categoryKeywordMap, dictationExampleGroups } from "./modules/reference-data.js?v=20261005c";
-import { createReportsTools } from "./modules/reports-tools.js?v=20261005c";
-import { createRenderSharedTools } from "./modules/render-shared.js?v=20261005c";
-import { createSearchTools } from "./modules/search-tools.js?v=20261005c";
-import { createStateTools } from "./modules/state-tools.js?v=20261005c";
-import { createBackupTools } from "./modules/backup-tools.js?v=20261006a";
-import { createSecurityTools } from "./modules/security-tools.js?v=20261006a";
-import { createVoiceTools } from "./modules/voice-tools.js?v=20261006a";
-import { initializeAndroidBridge } from "./modules/android-bridge.js?v=20261006a";
+import { createDefaultState } from "./modules/default-state.js";
+import { iconRegistry } from "./modules/icons.js";
+import { createCalendarTools } from "./modules/calendar-tools.js";
+import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js";
+import { createCsvTools } from "./modules/csv-tools.js";
+import { createFormatterTools } from "./modules/formatters.js";
+import { createModalTools } from "./modules/modal-tools.js";
+import { captureFields, categoryKeywordMap, dictationExampleGroups } from "./modules/reference-data.js";
+import { createReportsTools } from "./modules/reports-tools.js";
+import { createRenderSharedTools } from "./modules/render-shared.js";
+import { createSearchTools } from "./modules/search-tools.js";
+import { createStateTools } from "./modules/state-tools.js";
+import { createBackupTools } from "./modules/backup-tools.js";
+import { createSecurityTools } from "./modules/security-tools.js";
+import { createVoiceTools } from "./modules/voice-tools.js";
+import { initializeAndroidBridge } from "./modules/android-bridge.js";
 import {
   saveTransactionSlip,
   resolveTransactionSlipUrl,
@@ -21,8 +21,8 @@ import {
   deleteTransactionSlip,
   deleteTransactionSlips,
   getSecuritySettings,
-} from "./modules/storage.js?v=20261006a";
-import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js?v=20261005c";
+} from "./modules/storage.js";
+import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js";
 
 (function () {
   "use strict";
@@ -95,7 +95,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let bulkExpenseIsSaving = false;
   let autoSyncTimer = null;
 
-  const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
+  const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState, buildSerializableState } = createStateTools({
     storageKey: STORAGE_KEY,
     defaultState,
     state,
