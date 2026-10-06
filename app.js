@@ -1,20 +1,37 @@
-import { createDefaultState } from "./modules/default-state.js";
-import { iconRegistry } from "./modules/icons.js";
-import { createCalendarTools } from "./modules/calendar-tools.js";
-import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js";
-import { createCsvTools } from "./modules/csv-tools.js";
-import { createFormatterTools } from "./modules/formatters.js";
-import { createModalTools } from "./modules/modal-tools.js";
-import { captureFields, categoryKeywordMap, dictationExampleGroups } from "./modules/reference-data.js";
-import { createReportsTools } from "./modules/reports-tools.js";
-import { createRenderSharedTools } from "./modules/render-shared.js";
-import { createSearchTools } from "./modules/search-tools.js";
-import { createStateTools } from "./modules/state-tools.js";
-import { createSupabaseTools } from "./modules/supabase-tools.js";
-import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js";
+import { createDefaultState } from "./modules/default-state.js?v=20261005c";
+import { iconRegistry } from "./modules/icons.js?v=20261005c";
+import { createCalendarTools } from "./modules/calendar-tools.js?v=20261005c";
+import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js?v=20261005c";
+import { createCsvTools } from "./modules/csv-tools.js?v=20261005c";
+import { createFormatterTools } from "./modules/formatters.js?v=20261005c";
+import { createModalTools } from "./modules/modal-tools.js?v=20261005c";
+import { captureFields, categoryKeywordMap, dictationExampleGroups } from "./modules/reference-data.js?v=20261005c";
+import { createReportsTools } from "./modules/reports-tools.js?v=20261005c";
+import { createRenderSharedTools } from "./modules/render-shared.js?v=20261005c";
+import { createSearchTools } from "./modules/search-tools.js?v=20261005c";
+import { createStateTools } from "./modules/state-tools.js?v=20261005c";
+import { createSupabaseTools } from "./modules/supabase-tools.js?v=20261005c";
+import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js?v=20261005c";
 
 (function () {
   "use strict";
+
+  // Service Worker and Cache API cleanup guard:
+  // Automatically unregisters any ghost service workers and clears stale CacheStorage on the origin.
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+    }).catch(() => {});
+  }
+  if (typeof window !== "undefined" && "caches" in window) {
+    window.caches.keys().then((keys) => {
+      for (const key of keys) {
+        window.caches.delete(key);
+      }
+    }).catch(() => {});
+  }
 
   // Fill these values to enable Supabase auth and cloud sync.
   const SUPABASE_URL = "https://rcpilsxyrswwhjyaenxt.supabase.co";

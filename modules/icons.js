@@ -1,4 +1,4 @@
-import { svgIcon } from "./utils.js";
+import { svgIcon } from "./utils.js?v=20261005c";
 
 export const iconRegistry = {
   overview: svgIcon("M3 11.5L12 4l9 7.5v8.5H14v-5h-4v5H3z"),
