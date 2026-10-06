@@ -176,13 +176,38 @@ export function createCsvTools(api) {
     return "Transactions CSV can auto-create missing accounts, categories, subcategories, and tracked counterparties from the name columns. Type, icon, color, currency, and budget fields can be omitted and the app will use inferred or default values.";
   }
 
-  function downloadCsv(filename, rows, announce = true) {
+  async function downloadCsv(filename, rows, announce = true) {
     if (!rows.length) {
       showToast("There is no data to export yet.");
       return;
     }
     const csv = toCsv(rows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+    // 1. Mobile Native Web Share API (Android Chromium WebView)
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        const file = new File([blob], filename, { type: "text/csv;charset=utf-8;" });
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: filename,
+            text: `LedgerFlow Voice CSV Export (${rows.length} rows)`,
+          });
+          if (announce) {
+            showToast(`${filename} exported.`);
+          }
+          return;
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          return; // User cancelled share sheet
+        }
+        console.warn("Native file share fallback to browser download:", err);
+      }
+    }
+
+    // 2. Standard browser anchor download
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -190,7 +215,7 @@ export function createCsvTools(api) {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
     if (announce) {
       showToast(`${filename} downloaded.`);
     }

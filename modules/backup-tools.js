@@ -137,27 +137,26 @@ export function createBackupTools(api) {
   }
 
   async function saveAndShareNativeZip(filename, blob) {
-    // If Capacitor share is available
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64data = reader.result;
-        // Attempt share via share plugin if available
-        if (window.Capacitor.Plugins?.Share) {
-          await window.Capacitor.Plugins.Share.share({
-            title: "LedgerFlow Backup",
-            text: `Backup exported on ${new Date().toLocaleDateString()}`,
-            url: base64data,
-            dialogTitle: "Save or Share Backup",
+    // 1. Modern Web Share API with File
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        const file = new File([blob], filename, { type: "application/zip" });
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: filename,
+            text: `LedgerFlow Voice Full Backup Archive (${filename})`,
           });
-        } else {
-          downloadBlob(filename, blob);
+          return;
         }
-      };
-      reader.readAsDataURL(blob);
-    } catch (e) {
-      downloadBlob(filename, blob);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.warn("Native file share fallback to browser download:", err);
+      }
     }
+
+    // 2. Standard browser anchor download
+    downloadBlob(filename, blob);
   }
 
   return {
