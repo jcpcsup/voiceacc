@@ -173,6 +173,12 @@ export function createSearchTools(api) {
     document.getElementById("filter-start-date").value = "";
     document.getElementById("filter-end-date").value = "";
     document.getElementById("filter-sort").value = "dateDesc";
+    uiState.globalSearch = "";
+    const globalSearchInput = document.getElementById("global-search-input");
+    if (globalSearchInput) {
+      globalSearchInput.value = "";
+    }
+    hideGlobalSearchResults();
     renderTransactions();
   }
 

@@ -21,6 +21,16 @@ export function createAccountsCategoriesTools(api) {
   let aggregateCacheKey = "";
   let aggregateCache = null;
 
+  const LIABILITY_ACCOUNT_TYPES = new Set(["card", "credit", "loan"]);
+
+  function getAccountClassification(account) {
+    const explicit = String(account?.classification || "").toLowerCase();
+    if (explicit === "asset" || explicit === "liability") {
+      return explicit;
+    }
+    return LIABILITY_ACCOUNT_TYPES.has(String(account?.type || "").toLowerCase()) ? "liability" : "asset";
+  }
+
   function getTrailingMonths(count = 12) {
     const months = [];
     const now = new Date();
@@ -82,7 +92,7 @@ export function createAccountsCategoriesTools(api) {
   function getAggregateCacheSignature() {
     const monthAnchor = toLocalMonthKey(new Date());
     const accountPart = state.accounts
-      .map((account) => `${account.id}:${Number(account.openingBalance || 0)}:${account.includeInTotalBalance !== false ? 1 : 0}`)
+      .map((account) => `${account.id}:${Number(account.openingBalance || 0)}:${account.includeInTotalBalance !== false ? 1 : 0}:${getAccountClassification(account)}`)
       .join("|");
     const counterpartyPart = state.counterparties
       .map((counterparty) => `${counterparty.id}:${counterparty.name}:${counterparty.updatedAt || counterparty.createdAt || ""}`)
@@ -301,6 +311,8 @@ export function createAccountsCategoriesTools(api) {
       lastActivityByCounterparty: new Map(),
       totals: {
         balance: 0,
+        assetAccounts: 0,
+        liabilityAccounts: 0,
         monthIncome: 0,
         monthExpense: 0,
         weekIncome: 0,
@@ -310,6 +322,9 @@ export function createAccountsCategoriesTools(api) {
         receivable: 0,
         payable: 0,
         counterpartyNet: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        netWorth: 0,
       },
     };
 
@@ -490,7 +505,13 @@ export function createAccountsCategoriesTools(api) {
       );
 
       if (account.includeInTotalBalance !== false) {
-        snapshot.totals.balance += Number(snapshot.balanceByAccount.get(accountId) || 0);
+        const accountBalance = Number(snapshot.balanceByAccount.get(accountId) || 0);
+        snapshot.totals.balance += accountBalance;
+        if (getAccountClassification(account) === "liability") {
+          snapshot.totals.liabilityAccounts += accountBalance;
+        } else {
+          snapshot.totals.assetAccounts += accountBalance;
+        }
       }
     });
 
@@ -538,6 +559,14 @@ export function createAccountsCategoriesTools(api) {
       snapshot.totals.payable += Number(snapshot.payableByCounterparty.get(counterpartyId) || 0);
     });
     snapshot.totals.counterpartyNet = snapshot.totals.receivable - snapshot.totals.payable;
+    // Balance sheet: assets are asset-account balances plus receivables (owed to you);
+    // liabilities are liability-account balances plus payables (you owe). Liability
+    // account balances are stored as positive magnitudes, so they add to liabilities.
+    snapshot.totals.totalAssets =
+      snapshot.totals.assetAccounts + snapshot.totals.receivable;
+    snapshot.totals.totalLiabilities =
+      snapshot.totals.liabilityAccounts + snapshot.totals.payable;
+    snapshot.totals.netWorth = snapshot.totals.totalAssets - snapshot.totals.totalLiabilities;
 
     return snapshot;
   }
@@ -674,6 +703,19 @@ export function createAccountsCategoriesTools(api) {
       receivable: Number(snapshot.totals.receivable || 0),
       payable: Number(snapshot.totals.payable || 0),
       net: Number(snapshot.totals.counterpartyNet || 0),
+    };
+  }
+
+  function getBalanceSheetTotals() {
+    const snapshot = getAggregateSnapshot();
+    return {
+      assetAccounts: Number(snapshot.totals.assetAccounts || 0),
+      liabilityAccounts: Number(snapshot.totals.liabilityAccounts || 0),
+      receivable: Number(snapshot.totals.receivable || 0),
+      payable: Number(snapshot.totals.payable || 0),
+      totalAssets: Number(snapshot.totals.totalAssets || 0),
+      totalLiabilities: Number(snapshot.totals.totalLiabilities || 0),
+      netWorth: Number(snapshot.totals.netWorth || 0),
     };
   }
 
@@ -898,6 +940,8 @@ export function createAccountsCategoriesTools(api) {
     getCategoryCurrentMonthSeries,
     getCounterpartyLedgerStats,
     getCounterpartyLedgerMetrics,
+    getBalanceSheetTotals,
+    getAccountClassification,
     getCurrentWeekRange,
     getTransactionsForPreset,
     getGlobalMetrics,

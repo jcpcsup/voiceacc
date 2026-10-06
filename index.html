@@ -248,6 +248,11 @@
             <div class="results-bar">
               <p id="transaction-result-count">0 matching transactions</p>
               <div class="results-bar-actions">
+                <div class="transaction-view-switcher" id="transaction-view-switcher" role="group" aria-label="Transaction view">
+                  <button class="transaction-view-option active" type="button" data-transaction-view="cards" aria-pressed="true" title="Card view">Cards</button>
+                  <button class="transaction-view-option" type="button" data-transaction-view="compact" aria-pressed="false" title="Compact view">Compact</button>
+                  <button class="transaction-view-option" type="button" data-transaction-view="table" aria-pressed="false" title="Table view">Table</button>
+                </div>
                 <div class="results-sort-wrap">
                   <label class="field-label sr-only" for="filter-sort">Sort Order</label>
                   <select id="filter-sort">
@@ -268,6 +273,14 @@
               <button class="ghost-button" type="button" id="transaction-page-prev-button">Previous</button>
               <p id="transaction-page-label">Page 1 of 1</p>
               <button class="ghost-button" type="button" id="transaction-page-next-button">Next</button>
+              <div class="transaction-page-size-wrap">
+                <label class="field-label sr-only" for="transaction-page-size">Rows per page</label>
+                <select id="transaction-page-size" aria-label="Rows per page">
+                  <option value="20">20 / page</option>
+                  <option value="50">50 / page</option>
+                  <option value="100">100 / page</option>
+                </select>
+              </div>
             </div>
           </section>
         </section>
@@ -292,6 +305,7 @@
               </div>
               <button class="ghost-button" type="button" data-open-counterparty-modal>New Counterparty</button>
             </div>
+            <div class="balance-sheet-summary" id="balance-sheet-summary"></div>
             <div class="metric-grid" id="counterparty-metrics"></div>
             <div class="account-grid large-grid" id="counterparty-list"></div>
           </section>
@@ -797,9 +811,15 @@
           </div>
           <datalist id="bulk-expense-payee-options"></datalist>
           <datalist id="bulk-expense-project-options"></datalist>
-          <p class="supporting-text bulk-expense-status" id="bulk-expense-status" aria-live="polite">
-            Double-click or double-tap a row to edit it. Draft rows are saved locally until they are committed.
-          </p>
+          <div class="bulk-expense-footer">
+            <div class="bulk-expense-total" id="bulk-expense-total">
+              <span class="bulk-expense-total-label">Total</span>
+              <span class="bulk-expense-total-value" id="bulk-expense-total-value">0.00</span>
+            </div>
+            <p class="supporting-text bulk-expense-status" id="bulk-expense-status" aria-live="polite">
+              Double-click or double-tap a row to edit it. Draft rows are saved locally until they are committed.
+            </p>
+          </div>
         </div>
         <div class="modal-actions bulk-expense-actions">
           <button class="ghost-button danger-outline" type="button" id="bulk-expense-clear-button">Clear Draft</button>
@@ -867,6 +887,13 @@
                 <option value="card">Card</option>
                 <option value="savings">Savings</option>
                 <option value="wallet">Wallet</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="account-classification">Balance Sheet</label>
+              <select id="account-classification">
+                <option value="asset">Asset</option>
+                <option value="liability">Liability</option>
               </select>
             </div>
             <div class="field-group">

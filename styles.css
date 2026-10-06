@@ -1647,6 +1647,302 @@ textarea:focus {
   color: #0f8eab;
 }
 
+/* ---- Transaction view switcher (desktop only) ---- */
+.transaction-view-switcher {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  .transaction-view-switcher {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+}
+
+.transaction-view-option {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.transaction-view-option:hover {
+  color: var(--text);
+}
+
+.transaction-view-option.active {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgba(18, 200, 164, 0.24);
+}
+
+/* ---- Compact list view ---- */
+.transaction-list.view-compact {
+  gap: 4px;
+}
+
+.transaction-compact-row {
+  display: grid;
+  grid-template-columns: 92px minmax(140px, 1fr) minmax(0, 1.4fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.transaction-compact-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  box-shadow: 0 8px 18px rgba(18, 59, 70, 0.07);
+}
+
+.transaction-compact-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.transaction-compact-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.transaction-compact-sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transaction-compact-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transaction-compact-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.transaction-compact-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.transaction-compact-actions .icon-button,
+.transaction-table-actions .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+}
+
+/* ---- Table (spreadsheet) view ---- */
+.transaction-list.view-table {
+  display: block;
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.transaction-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--accent) 8%, white);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.transaction-table tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.transaction-table tbody tr {
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.transaction-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, white);
+}
+
+.transaction-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.transaction-table-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.transaction-table-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.transaction-table-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.transaction-type-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+.transaction-type-dot-expense {
+  background: #d35350;
+}
+
+.transaction-type-dot-income {
+  background: #129f70;
+}
+
+.transaction-type-dot-transfer {
+  background: #0f8eab;
+}
+
+.transaction-page-size-wrap {
+  margin-left: auto;
+}
+
+.transaction-page-size-wrap select {
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+
+/* ---- Balance sheet summary (Assets & Liabilities) ---- */
+.balance-sheet-summary {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.balance-sheet-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+}
+
+.balance-sheet-card.asset {
+  background: linear-gradient(135deg, color-mix(in srgb, #129f70 10%, white), var(--panel-strong) 70%);
+  border-color: color-mix(in srgb, #129f70 24%, var(--border));
+}
+
+.balance-sheet-card.liability {
+  background: linear-gradient(135deg, color-mix(in srgb, #d35350 10%, white), var(--panel-strong) 70%);
+  border-color: color-mix(in srgb, #d35350 24%, var(--border));
+}
+
+.balance-sheet-card.networth {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, white), var(--panel-strong) 70%);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.balance-sheet-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.balance-sheet-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-sheet-card.asset .balance-sheet-value {
+  color: #0f8f63;
+}
+
+.balance-sheet-card.liability .balance-sheet-value {
+  color: #c4403d;
+}
+
+.balance-sheet-card.networth .balance-sheet-value {
+  color: var(--accent-strong);
+}
+
+.balance-sheet-card.networth.negative .balance-sheet-value {
+  color: #c4403d;
+}
+
+.balance-sheet-note {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.balance-sheet-op {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .balance-sheet-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .balance-sheet-op {
+    display: none;
+  }
+}
+
 .transaction-details {
   flex: 1;
   min-width: 0;
@@ -2041,7 +2337,7 @@ textarea:focus {
   border-radius: 12px;
 }
 
-.bulk-expense-header-controls .bulk-expense-fullscreen-button {
+.bulk-expense-header-controls .icon-button.bulk-expense-fullscreen-button {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
@@ -2204,6 +2500,41 @@ textarea:focus {
   padding: 9px 10px;
   border-radius: 12px;
   font-size: 0.8rem;
+}
+
+.bulk-expense-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 4px 0;
+}
+
+.bulk-expense-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.bulk-expense-total-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.bulk-expense-total-value {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.bulk-expense-footer .bulk-expense-status {
+  margin: 0;
+  padding: 0;
+  text-align: right;
 }
 
 .bulk-expense-status {
@@ -5427,8 +5758,16 @@ input[data-bulk-smart-field][readonly] {
     max-height: 80px;
   }
 
-  /* Keep the aria-live status in the a11y tree, but take it out of the
-     layout so the table gets the full height. Matches .sr-only. */
+  /* Collapse the footer wrapper so it adds no grid row, keep the aria-live
+     status in the a11y tree, and drop the total so the table keeps full height. */
+  .bulk-expense-footer {
+    display: contents;
+  }
+
+  .bulk-expense-total {
+    display: none;
+  }
+
   .bulk-expense-status {
     position: absolute;
     width: 1px;

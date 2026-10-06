@@ -19,6 +19,7 @@ create table if not exists public.accounts (
   currency_symbol text not null default '$',
   opening_balance numeric(14, 2) not null default 0,
   include_in_total_balance boolean not null default true,
+  classification text not null default 'asset',
   color text not null default '#19c6a7',
   icon text not null default 'wallet',
   notes text not null default '',
@@ -124,6 +125,9 @@ add column if not exists include_in_total_balance boolean not null default true;
 
 alter table public.accounts
 add column if not exists sort_order integer not null default 0;
+
+alter table public.accounts
+add column if not exists classification text not null default 'asset';
 
 drop trigger if exists accounts_set_updated_at on public.accounts;
 create trigger accounts_set_updated_at

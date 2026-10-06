@@ -9,6 +9,7 @@ export function createModalTools(api) {
     syncTransactionTemplateUi,
     getTransaction,
     getAccount,
+    getAccountClassification,
     getCounterparty,
     getCategory,
     findAccountId,
@@ -391,6 +392,7 @@ export function createModalTools(api) {
       }
       document.getElementById("account-name").value = account.name;
       document.getElementById("account-type").value = account.type;
+      document.getElementById("account-classification").value = getAccountClassification(account);
       document.getElementById("account-currency-symbol").value = account.currencySymbol || "$";
       document.getElementById("account-opening-balance").value = account.openingBalance ?? 0;
       document.getElementById("account-include-in-total-balance").checked = account.includeInTotalBalance !== false;
@@ -747,6 +749,8 @@ export function createModalTools(api) {
       name: document.getElementById("account-name").value.trim(),
       sortOrder: existingAccount?.sortOrder ?? state.accounts.length,
       type: document.getElementById("account-type").value,
+      classification:
+        document.getElementById("account-classification").value === "liability" ? "liability" : "asset",
       currencySymbol: document.getElementById("account-currency-symbol").value.trim() || "$",
       openingBalance: Number(document.getElementById("account-opening-balance").value || 0),
       includeInTotalBalance: document.getElementById("account-include-in-total-balance").checked,

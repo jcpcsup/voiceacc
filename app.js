@@ -31,6 +31,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const BULK_EXPENSE_STORAGE_KEY = `${STORAGE_KEY}-bulk-expense-draft`;
   const BULK_EXPENSE_BATCH_SIZE = 25;
   const TRANSACTIONS_PAGE_SIZE = 20;
+  const TRANSACTION_PAGE_SIZE_OPTIONS = [20, 50, 100];
+  const TRANSACTION_VIEW_OPTIONS = ["cards", "compact", "table"];
+  const VIEW_PREFS_STORAGE_KEY = `${STORAGE_KEY}-view-prefs`;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
     SUPABASE_CONFIGURED && typeof window.supabase?.createClient === "function";
@@ -84,6 +87,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let bulkExpenseActiveRowId = "";
   let bulkExpenseTapState = { rowId: "", at: 0 };
   let bulkExpenseIsSaving = false;
+  let autoSyncTimer = null;
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState } = createStateTools({
     storageKey: STORAGE_KEY,
@@ -93,6 +97,40 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   });
   replaceState(loadLocalState());
   const initialDuplicateRepairCount = ensureUniqueTransactionIds();
+  const viewPrefs = loadViewPrefs();
+
+  function loadViewPrefs() {
+    const prefs = { transactionPageSize: TRANSACTIONS_PAGE_SIZE, transactionView: "cards" };
+    try {
+      const raw = window.localStorage.getItem(VIEW_PREFS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (TRANSACTION_PAGE_SIZE_OPTIONS.includes(Number(parsed.transactionPageSize))) {
+          prefs.transactionPageSize = Number(parsed.transactionPageSize);
+        }
+        if (TRANSACTION_VIEW_OPTIONS.includes(parsed.transactionView)) {
+          prefs.transactionView = parsed.transactionView;
+        }
+      }
+    } catch (error) {
+      console.warn("Could not load view preferences.", error);
+    }
+    return prefs;
+  }
+
+  function saveViewPrefs() {
+    try {
+      window.localStorage.setItem(
+        VIEW_PREFS_STORAGE_KEY,
+        JSON.stringify({
+          transactionPageSize: uiState.transactionPageSize,
+          transactionView: uiState.transactionView,
+        })
+      );
+    } catch (error) {
+      console.warn("Could not save view preferences.", error);
+    }
+  }
 
   uiState = {
     screen: "overview",
@@ -136,6 +174,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     isListening: false,
     transactionsFiltersExpanded: false,
     transactionPage: 1,
+    transactionPageSize: viewPrefs.transactionPageSize,
+    transactionView: viewPrefs.transactionView,
   };
   if (initialDuplicateRepairCount > 0) {
     persistState();
@@ -195,6 +235,8 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderAccountCard,
     getCounterpartyLedgerStats,
     getCounterpartyLedgerMetrics,
+    getBalanceSheetTotals,
+    getAccountClassification,
     renderCounterpartyCard,
     renderCategoryGroup,
     renderHeroAccountPill,
@@ -317,6 +359,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     },
     getTransaction,
     getAccount,
+    getAccountClassification,
     getCounterparty,
     getCategory,
     findAccountId,
@@ -445,6 +488,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     document.getElementById("transaction-page-prev-button").addEventListener("click", () => changeTransactionPage(-1));
     document.getElementById("transaction-page-next-button").addEventListener("click", () => changeTransactionPage(1));
+    document.getElementById("transaction-page-size").addEventListener("change", (event) => {
+      setTransactionPageSize(event.target.value);
+    });
+    document.getElementById("transaction-view-switcher").addEventListener("click", (event) => {
+      const option = event.target.closest("[data-transaction-view]");
+      if (option) {
+        setTransactionView(option.dataset.transactionView);
+      }
+    });
     document.getElementById("add-category-button").addEventListener("click", () => openCategoryModal());
     document.getElementById("toggle-transaction-filters-button").addEventListener("click", toggleTransactionFiltersPanel);
     document.getElementById("open-import-button").addEventListener("click", () => {
@@ -3225,6 +3277,14 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     if (saveButton) {
       saveButton.disabled = bulkExpenseIsSaving || rowsReady === 0;
     }
+    const totalValue = document.getElementById("bulk-expense-total-value");
+    if (totalValue) {
+      const total = bulkExpenseRows.reduce((sum, row) => {
+        const amount = Number(row.amount || 0);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+      totalValue.textContent = formatMoney(total, getPrimaryCurrencySymbol());
+    }
   }
 
   function handleGlobalSearchKeydown(event) {
@@ -3426,27 +3486,74 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   function renderTransactions() {
     syncTransactionFilterInputs();
     const matches = getFilteredTransactions();
-    const totalPages = Math.max(1, Math.ceil(matches.length / TRANSACTIONS_PAGE_SIZE));
+    const pageSize = TRANSACTION_PAGE_SIZE_OPTIONS.includes(Number(uiState.transactionPageSize))
+      ? Number(uiState.transactionPageSize)
+      : TRANSACTIONS_PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
     uiState.transactionPage = Math.min(Math.max(1, uiState.transactionPage || 1), totalPages);
-    const startIndex = (uiState.transactionPage - 1) * TRANSACTIONS_PAGE_SIZE;
-    const visibleMatches = matches.slice(startIndex, startIndex + TRANSACTIONS_PAGE_SIZE);
+    const startIndex = (uiState.transactionPage - 1) * pageSize;
+    const visibleMatches = matches.slice(startIndex, startIndex + pageSize);
+    const isDesktopView = window.matchMedia("(min-width: 721px)").matches;
+    const effectiveView = isDesktopView ? uiState.transactionView : "cards";
     document.getElementById("transaction-result-count").textContent = `${matches.length} matching transaction${
       matches.length === 1 ? "" : "s"
     }`;
     document.getElementById("transaction-filter-snapshot").innerHTML = renderTransactionFilterSnapshot(matches);
     renderTransactionFilterChips();
-    document.getElementById("transaction-list").innerHTML = matches.length
-      ? visibleMatches.map(renderTransactionItem).join("")
+    syncTransactionViewSwitcher();
+    const listEl = document.getElementById("transaction-list");
+    listEl.classList.remove("view-cards", "view-compact", "view-table");
+    listEl.classList.add(`view-${effectiveView}`);
+    listEl.innerHTML = matches.length
+      ? renderTransactionListMarkup(visibleMatches, effectiveView)
       : renderEmpty("No transactions match your search yet.");
-    void hydrateTransactionSlipPreviews(document.getElementById("transaction-list"));
+    if (effectiveView === "cards") {
+      void hydrateTransactionSlipPreviews(listEl);
+    }
     const pagination = document.getElementById("transaction-pagination");
     const pageLabel = document.getElementById("transaction-page-label");
     const prevButton = document.getElementById("transaction-page-prev-button");
     const nextButton = document.getElementById("transaction-page-next-button");
-    pagination.classList.toggle("hidden", matches.length <= TRANSACTIONS_PAGE_SIZE);
+    pagination.classList.toggle("hidden", matches.length === 0);
     pageLabel.textContent = `Page ${uiState.transactionPage} of ${totalPages}`;
     prevButton.disabled = uiState.transactionPage <= 1;
     nextButton.disabled = uiState.transactionPage >= totalPages;
+    const pageSizeSelect = document.getElementById("transaction-page-size");
+    if (pageSizeSelect) {
+      pageSizeSelect.value = String(pageSize);
+    }
+  }
+
+  function syncTransactionViewSwitcher() {
+    const switcher = document.getElementById("transaction-view-switcher");
+    if (!switcher) {
+      return;
+    }
+    switcher.querySelectorAll("[data-transaction-view]").forEach((button) => {
+      const isActive = button.dataset.transactionView === uiState.transactionView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function setTransactionView(view) {
+    if (!TRANSACTION_VIEW_OPTIONS.includes(view) || uiState.transactionView === view) {
+      return;
+    }
+    uiState.transactionView = view;
+    saveViewPrefs();
+    renderTransactions();
+  }
+
+  function setTransactionPageSize(size) {
+    const next = Number(size);
+    if (!TRANSACTION_PAGE_SIZE_OPTIONS.includes(next) || uiState.transactionPageSize === next) {
+      return;
+    }
+    uiState.transactionPageSize = next;
+    uiState.transactionPage = 1;
+    saveViewPrefs();
+    renderTransactions();
   }
 
   function renderTransactionFilterChips() {
@@ -3775,6 +3882,25 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       ? state.accounts.map((account) => renderAccountCard(account, true)).join("")
       : renderEmpty("Create your first account to unlock transfers and balance tracking.");
 
+    const balanceSheet = getBalanceSheetTotals();
+    document.getElementById("balance-sheet-summary").innerHTML = `
+      <div class="balance-sheet-card asset">
+        <span class="balance-sheet-label">Total Assets</span>
+        <strong class="balance-sheet-value">${formatMoney(balanceSheet.totalAssets, baseSymbol)}</strong>
+        <span class="balance-sheet-note">Asset account balances + receivables</span>
+      </div>
+      <div class="balance-sheet-op" aria-hidden="true">−</div>
+      <div class="balance-sheet-card liability">
+        <span class="balance-sheet-label">Total Liabilities</span>
+        <strong class="balance-sheet-value">${formatMoney(balanceSheet.totalLiabilities, baseSymbol)}</strong>
+        <span class="balance-sheet-note">Liability account balances + payables</span>
+      </div>
+      <div class="balance-sheet-op" aria-hidden="true">=</div>
+      <div class="balance-sheet-card networth ${balanceSheet.netWorth < 0 ? "negative" : ""}">
+        <span class="balance-sheet-label">Net Worth</span>
+        <strong class="balance-sheet-value">${formatMoney(balanceSheet.netWorth, baseSymbol)}</strong>
+        <span class="balance-sheet-note">Assets minus liabilities</span>
+      </div>`;
     document.getElementById("counterparty-metrics").innerHTML = [
       metricCard("Tracked Counterparties", String(state.counterparties.length), "Canonical payees and payers linked to receivables and payables"),
       metricCard("Receivables", formatMoney(counterpartyMetrics.receivable, baseSymbol), "Amounts owed back to you"),
@@ -4979,8 +5105,15 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     persistState();
     renderAll();
     if (uiState.isAuthenticated) {
-      void syncStateToSupabase(false);
+      scheduleAutoSync();
     }
+  }
+
+  function scheduleAutoSync() {
+    window.clearTimeout(autoSyncTimer);
+    autoSyncTimer = window.setTimeout(() => {
+      void syncStateToSupabase(true, "Synced ✓");
+    }, 1200);
   }
 
 
@@ -5155,6 +5288,110 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         </div>
       </article>
     `;
+  }
+
+  function getTransactionAccountLabel(transaction) {
+    if (transaction.type === "transfer") {
+      const from = getAccount(transaction.fromAccountId)?.name || "Unknown";
+      const to = getAccount(transaction.toAccountId)?.name || "Unknown";
+      return `${from} → ${to}`;
+    }
+    return getAccount(transaction.accountId)?.name || "Unknown";
+  }
+
+  function renderTransactionCompactRow(transaction) {
+    const category = getCategory(transaction.categoryId);
+    const symbol = getTransactionCurrencySymbol(transaction);
+    const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
+    const metaBits = [
+      getTransactionAccountLabel(transaction),
+      transaction.counterparty ? `${counterpartyLabel}: ${transaction.counterparty}` : "",
+      transaction.project || "",
+    ].filter(Boolean);
+    return `
+      <div class="transaction-compact-row ${escapeHtml(transaction.type)}" data-action="edit-transaction-card" data-id="${escapeHtml(
+        transaction.id
+      )}">
+        <span class="transaction-compact-date">${escapeHtml(transaction.date)}</span>
+        <span class="transaction-compact-category">
+          <span class="tag-pill transaction-theme-pill">${escapeHtml(category?.name || titleCase(transaction.type))}</span>
+          ${
+            transaction.subcategory
+              ? `<span class="transaction-compact-sub">› ${escapeHtml(transaction.subcategory)}</span>`
+              : ""
+          }
+        </span>
+        <span class="transaction-compact-meta">${metaBits.map((bit) => escapeHtml(bit)).join(" · ")}</span>
+        <strong class="money transaction-compact-amount transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+          transaction.amount,
+          symbol
+        )}</strong>
+        <span class="transaction-compact-actions">
+          <button class="icon-button transaction-icon-action" type="button" data-action="edit-transaction" data-id="${escapeHtml(
+            transaction.id
+          )}" aria-label="Edit transaction">${iconRegistry.pen}</button>
+          <button class="icon-button transaction-icon-action delete" type="button" data-action="delete-transaction" data-id="${escapeHtml(
+            transaction.id
+          )}" aria-label="Delete transaction">${iconRegistry.bin}</button>
+        </span>
+      </div>`;
+  }
+
+  function renderTransactionTableRow(transaction) {
+    const category = getCategory(transaction.categoryId);
+    const symbol = getTransactionCurrencySymbol(transaction);
+    return `
+      <tr class="transaction-table-row ${escapeHtml(transaction.type)}" data-action="edit-transaction-card" data-id="${escapeHtml(
+        transaction.id
+      )}">
+        <td class="transaction-table-date">${escapeHtml(transaction.date)}</td>
+        <td><span class="transaction-type-dot transaction-type-dot-${escapeHtml(
+          transaction.type
+        )}"></span>${escapeHtml(titleCase(transaction.type))}</td>
+        <td>${escapeHtml(getTransactionAccountLabel(transaction))}</td>
+        <td>${escapeHtml(category?.name || titleCase(transaction.type))}${
+          transaction.subcategory ? ` › ${escapeHtml(transaction.subcategory)}` : ""
+        }</td>
+        <td>${escapeHtml(transaction.counterparty || "")}</td>
+        <td>${escapeHtml(transaction.project || "")}</td>
+        <td class="transaction-table-amount transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
+          transaction.amount,
+          symbol
+        )}</td>
+        <td class="transaction-table-actions">
+          <button class="icon-button transaction-icon-action" type="button" data-action="edit-transaction" data-id="${escapeHtml(
+            transaction.id
+          )}" aria-label="Edit transaction">${iconRegistry.pen}</button>
+          <button class="icon-button transaction-icon-action delete" type="button" data-action="delete-transaction" data-id="${escapeHtml(
+            transaction.id
+          )}" aria-label="Delete transaction">${iconRegistry.bin}</button>
+        </td>
+      </tr>`;
+  }
+
+  function renderTransactionListMarkup(visibleMatches, view) {
+    if (view === "table") {
+      return `
+        <table class="transaction-table">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Type</th>
+              <th scope="col">Account</th>
+              <th scope="col">Category</th>
+              <th scope="col">Payee / Payer</th>
+              <th scope="col">Project</th>
+              <th scope="col" class="transaction-table-amount">Amount</th>
+              <th scope="col" class="transaction-table-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>${visibleMatches.map(renderTransactionTableRow).join("")}</tbody>
+        </table>`;
+    }
+    if (view === "compact") {
+      return visibleMatches.map(renderTransactionCompactRow).join("");
+    }
+    return visibleMatches.map(renderTransactionItem).join("");
   }
 
   function moveAccount(id, direction) {
