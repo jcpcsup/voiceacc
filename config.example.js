@@ -1,4 +1,4 @@
-window.LEDGERFLOW_CONFIG = {
-  supabaseUrl: "https://your-project-ref.supabase.co",
-  supabaseAnonKey: "your-anon-key",
+// LedgerFlow Configuration Example
+window.LEDGERFLOW_CONFIG = window.LEDGERFLOW_CONFIG || {
+  version: "1.0.0",
 };

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -470,20 +470,27 @@
               <article class="panel">
                 <div class="section-heading compact">
                   <div>
-                    <p class="eyebrow">Cloud</p>
-                    <h3>Supabase Sync</h3>
+                    <p class="eyebrow">Local-First Storage</p>
+                    <h3>Security & Backups</h3>
                   </div>
                 </div>
-                <div class="auth-status-card">
-                  <p class="eyebrow" id="auth-status-mode">Local Mode</p>
-                  <h3 id="auth-status-title">Supabase not configured</h3>
-                  <p class="supporting-text" id="auth-status-detail">
-                    Add your Supabase project URL and anon key in app.js to enable cloud auth and syncing.
+                <div class="security-status-card">
+                  <div class="security-status-header">
+                    <span class="security-badge-icon" data-icon="safe"></span>
+                    <div>
+                      <p class="eyebrow" id="security-lock-status-eyebrow">App Security</p>
+                      <h4 id="security-lock-status-title">PIN Lock: Disabled</h4>
+                    </div>
+                  </div>
+                  <p class="supporting-text" id="security-lock-status-desc">
+                    Protect your accounting records with an optional 4-digit PIN and Biometric unlock.
                   </p>
                 </div>
                 <div class="tool-stack">
-                  <button class="primary-button" type="button" id="sync-now-button">Sync Now</button>
-                  <button class="ghost-button" type="button" id="sign-out-button">Sign Out</button>
+                  <button class="primary-button" type="button" id="open-security-modal-btn">Configure Security</button>
+                  <button class="secondary-button" type="button" id="export-full-backup-btn">Export Full Backup (ZIP)</button>
+                  <button class="ghost-button" type="button" id="import-full-backup-trigger-btn">Restore Backup (ZIP/JSON)</button>
+                  <input id="import-full-backup-input" type="file" accept=".zip,.json,application/json,application/zip" class="hidden" />
                 </div>
               </article>
             </div>
@@ -722,7 +729,7 @@
             <div class="field-group field-span-2 transaction-slip-field">
               <div class="transaction-slip-copy">
                 <label class="field-label" for="transaction-slip-file">Slip Image</label>
-                <p class="supporting-text transaction-slip-help">Compressed before upload to private Supabase Storage.</p>
+                <p class="supporting-text transaction-slip-help">Compressed and stored privately on your device.</p>
               </div>
               <div class="transaction-slip-controls">
                 <input id="transaction-slip-file" type="file" accept="image/*" />
@@ -1261,38 +1268,94 @@
 
     <div class="toast hidden" id="toast"></div>
 
-    <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
-      <div class="lock-card">
-        <div class="lock-icon" data-icon="safe"></div>
-        <p class="eyebrow" id="lock-mode-label">Supabase Cloud</p>
-        <h2 id="lock-title">Unlock LedgerFlow Voice</h2>
-        <p class="supporting-text hidden" id="lock-hint"></p>
-        <div class="lock-toggle hidden" id="auth-mode-toggle">
-          <button class="lock-toggle-button lock-toggle-active" type="button" data-auth-mode="signin">Sign In</button>
-          <button class="lock-toggle-button" type="button" data-auth-mode="signup">Sign Up</button>
+    <div class="modal hidden" id="security-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="security-modal"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Local Protection</p>
+            <h2>App Lock & PIN Settings</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal="security-modal" aria-label="Close">
+            X
+          </button>
         </div>
-        <form id="lock-form">
-          <div class="field-group hidden" id="lock-email-group">
-            <label class="field-label" for="lock-email">Email</label>
-            <input id="lock-email" type="email" autocomplete="email" placeholder="you@example.com" />
+        
+        <div class="field-stack">
+          <div class="security-toggle-row">
+            <label for="security-lock-enable-toggle">Enable 4-Digit PIN Lock</label>
+            <input type="checkbox" id="security-lock-enable-toggle" />
           </div>
+
+          <div class="field-group hidden" id="security-pin-inputs-wrap">
+            <label class="field-label" for="security-new-pin">Set 4-Digit PIN</label>
+            <input id="security-new-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" />
+            <label class="field-label" for="security-confirm-pin" style="margin-top: 8px;">Confirm 4-Digit PIN</label>
+            <input id="security-confirm-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" />
+          </div>
+
+          <div class="security-toggle-row">
+            <label for="security-biometric-toggle">Enable Biometric (Fingerprint/Face)</label>
+            <input type="checkbox" id="security-biometric-toggle" />
+          </div>
+
           <div class="field-group">
-            <label class="field-label" for="lock-password">Password</label>
-            <input id="lock-password" type="password" autocomplete="current-password" required />
+            <label class="field-label" for="security-autolock-select">Auto-Lock Timeout</label>
+            <select id="security-autolock-select">
+              <option value="0">Immediately upon minimizing</option>
+              <option value="60">After 1 minute in background</option>
+              <option value="300">After 5 minutes in background</option>
+              <option value="900">After 15 minutes in background</option>
+            </select>
           </div>
-          <div class="field-group hidden" id="lock-confirm-group">
-            <label class="field-label" for="lock-password-confirm">Confirm Password</label>
-            <input id="lock-password-confirm" type="password" autocomplete="new-password" />
-          </div>
-          <p class="lock-error hidden" id="lock-error">Unable to sign in. Try again.</p>
-          <p class="lock-status hidden" id="lock-status"></p>
-          <button class="primary-button lock-submit" id="lock-submit-button" type="submit">Login</button>
-        </form>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-close-modal="security-modal">Cancel</button>
+          <button class="primary-button" type="button" id="security-save-settings-btn">Save Security Settings</button>
+        </div>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./app.js?v=20261005c"></script>
+    <div class="lock-screen hidden" id="lock-screen" aria-hidden="true">
+      <div class="lock-card pin-lock-card">
+        <div class="lock-icon" data-icon="safe"></div>
+        <p class="eyebrow" id="lock-mode-label">Security Lock</p>
+        <h2 id="lock-title">Enter 4-Digit PIN</h2>
+        <p class="supporting-text" id="lock-hint">Enter your PIN to unlock your ledger.</p>
+        
+        <div class="pin-display">
+          <span class="pin-dot" id="pin-dot-0"></span>
+          <span class="pin-dot" id="pin-dot-1"></span>
+          <span class="pin-dot" id="pin-dot-2"></span>
+          <span class="pin-dot" id="pin-dot-3"></span>
+        </div>
+
+        <p class="lock-error hidden" id="lock-error">Incorrect PIN. Try again.</p>
+
+        <div class="pin-keypad" id="pin-keypad">
+          <button type="button" class="pin-btn" data-pin="1">1</button>
+          <button type="button" class="pin-btn" data-pin="2">2</button>
+          <button type="button" class="pin-btn" data-pin="3">3</button>
+          <button type="button" class="pin-btn" data-pin="4">4</button>
+          <button type="button" class="pin-btn" data-pin="5">5</button>
+          <button type="button" class="pin-btn" data-pin="6">6</button>
+          <button type="button" class="pin-btn" data-pin="7">7</button>
+          <button type="button" class="pin-btn" data-pin="8">8</button>
+          <button type="button" class="pin-btn" data-pin="9">9</button>
+          <button type="button" class="pin-btn pin-action-btn" id="pin-biometric-button" aria-label="Biometric Unlock" title="Biometric Unlock">
+            <span data-icon="fingerprint"></span>
+          </button>
+          <button type="button" class="pin-btn" data-pin="0">0</button>
+          <button type="button" class="pin-btn pin-action-btn" id="pin-backspace-button" aria-label="Backspace" title="Backspace">
+            ⌫
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./modules/jszip.min.js"></script>
+    <script type="module" src="./app.js?v=20261006a"></script>
   </body>
 </html>
 

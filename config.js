@@ -1,4 +1,4 @@
+// LedgerFlow Configuration
 window.LEDGERFLOW_CONFIG = window.LEDGERFLOW_CONFIG || {
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  version: "1.0.0",
 };

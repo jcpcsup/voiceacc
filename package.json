@@ -1,3 +1,20 @@
 {
-  "type": "module"
+  "name": "ledgerflow-voice",
+  "version": "1.0.0",
+  "description": "Voice-first personal accounting app",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.2",
+    "@capacitor-community/speech-recognition": "^6.0.0"
+  }
 }

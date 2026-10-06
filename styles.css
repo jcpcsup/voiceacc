@@ -4561,7 +4561,7 @@ input[data-bulk-smart-field][readonly] {
 .lock-screen {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4570,102 +4570,165 @@ input[data-bulk-smart-field][readonly] {
   padding: 18px;
   overflow-x: clip;
   overflow-y: auto;
-  background: rgba(6, 20, 25, 0.34);
-  backdrop-filter: blur(14px);
+  background: rgba(6, 20, 25, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .lock-card {
-  width: min(400px, calc(100vw - 40px));
+  width: min(360px, calc(100vw - 32px));
   max-width: 100%;
-  padding: 28px;
+  padding: 32px 24px 28px;
   box-sizing: border-box;
-  border-radius: 28px;
-  background: rgba(248, 252, 251, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: var(--shadow);
+  border-radius: 32px;
+  background: rgba(18, 25, 38, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
   margin: 0 auto;
+  text-align: center;
+  color: #f1f5f9;
 }
 
 .lock-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 62px;
-  height: 62px;
-  margin-bottom: 10px;
-  border-radius: 20px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 12px;
+  border-radius: 22px;
   background: linear-gradient(135deg, rgba(18, 200, 164, 0.16), rgba(0, 166, 199, 0.16));
   color: var(--accent-strong);
+  border: 1px solid rgba(18, 200, 164, 0.25);
 }
 
 .lock-icon svg {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 }
 
 .lock-card h2 {
   margin: 4px 0 8px;
   font-family: var(--font-display);
-  font-size: 1.8rem;
-  letter-spacing: -0.04em;
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
 }
 
-.lock-toggle {
+.lock-card .supporting-text {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+/* 4-Digit PIN Indicators */
+.pin-display {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0 24px;
+}
+
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pin-dot-filled {
+  background: #12c8a4;
+  border-color: #12c8a4;
+  box-shadow: 0 0 12px rgba(18, 200, 164, 0.6);
+  transform: scale(1.15);
+}
+
+/* Numpad Grid */
+.pin-keypad {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  max-width: 280px;
+  margin: 0 auto;
 }
 
-.lock-toggle-button {
-  padding: 11px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(18, 59, 70, 0.08);
-  background: rgba(238, 246, 244, 0.95);
-  color: var(--muted);
+.pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  font-size: 1.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.12s ease;
 }
 
-.lock-toggle-active {
-  background: linear-gradient(135deg, rgba(18, 200, 164, 0.14), rgba(0, 166, 199, 0.14));
-  color: var(--accent-strong);
-  border-color: rgba(18, 200, 164, 0.18);
+.pin-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.lock-card form {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
+.pin-btn:active {
+  background: rgba(18, 200, 164, 0.2);
+  transform: scale(0.92);
+}
+
+.pin-action-btn {
+  background: transparent;
+  border-color: transparent;
+  color: #94a3b8;
+  font-size: 1.25rem;
+}
+
+.pin-action-btn svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
+.pin-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+}
+
+.pin-shake {
+  animation: pinShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes pinShake {
+  10%, 90% { transform: translate3d(-3px, 0, 0); }
+  20%, 80% { transform: translate3d(5px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
 }
 
 .lock-error {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(239, 100, 97, 0.12);
-  color: #b3423e;
+  margin: 8px 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(239, 100, 97, 0.15);
+  border: 1px solid rgba(239, 100, 97, 0.3);
+  color: #fca5a5;
+  font-size: 0.88rem;
+  font-weight: 500;
 }
 
-.lock-status {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(18, 200, 164, 0.12);
-  color: var(--accent-strong);
-}
-
-.lock-submit {
-  width: 100%;
-}
-
-@media (max-width: 720px) {
-  .lock-screen {
-    padding: 14px 18px;
+@media (max-width: 480px) {
+  .pin-btn {
+    height: 58px;
+    font-size: 1.4rem;
   }
-
   .lock-card {
-    width: min(320px, calc(100vw - 44px));
-    padding: 22px 18px;
-    border-radius: 24px;
+    padding: 24px 18px 20px;
   }
 }
 
@@ -6214,4 +6277,65 @@ input[data-bulk-smart-field][readonly] {
     line-height: 1;
     white-space: nowrap;
   }
+}
+
+/* Mobile Safe Areas & Edge-to-Edge Support */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.app-shell {
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Security & Backup Panel Styles */
+.security-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(18, 200, 164, 0.08);
+  border: 1px solid rgba(18, 200, 164, 0.2);
+  margin-bottom: 14px;
+}
+
+.security-status-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.security-status-header .security-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(18, 200, 164, 0.16);
+  color: var(--accent-strong);
+}
+
+.security-status-header .security-badge-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.security-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.security-toggle-row label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #f1f5f9;
 }

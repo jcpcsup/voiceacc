@@ -1,5 +1,7 @@
+import { loadPersistedState, savePersistedState } from "./storage.js?v=20261006a";
+
 export function createStateTools(api) {
-  const { storageKey, defaultState, state, getCurrentUserId } = api;
+  const { storageKey, defaultState, state } = api;
 
   function normalizeTags(value) {
     if (Array.isArray(value)) {
@@ -22,6 +24,10 @@ export function createStateTools(api) {
       console.error(error);
       return structuredClone(defaultState);
     }
+  }
+
+  async function loadAsyncState(key = storageKey) {
+    return loadPersistedState(key, defaultState, normalizeState);
   }
 
   function normalizeState(parsed) {
@@ -105,25 +111,17 @@ export function createStateTools(api) {
     };
   }
 
-  function getUserCacheKey(userId) {
-    return `${storageKey}:${userId}`;
-  }
-
   function persistState() {
-    const serialized = JSON.stringify(buildSerializableState());
-    window.localStorage.setItem(storageKey, serialized);
-    const userId = getCurrentUserId ? getCurrentUserId() : "";
-    if (userId) {
-      window.localStorage.setItem(getUserCacheKey(userId), serialized);
-    }
+    const serializable = buildSerializableState();
+    savePersistedState(storageKey, serializable);
   }
 
   return {
     loadLocalState,
+    loadAsyncState,
     normalizeState,
     replaceState,
     buildSerializableState,
-    getUserCacheKey,
     persistState,
   };
 }

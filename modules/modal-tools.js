@@ -1445,42 +1445,97 @@ export function createModalTools(api) {
   }
 
   function initializeSpeechRecognition() {
+    const isCapacitorNative = Boolean(window.Capacitor?.isNativePlatform());
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    if (!SpeechRecognition && !isCapacitorNative) {
       document.getElementById("listen-button").disabled = true;
       document.getElementById("listen-button").textContent = "Voice Not Supported";
       document.getElementById("dictation-input").placeholder =
         "This browser does not support speech recognition. You can still type statements manually.";
       return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
-        .join(" ");
-      document.getElementById("dictation-input").value = transcript.trim();
-    };
-    recognition.onstart = () => {
-      uiState.isListening = true;
-      refreshListeningUi();
-    };
-    recognition.onend = () => {
-      uiState.isListening = false;
-      refreshListeningUi();
-    };
-    recognition.onerror = () => {
-      uiState.isListening = false;
-      refreshListeningUi();
-      showToast("Voice dictation ran into a browser permission issue.");
-    };
-    uiState.recognition = recognition;
+    document.getElementById("listen-button").disabled = false;
+    document.getElementById("listen-button").textContent = "Start Listening";
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map((result) => result[0].transcript)
+          .join(" ");
+        document.getElementById("dictation-input").value = transcript.trim();
+      };
+      recognition.onstart = () => {
+        uiState.isListening = true;
+        refreshListeningUi();
+      };
+      recognition.onend = () => {
+        uiState.isListening = false;
+        refreshListeningUi();
+      };
+      recognition.onerror = () => {
+        uiState.isListening = false;
+        refreshListeningUi();
+        showToast("Voice dictation ran into a permission issue.");
+      };
+      uiState.recognition = recognition;
+    }
     refreshListeningUi();
   }
 
-  function toggleListening() {
+  async function toggleListening() {
+    const isCapacitorNative = Boolean(window.Capacitor?.isNativePlatform());
+
+    if (isCapacitorNative && window.Capacitor?.Plugins?.SpeechRecognition) {
+      if (uiState.isListening) {
+        uiState.isListening = false;
+        refreshListeningUi();
+        try {
+          await window.Capacitor.Plugins.SpeechRecognition.stop();
+        } catch (_) {}
+      } else {
+        try {
+          const hasPerm = await window.Capacitor.Plugins.SpeechRecognition.hasPermission();
+          if (!hasPerm.permission) {
+            const req = await window.Capacitor.Plugins.SpeechRecognition.requestPermission();
+            if (!req.permission) {
+              showToast("Microphone permission denied.");
+              return;
+            }
+          }
+          uiState.isListening = true;
+          refreshListeningUi();
+
+          window.Capacitor.Plugins.SpeechRecognition.addListener("partialResults", (data) => {
+            if (data && data.matches && data.matches.length > 0) {
+              document.getElementById("dictation-input").value = data.matches[0].trim();
+            }
+          });
+
+          const result = await window.Capacitor.Plugins.SpeechRecognition.start({
+            language: "en-US",
+            maxResults: 1,
+            prompt: "Speak your expense...",
+            partialResults: true,
+            popup: false,
+          });
+
+          if (result && result.matches && result.matches.length > 0) {
+            document.getElementById("dictation-input").value = result.matches[0].trim();
+          }
+        } catch (err) {
+          console.warn("Speech recognition error:", err);
+          showToast("Voice dictation error: " + (err.message || err));
+        } finally {
+          uiState.isListening = false;
+          refreshListeningUi();
+        }
+      }
+      return;
+    }
+
     if (!uiState.recognition) {
       return;
     }

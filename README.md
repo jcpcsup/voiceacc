@@ -1,36 +1,33 @@
-# LedgerFlow Voice
+# LedgerFlow Voice (Android & Local-First)
 
-A browser-based personal accounting app focused on voice dictation for capturing expenses, income, and transfers.
+A private, offline-first personal accounting app with voice dictation for capturing expenses, income, and transfers.
 
-## Open
+## Features
 
-Open [index.html](C:\Users\Ali Reza\Documents\New project\index.html) in a modern browser.
+- **Voice-first transaction capture**: Powered by native Android speech recognition and Web Speech API.
+- **Local-First & Offline Architecture**: All data stored locally in **IndexedDB**; 100% private with zero cloud dependencies.
+- **App Lock & Security**: Optional **4-Digit PIN (PBKDF2-HMAC-SHA256)** + **Biometric Unlock** (Fingerprint / Face ID) with auto-lock timeouts and brute-force lockout protection.
+- **Lossless Full Backup & Restore**: One-click **ZIP export/restore** bundling transactions, accounts, categories, and all compressed receipt image attachments.
+- **Transaction Receipt Slips**: Capture and attach receipts stored directly in local storage.
+- **Reports & Visual Analytics**: Cashflow, categories, accounts, budgets, projects, and tag breakdowns.
+- **CSV Data Tools**: Import and export transactions, accounts, and categories with reconciliation for duplicates.
+- **Android Ready**: Packaged with Capacitor (`com.ledgerflow.voice`) with automated GitHub Actions CI/CD building downloadable APKs and Google Play-ready AABs.
 
-## Included
+## How to Run
 
-- Voice-first transaction capture with Web Speech API support
-- Manual add and edit flows for transactions, accounts, and categories
-- Income, expense, and transfer tracking across editable accounts
-- Categories with icons, subcategories, and weekly or monthly budget limits
-- Extended transaction search with filters
-- Reports for cashflow, categories, accounts, budgets, projects, and tags
-- CSV export and CSV import for transactions, accounts, and categories
-- Optional Supabase auth and cloud sync
+### Web (Browser)
+Open `index.html` in any modern web browser or serve via a local static server:
+```bash
+npx serve .
+```
 
-## Notes
+### Android Development
+```bash
+npm install
+npx cap sync android
+npx cap open android
+```
 
-- Data is cached locally in the browser with `localStorage`.
-- Voice dictation depends on browser speech recognition support and microphone permission.
-- To enable Supabase:
-  1. Run [schema.sql](C:\Users\Ali Reza\Documents\New project\supabase\schema.sql) in your Supabase SQL editor.
-  2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in [app.js](C:\Users\Ali Reza\Documents\New project\app.js).
-  3. In Supabase Dashboard -> Authentication -> URL Configuration:
-     - set `Site URL` to your GitHub Pages app URL
-     - add the same GitHub Pages app URL to `Redirect URLs`
-  4. In Supabase Dashboard -> Authentication -> Providers -> Email:
-     - enable Email provider
-     - keep email/password sign-in enabled
-  5. Reload the app and sign in or sign up from the lock screen.
-- When Supabase is configured, the app uses email/password auth and stores `accounts`, `categories`, and `transactions` in normalized Supabase tables.
-- `ledger_state` is kept only as a legacy migration source for older installs that already synced to the snapshot model.
-- The app automatically uses the current page URL as the email confirmation redirect, which works well for GitHub Pages as long as that deployed URL is added to Supabase redirect settings.
+## Automated Builds
+Pushes to `master` automatically trigger GitHub Actions to compile downloadable `.apk` artifacts.
+Tagging a release (e.g. `v1.0.0`) automatically publishes a GitHub Release with the APK and Google Play bundle attached.

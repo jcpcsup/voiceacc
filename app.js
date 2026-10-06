@@ -10,7 +10,18 @@ import { createReportsTools } from "./modules/reports-tools.js?v=20261005c";
 import { createRenderSharedTools } from "./modules/render-shared.js?v=20261005c";
 import { createSearchTools } from "./modules/search-tools.js?v=20261005c";
 import { createStateTools } from "./modules/state-tools.js?v=20261005c";
-import { createSupabaseTools } from "./modules/supabase-tools.js?v=20261005c";
+import { createBackupTools } from "./modules/backup-tools.js?v=20261006a";
+import { createSecurityTools } from "./modules/security-tools.js?v=20261006a";
+import { createVoiceTools } from "./modules/voice-tools.js?v=20261006a";
+import { initializeAndroidBridge } from "./modules/android-bridge.js?v=20261006a";
+import {
+  saveTransactionSlip,
+  resolveTransactionSlipUrl,
+  clearSlipUrlCache,
+  deleteTransactionSlip,
+  deleteTransactionSlips,
+  getSecuritySettings,
+} from "./modules/storage.js?v=20261006a";
 import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify, splitTags, titleCase, uid } from "./modules/utils.js?v=20261005c";
 
 (function () {
@@ -33,16 +44,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }).catch(() => {});
   }
 
-  // Fill these values to enable Supabase auth and cloud sync.
-  const SUPABASE_URL = "https://rcpilsxyrswwhjyaenxt.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjcGlsc3h5cnN3d2hqeWFlbnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMDc3MzEsImV4cCI6MjA4OTY4MzczMX0.kxQhwsH1InTmLCrKIhBw93pI2ALf_iVcTowqvR_zYco";
-  const SUPABASE_ACCOUNTS_TABLE = "accounts";
-  const SUPABASE_CATEGORIES_TABLE = "categories";
-  const SUPABASE_COUNTERPARTIES_TABLE = "counterparties";
-  const SUPABASE_LOOKUP_ENTRIES_TABLE = "lookup_entries";
-  const SUPABASE_TRANSACTIONS_TABLE = "transactions";
-  const SUPABASE_LEGACY_STATE_TABLE = "ledger_state";
-  const SUPABASE_TRANSACTION_SLIPS_BUCKET = "transaction-slips";
   const STORAGE_KEY = "ledgerflow-voice-v1";
   const TEMPLATE_STORAGE_KEY = `${STORAGE_KEY}-templates`;
   const BULK_EXPENSE_STORAGE_KEY = `${STORAGE_KEY}-bulk-expense-draft`;
@@ -51,22 +52,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const TRANSACTION_PAGE_SIZE_OPTIONS = [20, 50, 100];
   const TRANSACTION_VIEW_OPTIONS = ["cards", "table"];
   const VIEW_PREFS_STORAGE_KEY = `${STORAGE_KEY}-view-prefs`;
-  const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
-  const SUPABASE_AVAILABLE =
-    SUPABASE_CONFIGURED && typeof window.supabase?.createClient === "function";
   const toastEl = document.getElementById("toast");
   const defaultState = createDefaultState();
   const SCREEN_ORDER = ["overview", "transactions", "accounts", "reports", "more"];
   const initialNow = new Date();
-
-  const cloudState = {
-    client: null,
-    session: null,
-    authSubscription: null,
-    isSyncing: false,
-    pendingSync: false,
-    lastSyncedAt: "",
-  };
   const state = {
     accounts: [],
     counterparties: [],
@@ -152,15 +141,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   uiState = {
     screen: "overview",
     authView: "signin",
-    requiresLogin: true,
-    isAuthenticated: false,
+    requiresLogin: false,
+    isAuthenticated: true,
     currentUserId: "",
     currentUserEmail: "",
-    syncStatus: SUPABASE_CONFIGURED
-      ? SUPABASE_AVAILABLE
-        ? "Waiting for Supabase sign in."
-        : "Supabase client failed to load."
-      : "Local-only mode is active.",
+    syncStatus: "Local storage active.",
     globalSearch: "",
     calendarCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     filters: {
@@ -398,10 +383,10 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     todayIso,
     shiftIsoDate,
     showToast,
-    uploadTransactionSlip: (...args) => uploadTransactionSlip(...args),
+    uploadTransactionSlip: (...args) => saveTransactionSlip(...args),
     deleteTransactionSlip: (...args) => deleteTransactionSlip(...args),
-    resolveTransactionSlipPreviewUrl: (...args) => resolveTransactionSlipPreviewUrl(...args),
-    clearTransactionSlipPreviewCache: (...args) => clearTransactionSlipPreviewCache(...args),
+    resolveTransactionSlipPreviewUrl: (...args) => resolveTransactionSlipUrl(...args),
+    clearTransactionSlipPreviewCache: (...args) => clearSlipUrlCache(...args),
     persistAndRefresh,
   });
 
@@ -432,46 +417,38 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     renderEmpty,
   });
 
-  const {
-    initializeSupabase,
-    handleSupabaseSession,
-    syncStateToSupabase,
-    handleSignOut,
-    renderCloudStatus,
-    getAppRedirectUrl,
-    uploadTransactionSlip,
-    getTransactionSlipSignedUrl,
-    deleteTransactionSlip,
-    deleteTransactionSlips,
-  } = createSupabaseTools({
-    constants: {
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY,
-      SUPABASE_ACCOUNTS_TABLE,
-      SUPABASE_CATEGORIES_TABLE,
-      SUPABASE_COUNTERPARTIES_TABLE,
-      SUPABASE_LOOKUP_ENTRIES_TABLE,
-      SUPABASE_TRANSACTIONS_TABLE,
-      SUPABASE_LEGACY_STATE_TABLE,
-      SUPABASE_TRANSACTION_SLIPS_BUCKET,
-      SUPABASE_CONFIGURED,
-      SUPABASE_AVAILABLE,
-    },
-    cloudState,
+  const backupTools = createBackupTools({
     state,
-    uiState,
-    defaultState,
-    normalizeState,
-    loadLocalState,
-    getUserCacheKey,
-    persistState,
+    buildSerializableState,
     replaceState,
+    persistState,
     renderAll,
-    initializeLockScreen,
-    formatShortDateTime,
     showToast,
     todayIso,
-    ensureUniqueTransactionIds,
+  });
+
+  const securityTools = createSecurityTools({
+    showToast,
+    onUnlockSuccess: () => {
+      renderAll();
+    },
+  });
+
+  const voiceTools = createVoiceTools({
+    showToast,
+  });
+
+  initializeAndroidBridge({
+    switchScreen,
+    getCurrentScreen: () => uiState.screen,
+    closeTopModal: () => {
+      const activeModal = document.querySelector(".modal:not(.hidden)");
+      if (activeModal && activeModal.id) {
+        closeModal(activeModal.id);
+        return true;
+      }
+      return false;
+    },
   });
 
   wireStaticIcons();
@@ -483,8 +460,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   bindEvents();
   renderAll();
   syncTransactionFiltersPanel();
-  initializeLockScreen();
-  void initializeSupabase();
+  void securityTools.initializeSecurity();
 
   function bindEvents() {
     document.querySelectorAll("[data-screen-target]").forEach((button) => {
@@ -795,15 +771,22 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
     document.getElementById("global-search-input").addEventListener("focus", renderGlobalSearchResults);
     document.getElementById("global-search-input").addEventListener("keydown", handleGlobalSearchKeydown);
-    document.getElementById("lock-form").addEventListener("submit", handleLockSubmit);
-    document.getElementById("sync-now-button").addEventListener("click", () => {
-      void syncStateToSupabase(true);
+    document.getElementById("open-security-modal-btn")?.addEventListener("click", openSecurityConfigModal);
+    document.getElementById("security-save-settings-btn")?.addEventListener("click", handleSaveSecuritySettings);
+    document.getElementById("security-lock-enable-toggle")?.addEventListener("change", (e) => {
+      document.getElementById("security-pin-inputs-wrap")?.classList.toggle("hidden", !e.target.checked);
     });
-    document.getElementById("sign-out-button").addEventListener("click", () => {
-      void handleSignOut();
+    document.getElementById("export-full-backup-btn")?.addEventListener("click", () => {
+      void backupTools.exportFullBackupZip();
     });
-    document.querySelectorAll("[data-auth-mode]").forEach((button) => {
-      button.addEventListener("click", () => setAuthView(button.dataset.authMode || "signin"));
+    document.getElementById("import-full-backup-trigger-btn")?.addEventListener("click", () => {
+      document.getElementById("import-full-backup-input")?.click();
+    });
+    document.getElementById("import-full-backup-input")?.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        void backupTools.importFullBackupArchive(e.target.files[0]);
+        e.target.value = "";
+      }
     });
 
     const appShell = document.querySelector(".app-shell");
@@ -1573,33 +1556,16 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return repairedCount;
   }
 
-  async function resolveTransactionSlipPreviewUrl(path, forceRefresh = false) {
+  async function resolveTransactionSlipPreviewUrl(path) {
     const normalizedPath = String(path || "").trim();
     if (!normalizedPath) {
       return "";
     }
-    const cached = transactionSlipUrlCache.get(normalizedPath);
-    const now = Date.now();
-    if (!forceRefresh && cached && cached.expiresAt > now + 15000) {
-      return cached.url;
-    }
-    const signedUrl = await getTransactionSlipSignedUrl(normalizedPath);
-    if (!signedUrl) {
-      return "";
-    }
-    transactionSlipUrlCache.set(normalizedPath, {
-      url: signedUrl,
-      expiresAt: now + 55 * 60 * 1000,
-    });
-    return signedUrl;
+    return resolveTransactionSlipUrl(normalizedPath);
   }
 
   function clearTransactionSlipPreviewCache(path = "") {
-    const normalizedPath = String(path || "").trim();
-    if (!normalizedPath) {
-      return;
-    }
-    transactionSlipUrlCache.delete(normalizedPath);
+    clearSlipUrlCache(path);
   }
 
   async function hydrateTransactionSlipPreviews(root = document) {
@@ -2390,146 +2356,80 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     });
   }
 
-  function initializeLockScreen() {
-    const lockScreen = document.getElementById("lock-screen");
-    const title = document.getElementById("lock-title");
-    const modeLabel = document.getElementById("lock-mode-label");
-    const hint = document.getElementById("lock-hint");
-    const emailGroup = document.getElementById("lock-email-group");
-    const confirmGroup = document.getElementById("lock-confirm-group");
-    const toggle = document.getElementById("auth-mode-toggle");
-    const passwordInput = document.getElementById("lock-password");
-    const emailInput = document.getElementById("lock-email");
-    const confirmInput = document.getElementById("lock-password-confirm");
-    const submitButton = document.getElementById("lock-submit-button");
-    const error = document.getElementById("lock-error");
-    const status = document.getElementById("lock-status");
-
-    error.classList.add("hidden");
-    status.classList.add("hidden");
-
-    modeLabel.textContent = "Supabase Cloud";
-    title.textContent = "Sign in to LedgerFlow Voice";
-    hint.textContent = !SUPABASE_CONFIGURED
-      ? "Supabase credentials are required before anyone can sign in."
-      : !SUPABASE_AVAILABLE
-        ? "The Supabase client is unavailable right now. Reload after the browser client loads."
-        : uiState.authView === "signup"
-          ? "Create your email account to unlock cloud sync across devices."
-          : "Use your Supabase email and password to open your ledger.";
-    hint.classList.remove("hidden");
-    toggle.classList.remove("hidden");
-    emailGroup.classList.remove("hidden");
-    confirmGroup.classList.toggle("hidden", uiState.authView !== "signup");
-    emailInput.required = true;
-    passwordInput.required = true;
-    passwordInput.autocomplete = uiState.authView === "signup" ? "new-password" : "current-password";
-    confirmInput.required = uiState.authView === "signup";
-    submitButton.textContent = uiState.authView === "signup" ? "Create Account" : "Sign In";
-    const authReady = SUPABASE_AVAILABLE;
-    emailInput.disabled = !authReady;
-    passwordInput.disabled = !authReady;
-    confirmInput.disabled = !authReady;
-    submitButton.disabled = !authReady;
-    document.querySelectorAll("[data-auth-mode]").forEach((button) => {
-      button.disabled = !authReady;
-    });
-    updateAuthToggleButtons();
-
-    if (!uiState.requiresLogin) {
-      lockScreen.classList.add("hidden");
-      lockScreen.setAttribute("aria-hidden", "true");
-      document.body.classList.remove("app-locked");
-      return;
-    }
-    lockScreen.classList.remove("hidden");
-    lockScreen.setAttribute("aria-hidden", "false");
-    document.body.classList.add("app-locked");
-    if (authReady) {
-      emailInput.focus();
+  async function renderSecurityStatus() {
+    const titleEl = document.getElementById("security-lock-status-title");
+    const descEl = document.getElementById("security-lock-status-desc");
+    if (!titleEl) return;
+    const settings = await getSecuritySettings();
+    if (settings.isLockEnabled && settings.pinHash) {
+      titleEl.textContent = `PIN Lock: Enabled ${settings.biometricEnabled ? "(+ Biometrics)" : ""}`;
+      descEl.textContent = "Your accounting records are locked with a 4-digit PIN.";
+    } else {
+      titleEl.textContent = "PIN Lock: Disabled";
+      descEl.textContent = "Protect your accounting records with an optional 4-digit PIN and Biometric unlock.";
     }
   }
 
-  async function handleLockSubmit(event) {
-    event.preventDefault();
-    if (!uiState.requiresLogin) {
-      return;
-    }
-    const error = document.getElementById("lock-error");
-    const status = document.getElementById("lock-status");
-    const input = document.getElementById("lock-password");
-    error.classList.add("hidden");
-    status.classList.add("hidden");
+  async function openSecurityConfigModal() {
+    const settings = await getSecuritySettings();
+    const enableToggle = document.getElementById("security-lock-enable-toggle");
+    const bioToggle = document.getElementById("security-biometric-toggle");
+    const timeoutSelect = document.getElementById("security-autolock-select");
+    const pinWrap = document.getElementById("security-pin-inputs-wrap");
+    const newPinInput = document.getElementById("security-new-pin");
+    const confirmPinInput = document.getElementById("security-confirm-pin");
 
-    const email = document.getElementById("lock-email").value.trim();
-    const passwordConfirm = document.getElementById("lock-password-confirm").value;
-    if (!email) {
-      error.textContent = "Enter your email address.";
-      error.classList.remove("hidden");
-      document.getElementById("lock-email").focus();
+    if (enableToggle) enableToggle.checked = Boolean(settings.isLockEnabled && settings.pinHash);
+    if (bioToggle) bioToggle.checked = Boolean(settings.biometricEnabled);
+    if (timeoutSelect) timeoutSelect.value = String(settings.autoLockTimeoutSeconds || 0);
+    if (pinWrap) pinWrap.classList.toggle("hidden", !(settings.isLockEnabled && settings.pinHash));
+    if (newPinInput) newPinInput.value = "";
+    if (confirmPinInput) confirmPinInput.value = "";
+
+    openModal("security-modal");
+  }
+
+  async function handleSaveSecuritySettings() {
+    const enableToggle = document.getElementById("security-lock-enable-toggle");
+    const bioToggle = document.getElementById("security-biometric-toggle");
+    const timeoutSelect = document.getElementById("security-autolock-select");
+    const newPinInput = document.getElementById("security-new-pin");
+    const confirmPinInput = document.getElementById("security-confirm-pin");
+
+    const isEnabling = enableToggle?.checked;
+    const currentSettings = await getSecuritySettings();
+
+    if (!isEnabling) {
+      await securityTools.disableAppLock();
+      showToast("App Lock disabled.");
+      closeModal("security-modal");
+      void renderSecurityStatus();
       return;
     }
-    if (!input.value) {
-      error.textContent = "Enter your password.";
-      error.classList.remove("hidden");
-      input.focus();
-      return;
-    }
-    if (uiState.authView === "signup" && input.value !== passwordConfirm) {
-      error.textContent = "Passwords do not match.";
-      error.classList.remove("hidden");
-      document.getElementById("lock-password-confirm").focus();
-      return;
-    }
-    if (!cloudState.client) {
-      error.textContent = "Supabase client is not ready yet.";
-      error.classList.remove("hidden");
-      return;
-    }
-    submitAuthStatus("Working...");
-    try {
-      if (uiState.authView === "signup") {
-        const { data, error: signUpError } = await cloudState.client.auth.signUp({
-          email,
-          password: input.value,
-          options: {
-            emailRedirectTo: getAppRedirectUrl(),
-          },
-        });
-        if (signUpError) {
-          throw signUpError;
-        }
-        if (data.session) {
-          showToast("Supabase account created.");
-          clearLockInputs();
-          hideAuthStatus();
-          await handleSupabaseSession(data.session, false);
-          return;
-        }
-        submitAuthStatus("Check your email to confirm the account, then sign in.");
+
+    if (newPinInput && newPinInput.value) {
+      if (newPinInput.value !== confirmPinInput?.value) {
+        showToast("PIN confirmation does not match.");
         return;
       }
-
-      const { data, error: signInError } = await cloudState.client.auth.signInWithPassword({
-        email,
-        password: input.value,
-      });
-      if (signInError) {
-        throw signInError;
+      if (!/^\d{4}$/.test(newPinInput.value)) {
+        showToast("PIN must be exactly 4 digits.");
+        return;
       }
-      clearLockInputs();
-      hideAuthStatus();
-      showToast("Signed in.");
-      await handleSupabaseSession(data.session, false);
-      return;
-    } catch (authError) {
-      console.error(authError);
-      hideAuthStatus();
-      error.textContent = authError.message || "Unable to authenticate with Supabase.";
-      error.classList.remove("hidden");
-      input.select();
+      await securityTools.setupNewPin(newPinInput.value);
+    } else if (!currentSettings.pinHash) {
+      showToast("Enter a 4-digit PIN to enable lock.");
       return;
     }
+
+    await securityTools.updateSecurityConfig({
+      biometricEnabled: Boolean(bioToggle?.checked),
+      autoLockTimeoutSeconds: Number(timeoutSelect?.value || 0),
+    });
+
+    showToast("Security settings saved.");
+    closeModal("security-modal");
+    void renderSecurityStatus();
   }
 
   function handleTopBarMic() {
@@ -3151,9 +3051,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         persistBulkExpenseDraft();
         persistState();
         renderAll();
-        if (uiState.isAuthenticated) {
-          await syncStateToSupabase(false);
-        }
       }
       bulkExpenseActiveRowId = bulkExpenseRows[0]?.id || "";
       renderBulkExpenseRows();
@@ -3480,7 +3377,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     syncReportRangeNavigator();
     renderCalendarOverview();
     renderGlobalSearchResults();
-    renderCloudStatus();
+    void renderSecurityStatus();
   }
 
   function renderOverview() {
@@ -5019,7 +4916,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     openConfirmModal({
       eyebrow: "Reset",
       title: "Clear all transactions?",
-      message: "This will remove every transaction from your ledger and Supabase, but it will keep your accounts and categories.",
+      message: "This will remove every transaction from your local ledger, but it will keep your accounts and categories.",
       submitLabel: "Clear All",
       confirmationText: "CLEAR ALL TRANSACTIONS",
       onConfirm: () => {
@@ -5028,7 +4925,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         uiState.transactionPage = 1;
         clearFilters();
         persistAndRefresh();
-        slipPaths.forEach((path) => clearTransactionSlipPreviewCache(path));
+        slipPaths.forEach((path) => clearSlipUrlCache(path));
         if (slipPaths.length) {
           void deleteTransactionSlips(slipPaths).catch((error) => console.error(error));
         }
@@ -5125,16 +5022,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   function persistAndRefresh() {
     persistState();
     renderAll();
-    if (uiState.isAuthenticated) {
-      scheduleAutoSync();
-    }
-  }
-
-  function scheduleAutoSync() {
-    window.clearTimeout(autoSyncTimer);
-    autoSyncTimer = window.setTimeout(() => {
-      void syncStateToSupabase(true, "Synced ✓");
-    }, 1200);
   }
 
 

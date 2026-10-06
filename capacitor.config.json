@@ -1,0 +1,14 @@
+{
+  "appId": "com.ledgerflow.voice",
+  "appName": "LedgerFlow Voice",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0e131f"
+    }
+  }
+}

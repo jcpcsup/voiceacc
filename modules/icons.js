@@ -34,4 +34,8 @@ export const iconRegistry = {
   swap: svgIcon("M7 7h11l-3-3M17 17H6l3 3M18 7a5 5 0 0 1 0 10M6 17A5 5 0 0 1 6 7"),
   pen: svgIcon("M4 20h4l10.5-10.5-4-4L4 16v4z M13.5 6.5l4 4"),
   bin: svgIcon("M6 7h12M9 7V5h6v2M8 10v7M12 10v7M16 10v7M7 7l1 13h8l1-13"),
+  fingerprint: svgIcon("M12 2a10 10 0 0 0-10 10c0 3 1.5 6 3 8 M22 12a10 10 0 0 0-4-8 M12 6a6 6 0 0 0-6 6c0 4 2 8 4 10 M18 12a6 6 0 0 0-2-4.5 M12 10a2 2 0 0 0-2 2c0 3 1 6 2 8 M14 13a2 2 0 0 0 0-1"),
+  shield: svgIcon("M12 3s8 3 8 9c0 6-8 9-8 9s-8-3-8-9c0-6 8-9 8-9z"),
+  lock: svgIcon("M6 10h12v11H6z M9 10V6a3 3 0 0 1 6 0v4"),
+  unlock: svgIcon("M6 10h12v11H6z M9 10V6a3 3 0 0 1 6 0"),
 };
