@@ -48,9 +48,21 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const TEMPLATE_STORAGE_KEY = `${STORAGE_KEY}-templates`;
   const BULK_EXPENSE_STORAGE_KEY = `${STORAGE_KEY}-bulk-expense-draft`;
   const BULK_EXPENSE_BATCH_SIZE = 25;
+  const BULK_EXPENSE_FULLSCREEN_QUERY =
+    "(max-width: 720px), (max-height: 520px) and (orientation: landscape)";
   const TRANSACTIONS_PAGE_SIZE = 20;
   const TRANSACTION_PAGE_SIZE_OPTIONS = [20, 50, 100];
   const TRANSACTION_VIEW_OPTIONS = ["cards", "table"];
+  const TRANSACTION_TABLE_COLUMNS = [
+    { key: "date", label: "Date", sortable: true, className: "transaction-table-date" },
+    { key: "type", label: "Type", sortable: true },
+    { key: "account", label: "Account", sortable: true },
+    { key: "category", label: "Category", sortable: true },
+    { key: "payee", label: "Payee / Payer", sortable: true },
+    { key: "project", label: "Project", sortable: true },
+    { key: "amount", label: "Amount", sortable: true, className: "transaction-table-amount" },
+    { key: "actions", label: "Actions", sortable: false, className: "transaction-table-actions" },
+  ];
   const VIEW_PREFS_STORAGE_KEY = `${STORAGE_KEY}-view-prefs`;
   const toastEl = document.getElementById("toast");
   const defaultState = createDefaultState();
@@ -93,6 +105,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   let bulkExpenseActiveRowId = "";
   let bulkExpenseTapState = { rowId: "", at: 0 };
   let bulkExpenseIsSaving = false;
+  let bulkExpenseFullscreen = null;
   let autoSyncTimer = null;
 
   const { loadLocalState, normalizeState, replaceState, getUserCacheKey, persistState, buildSerializableState } = createStateTools({
@@ -2437,10 +2450,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("dictation-input").focus();
     toggleListening();
   }
-
-  const BULK_EXPENSE_FULLSCREEN_QUERY =
-    "(max-width: 720px), (max-height: 520px) and (orientation: landscape)";
-  let bulkExpenseFullscreen = null;
 
   function bulkExpenseFullscreenDefault() {
     return window.matchMedia(BULK_EXPENSE_FULLSCREEN_QUERY).matches;
@@ -5214,17 +5223,6 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     }
     return reference.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
-
-  const TRANSACTION_TABLE_COLUMNS = [
-    { key: "date", label: "Date", sortable: true, className: "transaction-table-date" },
-    { key: "type", label: "Type", sortable: true },
-    { key: "account", label: "Account", sortable: true },
-    { key: "category", label: "Category", sortable: true },
-    { key: "payee", label: "Payee / Payer", sortable: true },
-    { key: "project", label: "Project", sortable: true },
-    { key: "amount", label: "Amount", sortable: true, className: "transaction-table-amount" },
-    { key: "actions", label: "Actions", sortable: false, className: "transaction-table-actions" },
-  ];
 
   function transactionSortValue(transaction, column) {
     switch (column) {
