@@ -25,7 +25,11 @@ export function createModalTools(api) {
     normalizeDateInput,
     titleCase,
     escapeHtml,
+    escapeAttribute,
     escapeRegExp,
+    formatMoney,
+    getTransactionCurrencySymbol,
+    getPrimaryCurrencySymbol,
     calculateTransactionAmountFromDetails,
     syncTransactionCounterpartyAmountUi,
     todayIso,
@@ -37,6 +41,11 @@ export function createModalTools(api) {
     clearTransactionSlipPreviewCache,
     persistAndRefresh,
   } = api;
+
+  const formatMoneySafe = formatMoney || ((val, sym = "$") => `${sym}${Number(val || 0).toFixed(2)}`);
+  const getSymbolSafe = (tx) => (getTransactionCurrencySymbol ? getTransactionCurrencySymbol(tx) : "$");
+  const getBaseSymbolSafe = () => (getPrimaryCurrencySymbol ? getPrimaryCurrencySymbol() : "$");
+  const escapeAttrSafe = escapeAttribute || escapeHtml || ((s) => String(s || "").replace(/"/g, "&quot;"));
 
   const TRANSACTION_IMPORT_SOFT_LIMIT = 1000;
   const TRANSACTION_IMPORT_HARD_LIMIT = 5000;
@@ -885,7 +894,7 @@ export function createModalTools(api) {
       }
       if (target === "transactions") {
         const reconciliation = buildTransactionReconciliation(rows);
-        if (reconciliation.exactDuplicates.length || reconciliation.probableDuplicates.length) {
+        if (reconciliation.duplicates.length) {
           importReconciliationState = reconciliation;
           renderImportReconciliationModal();
           closeModal("import-modal");
@@ -1034,12 +1043,13 @@ export function createModalTools(api) {
     return false;
   }
 
-  function buildDuplicateExportRow(item, kind) {
-    const row = item.row || {};
+  function buildDuplicateExportRowFromPair(pair) {
+    const row = pair.right.row || {};
     return {
-      duplicateType: kind,
-      reason: item.reason || "",
-      matchTransactionId: item.matchId || "",
+      duplicateType: pair.matchType,
+      decision: pair.decision || "keep-left",
+      reason: pair.reason || "",
+      matchTransactionId: pair.left.display?.id || "",
       id: row.id || "",
       type: row.type || "",
       amount: row.amount || "",
@@ -1056,17 +1066,98 @@ export function createModalTools(api) {
     };
   }
 
+  function getCandidateDisplay(candidate) {
+    const row = candidate.row || {};
+    const type = candidate.type || "expense";
+    const amount = Number(candidate.amount || 0);
+    const accountLabel =
+      type === "transfer"
+        ? [row.fromAccountName || getAccount(candidate.fromAccountId)?.name || "", row.toAccountName || getAccount(candidate.toAccountId)?.name || ""]
+            .filter(Boolean)
+            .join(" → ") || "Transfer Accounts"
+        : row.accountName || getAccount(candidate.accountId)?.name || "Account";
+    const categoryLabel = row.categoryName || getCategory(candidate.categoryId)?.name || "-";
+    const subcategory = String(row.subcategory || "").trim();
+    const counterparty = String(row.payeeOrPayer || row.counterparty || "").trim();
+    const project = String(row.project || "").trim();
+    const tags = Array.isArray(row.tags) ? row.tags.join(", ") : String(row.tags || "").trim();
+    const details = String(row.details || "").trim();
+    const symbol = getBaseSymbolSafe();
+    const formattedAmount = formatMoneySafe(amount, symbol);
+
+    return {
+      id: candidate.id || "(Auto ID)",
+      date: candidate.date,
+      type: titleCase ? titleCase(type) : type,
+      rawType: type,
+      amount,
+      formattedAmount,
+      account: accountLabel,
+      category: categoryLabel,
+      subcategory: subcategory || "-",
+      counterparty: counterparty || "-",
+      project: project || "-",
+      tags: tags || "-",
+      details: details || "-",
+    };
+  }
+
+  function getTransactionDisplay(transaction) {
+    const type = transaction.type || "expense";
+    const amount = Number(transaction.amount || 0);
+    const accountLabel =
+      type === "transfer"
+        ? [getAccount(transaction.fromAccountId)?.name || "", getAccount(transaction.toAccountId)?.name || ""]
+            .filter(Boolean)
+            .join(" → ") || "Transfer Accounts"
+        : getAccount(transaction.accountId)?.name || "Account";
+    const category = getCategory(transaction.categoryId);
+    const categoryLabel = category?.name || "-";
+    const subcategory = String(transaction.subcategory || "").trim();
+    const counterparty = String(transaction.counterparty || "").trim();
+    const project = String(transaction.project || "").trim();
+    const tags = Array.isArray(transaction.tags) ? transaction.tags.join(", ") : String(transaction.tags || "").trim();
+    const details = String(transaction.details || "").trim();
+    const symbol = getSymbolSafe(transaction);
+    const formattedAmount = formatMoneySafe(amount, symbol);
+
+    return {
+      id: transaction.id || "",
+      date: transaction.date || todayIso(),
+      type: titleCase ? titleCase(type) : type,
+      rawType: type,
+      amount,
+      formattedAmount,
+      account: accountLabel,
+      category: categoryLabel,
+      subcategory: subcategory || "-",
+      counterparty: counterparty || "-",
+      project: project || "-",
+      tags: tags || "-",
+      details: details || "-",
+    };
+  }
+
   function buildTransactionReconciliation(rows) {
-    const existingProfiles = state.transactions.map(normalizeExistingTransactionProfile);
+    const existingProfiles = state.transactions.map((transaction) => {
+      const profile = normalizeExistingTransactionProfile(transaction);
+      profile.source = "ledger";
+      profile.transaction = transaction;
+      profile.display = getTransactionDisplay(transaction);
+      return profile;
+    });
+
     const seenIds = new Map(existingProfiles.filter((item) => item.id).map((item) => [item.id, item]));
     const seenFingerprints = new Map(existingProfiles.map((item) => [item.fingerprint, item]));
     const referenceProfiles = [...existingProfiles];
     const safeRows = [];
-    const exactDuplicates = [];
-    const probableDuplicates = [];
+    const duplicates = [];
 
     rows.forEach((row, index) => {
       const candidate = normalizeTransactionReconciliationCandidate(row, index);
+      candidate.source = "csv";
+      candidate.display = getCandidateDisplay(candidate);
+
       let exactMatch = null;
       if (candidate.id && seenIds.has(candidate.id)) {
         exactMatch = seenIds.get(candidate.id);
@@ -1074,24 +1165,61 @@ export function createModalTools(api) {
       if (!exactMatch && seenFingerprints.has(candidate.fingerprint)) {
         exactMatch = seenFingerprints.get(candidate.fingerprint);
       }
+
       if (exactMatch) {
-        exactDuplicates.push({
-          ...candidate,
-          matchId: exactMatch.id || "",
-          reason: candidate.id && candidate.id === exactMatch.id ? "Matching transaction ID already exists." : "Matching transaction fingerprint already exists.",
+        const pairId = `dup-${duplicates.length}`;
+        const reason = candidate.id && candidate.id === exactMatch.id
+          ? "Matching transaction ID already exists in records."
+          : "Matching transaction fingerprint (type, amount, date & details) already exists.";
+        duplicates.push({
+          id: pairId,
+          matchType: "exact",
+          reason,
+          decision: "keep-left",
+          left: {
+            source: exactMatch.source,
+            transaction: exactMatch.transaction || null,
+            row: exactMatch.row || null,
+            index: exactMatch.index ?? null,
+            display: exactMatch.display,
+          },
+          right: {
+            source: "csv",
+            row: candidate.row,
+            index: candidate.index,
+            display: candidate.display,
+          },
         });
       } else {
         const probableMatch = referenceProfiles.find((reference) => isProbableDuplicate(candidate, reference));
         if (probableMatch) {
-          probableDuplicates.push({
-            ...candidate,
-            matchId: probableMatch.id || "",
-            reason: "Same type, amount, and ledger context found within a +/-3 day window.",
+          const pairId = `dup-${duplicates.length}`;
+          const dayDiff = Math.abs(diffDays(candidate.date, probableMatch.date));
+          const reason = `Same type, amount, and account found within a ${dayDiff === 0 ? "same-day" : dayDiff + "-day"} window.`;
+          duplicates.push({
+            id: pairId,
+            matchType: "probable",
+            reason,
+            decision: "keep-left",
+            left: {
+              source: probableMatch.source,
+              transaction: probableMatch.transaction || null,
+              row: probableMatch.row || null,
+              index: probableMatch.index ?? null,
+              display: probableMatch.display,
+            },
+            right: {
+              source: "csv",
+              row: candidate.row,
+              index: candidate.index,
+              display: candidate.display,
+            },
           });
         } else {
           safeRows.push(row);
         }
       }
+
       if (candidate.id) {
         seenIds.set(candidate.id, candidate);
       }
@@ -1102,12 +1230,9 @@ export function createModalTools(api) {
     return {
       rows,
       safeRows,
-      exactDuplicates,
-      probableDuplicates,
-      duplicateCsvRows: [
-        ...exactDuplicates.map((item) => buildDuplicateExportRow(item, "exact")),
-        ...probableDuplicates.map((item) => buildDuplicateExportRow(item, "probable")),
-      ],
+      duplicates,
+      filter: "all",
+      duplicateCsvRows: duplicates.map((pair) => buildDuplicateExportRowFromPair(pair)),
     };
   }
 
@@ -1116,83 +1241,354 @@ export function createModalTools(api) {
     if (!stateSnapshot) {
       return;
     }
+    const exactCount = stateSnapshot.duplicates.filter((d) => d.matchType === "exact").length;
+    const probableCount = stateSnapshot.duplicates.filter((d) => d.matchType === "probable").length;
+
     document.getElementById("import-reconciliation-message").textContent =
-      `${stateSnapshot.safeRows.length} safe transaction rows are ready. ${stateSnapshot.exactDuplicates.length} exact and ${stateSnapshot.probableDuplicates.length} probable duplicates need a decision before import.`;
+      `${stateSnapshot.safeRows.length} safe new transaction rows ready to import. ${stateSnapshot.duplicates.length} duplicate pair${
+        stateSnapshot.duplicates.length === 1 ? "" : "s"
+      } flagged (${exactCount} exact, ${probableCount} probable). Compare each below and select your decision.`;
+
     document.getElementById("import-reconciliation-summary").innerHTML = [
-      renderReconciliationSummaryCard("CSV Rows", stateSnapshot.rows.length, "Rows parsed from the selected file"),
-      renderReconciliationSummaryCard("Safe New", stateSnapshot.safeRows.length, "Rows ready to import immediately"),
-      renderReconciliationSummaryCard(
-        "Flagged",
-        stateSnapshot.exactDuplicates.length + stateSnapshot.probableDuplicates.length,
-        "Potential duplicates requiring review"
-      ),
+      renderReconciliationSummaryCard("CSV Rows", stateSnapshot.rows.length, "Total rows in imported file"),
+      renderReconciliationSummaryCard("Safe New", stateSnapshot.safeRows.length, "Rows ready without conflicts"),
+      renderReconciliationSummaryCard("Flagged Duplicates", stateSnapshot.duplicates.length, `${exactCount} exact · ${probableCount} probable`),
     ].join("");
-    document.getElementById("import-reconciliation-exact-title").textContent = `${stateSnapshot.exactDuplicates.length} exact match${
-      stateSnapshot.exactDuplicates.length === 1 ? "" : "es"
-    }`;
-    document.getElementById("import-reconciliation-probable-title").textContent = `${stateSnapshot.probableDuplicates.length} probable match${
-      stateSnapshot.probableDuplicates.length === 1 ? "" : "es"
-    }`;
-    document.getElementById("import-reconciliation-exact-list").innerHTML = renderReconciliationList(
-      stateSnapshot.exactDuplicates,
-      "No exact duplicates were found."
-    );
-    document.getElementById("import-reconciliation-probable-list").innerHTML = renderReconciliationList(
-      stateSnapshot.probableDuplicates,
-      "No probable duplicates were found."
-    );
+
+    renderImportReconciliationFilterPills();
+    renderImportReconciliationPairsList();
+    updateReconciliationCounters();
   }
 
   function renderReconciliationSummaryCard(label, value, note) {
     return `
       <div class="reconciliation-summary-card">
-        <p class="eyebrow">${label}</p>
-        <strong>${value}</strong>
-        <span class="supporting-text">${note}</span>
+        <p class="eyebrow">${escapeHtml(label)}</p>
+        <strong>${escapeHtml(String(value))}</strong>
+        <span class="supporting-text">${escapeHtml(note)}</span>
       </div>
     `;
   }
 
-  function renderReconciliationList(items, emptyMessage) {
-    if (!items.length) {
-      return `<div class="empty-state compact-empty">${emptyMessage}</div>`;
-    }
-    return items
-      .slice(0, 18)
-      .map(
-        (item) => `
-          <article class="reconciliation-item">
-            <div class="reconciliation-item-head">
-              <strong>${escapeHtml(item.preview || "Imported row")}</strong>
-              <span class="meta-pill neutral">${escapeHtml(item.matchId ? `Match: ${item.matchId}` : "Review")}</span>
-            </div>
-            <p class="reconciliation-reason">${escapeHtml(item.reason || "")}</p>
-          </article>
-        `
-      )
-      .join("");
+  function renderImportReconciliationFilterPills() {
+    const pillsContainer = document.getElementById("reconciliation-filter-pills");
+    if (!pillsContainer || !importReconciliationState) return;
+
+    const currentFilter = importReconciliationState.filter || "all";
+    const totalCount = importReconciliationState.duplicates.length;
+    const exactCount = importReconciliationState.duplicates.filter((d) => d.matchType === "exact").length;
+    const probableCount = importReconciliationState.duplicates.filter((d) => d.matchType === "probable").length;
+
+    pillsContainer.innerHTML = `
+      <button class="reconciliation-filter-btn ${currentFilter === 'all' ? 'is-active' : ''}" type="button" data-action="set-filter" data-filter="all">
+        All Duplicates (${totalCount})
+      </button>
+      <button class="reconciliation-filter-btn ${currentFilter === 'exact' ? 'is-active' : ''}" type="button" data-action="set-filter" data-filter="exact">
+        Exact Matches (${exactCount})
+      </button>
+      <button class="reconciliation-filter-btn ${currentFilter === 'probable' ? 'is-active' : ''}" type="button" data-action="set-filter" data-filter="probable">
+        Probable Matches (${probableCount})
+      </button>
+    `;
   }
 
-  async function commitReconciledTransactionImport(rows, toastMessage, downloadDuplicates = false) {
-    if (!importReconciliationState) {
+  function renderImportReconciliationPairsList() {
+    const listContainer = document.getElementById("import-reconciliation-pairs-list");
+    if (!listContainer || !importReconciliationState) return;
+
+    const currentFilter = importReconciliationState.filter || "all";
+    const visiblePairs = importReconciliationState.duplicates.filter((pair) => {
+      if (currentFilter === "exact") return pair.matchType === "exact";
+      if (currentFilter === "probable") return pair.matchType === "probable";
+      return true;
+    });
+
+    if (!visiblePairs.length) {
+      listContainer.innerHTML = `<div class="empty-state compact-empty">No duplicates in this filter view.</div>`;
       return;
     }
-    const rowsToImport = Array.isArray(rows) ? rows : [];
-    setImportBusy(true);
-    setImportProgress(true, "Saving reconciled transactions...", 12);
-    try {
-      const importSummary = await importTransactionsInChunks(rowsToImport);
-      if (downloadDuplicates && importReconciliationState.duplicateCsvRows.length) {
-        downloadCsv("duplicate-transactions-found.csv", importReconciliationState.duplicateCsvRows, false);
+
+    listContainer.innerHTML = visiblePairs.map(renderReconciliationPairCard).join("");
+  }
+
+  function renderReconciliationPairCard(pair) {
+    const left = pair.left.display;
+    const right = pair.right.display;
+    const matchType = pair.matchType;
+    const decision = pair.decision || "keep-left";
+
+    const isLeftLedger = pair.left.source === "ledger";
+    const leftSourceLabel = isLeftLedger ? "Existing in Ledger" : `Prior in File (Row #${(pair.left.index ?? 0) + 1})`;
+    const rightSourceLabel = `Incoming from CSV (Row #${(pair.right.index ?? 0) + 1})`;
+
+    const fields = [
+      { key: "Date", l: left.date, r: right.date },
+      { key: "Type", l: left.type, r: right.type },
+      { key: "Amount", l: left.formattedAmount, r: right.formattedAmount, isAmount: true },
+      { key: "Account", l: left.account, r: right.account },
+      { key: "Category", l: left.category, r: right.category },
+      { key: "Subcategory", l: left.subcategory, r: right.subcategory },
+      { key: "Payee/Payer", l: left.counterparty, r: right.counterparty },
+      { key: "Project", l: left.project, r: right.project },
+      { key: "Tags", l: left.tags, r: right.tags },
+      { key: "Details", l: left.details, r: right.details },
+    ];
+
+    const leftFieldsHtml = fields
+      .map((f) => {
+        const isDiff = String(f.l).trim().toLowerCase() !== String(f.r).trim().toLowerCase();
+        return `
+          <div class="reconcile-field-row ${isDiff ? 'is-diff' : ''}">
+            <span class="reconcile-field-label">${escapeHtml(f.key)}</span>
+            <span class="reconcile-field-value ${f.isAmount ? 'amount-val' : ''}">${escapeHtml(f.l)}</span>
+          </div>`;
+      })
+      .join("");
+
+    const rightFieldsHtml = fields
+      .map((f) => {
+        const isDiff = String(f.l).trim().toLowerCase() !== String(f.r).trim().toLowerCase();
+        return `
+          <div class="reconcile-field-row ${isDiff ? 'is-diff' : ''}">
+            <span class="reconcile-field-label">${escapeHtml(f.key)}</span>
+            <span class="reconcile-field-value ${f.isAmount ? 'amount-val' : ''}">${escapeHtml(f.r)}</span>
+          </div>`;
+      })
+      .join("");
+
+    const leftColKept = decision === "keep-left" || decision === "keep-both";
+    const rightColKept = decision === "keep-right" || decision === "keep-both";
+
+    return `
+      <article class="reconciliation-pair-card decision-${escapeAttrSafe(decision)}" data-pair-id="${escapeAttrSafe(pair.id)}">
+        <div class="reconciliation-pair-head">
+          <div class="reconciliation-pair-meta">
+            <span class="meta-pill ${matchType === 'exact' ? 'danger' : 'warning'}">
+              ${matchType === 'exact' ? 'Exact Duplicate' : 'Probable Duplicate'}
+            </span>
+            <span class="reconciliation-pair-reason">${escapeHtml(pair.reason)}</span>
+          </div>
+          <div class="reconciliation-decision-control" role="group" aria-label="Reconciliation Decision for duplicate pair">
+            <button class="reconcile-btn ${decision === 'keep-left' ? 'is-active' : ''}" type="button" data-action="set-decision" data-decision="keep-left" data-pair-id="${escapeAttrSafe(pair.id)}" title="Keep existing ledger record, discard incoming duplicate">
+              <span class="btn-icon">◧</span> Keep Left
+            </button>
+            <button class="reconcile-btn ${decision === 'keep-right' ? 'is-active' : ''}" type="button" data-action="set-decision" data-decision="keep-right" data-pair-id="${escapeAttrSafe(pair.id)}" title="Overwrite existing ledger record with incoming CSV row">
+              <span class="btn-icon">◨</span> Keep Right
+            </button>
+            <button class="reconcile-btn ${decision === 'keep-both' ? 'is-active' : ''}" type="button" data-action="set-decision" data-decision="keep-both" data-pair-id="${escapeAttrSafe(pair.id)}" title="Import incoming row as a new record alongside existing">
+              <span class="btn-icon">◫</span> Keep Both
+            </button>
+            <button class="reconcile-btn danger-btn ${decision === 'reject-both' ? 'is-active' : ''}" type="button" data-action="set-decision" data-decision="reject-both" data-pair-id="${escapeAttrSafe(pair.id)}" title="Delete existing ledger record and discard incoming CSV row">
+              <span class="btn-icon">✕</span> Reject Both
+            </button>
+          </div>
+        </div>
+
+        <div class="reconciliation-columns">
+          <div class="reconciliation-col left-col ${leftColKept ? 'col-kept' : 'col-discarded'}">
+            <div class="reconciliation-col-banner">
+              <span class="col-role-badge left-badge">${escapeHtml(leftSourceLabel)}</span>
+              <span class="col-id-badge">${escapeHtml(left.id ? `ID: ${left.id}` : '')}</span>
+            </div>
+            <div class="reconcile-fields-table">
+              ${leftFieldsHtml}
+            </div>
+          </div>
+
+          <div class="reconciliation-col right-col ${rightColKept ? 'col-kept' : 'col-discarded'}">
+            <div class="reconciliation-col-banner">
+              <span class="col-role-badge right-badge">${escapeHtml(rightSourceLabel)}</span>
+              <span class="col-id-badge">${escapeHtml(right.id ? `ID: ${right.id}` : '')}</span>
+            </div>
+            <div class="reconcile-fields-table">
+              ${rightFieldsHtml}
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function updateReconciliationCounters() {
+    if (!importReconciliationState) return;
+    const { safeRows, duplicates } = importReconciliationState;
+    let keepLeft = 0;
+    let keepRight = 0;
+    let keepBoth = 0;
+    let rejectBoth = 0;
+    duplicates.forEach((d) => {
+      const dec = d.decision || "keep-left";
+      if (dec === "keep-right") keepRight += 1;
+      else if (dec === "keep-both") keepBoth += 1;
+      else if (dec === "reject-both") rejectBoth += 1;
+      else keepLeft += 1;
+    });
+
+    const totalToImport = safeRows.length + keepRight + keepBoth;
+    const statusBar = document.getElementById("reconciliation-status-bar");
+    if (statusBar) {
+      statusBar.innerHTML = `
+        <span>Safe New: <strong>${safeRows.length}</strong></span>
+        <span>·</span>
+        <span>Keep Left (Retain): <strong>${keepLeft}</strong></span>
+        <span>·</span>
+        <span>Keep Right (Overwrite): <strong>${keepRight}</strong></span>
+        <span>·</span>
+        <span>Keep Both (Add New): <strong>${keepBoth}</strong></span>
+        <span>·</span>
+        <span>Reject Both: <strong class="danger-text">${rejectBoth}</strong></span>
+      `;
+    }
+
+    const applyBtn = document.getElementById("reconciliation-apply-button");
+    if (applyBtn) {
+      applyBtn.textContent = `Apply Decisions & Import (${totalToImport} transactions)`;
+    }
+  }
+
+  function handleImportReconciliationSetDecision(pairId, decision) {
+    if (!importReconciliationState) return;
+    const pair = importReconciliationState.duplicates.find((item) => item.id === pairId);
+    if (!pair) return;
+    pair.decision = decision;
+
+    const cardEl = document.querySelector(`.reconciliation-pair-card[data-pair-id="${pairId}"]`);
+    if (cardEl) {
+      cardEl.className = `reconciliation-pair-card decision-${decision}`;
+      cardEl.querySelectorAll(".reconcile-btn").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.decision === decision);
+      });
+      const leftCol = cardEl.querySelector(".reconciliation-col.left-col");
+      const rightCol = cardEl.querySelector(".reconciliation-col.right-col");
+      if (leftCol && rightCol) {
+        const leftKept = decision === "keep-left" || decision === "keep-both";
+        const rightKept = decision === "keep-right" || decision === "keep-both";
+        leftCol.className = `reconciliation-col left-col ${leftKept ? "col-kept" : "col-discarded"}`;
+        rightCol.className = `reconciliation-col right-col ${rightKept ? "col-kept" : "col-discarded"}`;
       }
+    }
+    updateReconciliationCounters();
+  }
+
+  function handleImportReconciliationBatchSet(decision) {
+    if (!importReconciliationState) return;
+    const currentFilter = importReconciliationState.filter || "all";
+    importReconciliationState.duplicates.forEach((pair) => {
+      if (currentFilter === "all" || pair.matchType === currentFilter) {
+        pair.decision = decision;
+      }
+    });
+    renderImportReconciliationPairsList();
+    updateReconciliationCounters();
+  }
+
+  function handleImportReconciliationSetFilter(filter) {
+    if (!importReconciliationState) return;
+    importReconciliationState.filter = filter;
+    renderImportReconciliationFilterPills();
+    renderImportReconciliationPairsList();
+  }
+
+  function handleImportReconciliationDownloadDuplicates() {
+    if (!importReconciliationState || !importReconciliationState.duplicates?.length) {
+      showToast("No duplicate rows to download.");
+      return;
+    }
+    const rows = importReconciliationState.duplicates.map(buildDuplicateExportRowFromPair);
+    downloadCsv("duplicate-transactions-found.csv", rows, true);
+  }
+
+  async function handleImportReconciliationApply() {
+    if (!importReconciliationState) return;
+    const { safeRows, duplicates } = importReconciliationState;
+
+    setImportBusy(true);
+    setImportProgress(true, "Applying reconciliation decisions...", 8);
+
+    try {
+      let keptLeftCount = 0;
+      let keptRightCount = 0;
+      let keptBothCount = 0;
+      let rejectedBothCount = 0;
+
+      const rowsToImport = [...safeRows];
+      const txIdsToDelete = new Set();
+      const existingTxMap = new Map(state.transactions.map((tx) => [tx.id, tx]));
+      const excludedCsvRows = new Set();
+
+      duplicates.forEach((pair) => {
+        const decision = pair.decision || "keep-left";
+
+        if (decision === "keep-left") {
+          keptLeftCount += 1;
+          if (pair.left.source === "csv" && pair.left.row) {
+            rowsToImport.push(pair.left.row);
+          }
+          if (pair.right.row) {
+            excludedCsvRows.add(pair.right.row);
+          }
+        } else if (decision === "keep-right") {
+          keptRightCount += 1;
+          const incomingRow = { ...pair.right.row };
+          if (pair.left.source === "ledger" && pair.left.transaction?.id) {
+            incomingRow.id = pair.left.transaction.id;
+          }
+          rowsToImport.push(incomingRow);
+        } else if (decision === "keep-both") {
+          keptBothCount += 1;
+          if (pair.left.source === "csv" && pair.left.row) {
+            const leftRow = { ...pair.left.row };
+            if (!leftRow.id || existingTxMap.has(leftRow.id)) {
+              leftRow.id = uid("tx");
+            }
+            rowsToImport.push(leftRow);
+          }
+          const incomingRow = { ...pair.right.row };
+          if (!incomingRow.id || existingTxMap.has(incomingRow.id)) {
+            incomingRow.id = uid("tx");
+          }
+          rowsToImport.push(incomingRow);
+        } else if (decision === "reject-both") {
+          rejectedBothCount += 1;
+          if (pair.left.source === "ledger" && pair.left.transaction?.id) {
+            txIdsToDelete.add(pair.left.transaction.id);
+          }
+          if (pair.right.row) {
+            excludedCsvRows.add(pair.right.row);
+          }
+        }
+      });
+
+      const finalRowsToImport = rowsToImport.filter((r) => !excludedCsvRows.has(r));
+
+      if (txIdsToDelete.size > 0) {
+        state.transactions = state.transactions.filter((tx) => !txIdsToDelete.has(tx.id));
+        for (const id of txIdsToDelete) {
+          try {
+            deleteTransactionSlip(id);
+          } catch (_) {}
+        }
+      }
+
+      const importSummary = await importTransactionsInChunks(finalRowsToImport);
+
       persistAndRefresh();
       closeModal("import-reconciliation-modal");
-      showToast(
-        `${toastMessage} ${buildImportToast(rowsToImport.length, "transactions", importSummary)}${
-          downloadDuplicates && importReconciliationState.duplicateCsvRows.length ? " Duplicate rows CSV downloaded." : ""
-        }`
-      );
+
+      const parts = [
+        `${finalRowsToImport.length} transactions saved (${safeRows.length} safe new`,
+        keptRightCount ? `, ${keptRightCount} overwritten` : "",
+        keptBothCount ? `, ${keptBothCount} added as new` : "",
+        `)`,
+        keptLeftCount ? `. ${keptLeftCount} duplicate CSV rows ignored.` : "",
+        rejectedBothCount ? ` ${rejectedBothCount} existing records deleted.` : "",
+      ].filter(Boolean).join("");
+
+      showToast(`Reconciliation complete: ${parts}`);
       importReconciliationState = null;
+    } catch (err) {
+      console.error("Failed to commit reconciled import:", err);
+      showToast(`Reconciliation error: ${err.message || err}`);
     } finally {
       setImportBusy(false);
       setImportProgress(false, "", 0);
@@ -1200,28 +1596,22 @@ export function createModalTools(api) {
   }
 
   async function handleImportReconciliationImportAll() {
-    if (!importReconciliationState) {
-      return;
-    }
-    await commitReconciledTransactionImport(importReconciliationState.rows, "Imported all CSV rows after reconciliation.");
+    if (!importReconciliationState) return;
+    importReconciliationState.duplicates.forEach((d) => (d.decision = "keep-both"));
+    await handleImportReconciliationApply();
   }
 
   async function handleImportReconciliationImportSafeOnly() {
-    if (!importReconciliationState) {
-      return;
-    }
-    await commitReconciledTransactionImport(importReconciliationState.safeRows, "Imported only safe new rows.");
+    if (!importReconciliationState) return;
+    importReconciliationState.duplicates.forEach((d) => (d.decision = "keep-left"));
+    await handleImportReconciliationApply();
   }
 
   async function handleImportReconciliationSkipDuplicates() {
-    if (!importReconciliationState) {
-      return;
-    }
-    await commitReconciledTransactionImport(
-      importReconciliationState.safeRows,
-      "Skipped flagged duplicate rows.",
-      true
-    );
+    if (!importReconciliationState) return;
+    importReconciliationState.duplicates.forEach((d) => (d.decision = "keep-left"));
+    handleImportReconciliationDownloadDuplicates();
+    await handleImportReconciliationApply();
   }
 
   async function importTransactionsInChunks(rows) {
@@ -1998,6 +2388,11 @@ export function createModalTools(api) {
     handleCounterpartySubmit,
     handleCategorySubmit,
     handleImportSubmit,
+    handleImportReconciliationApply,
+    handleImportReconciliationSetDecision,
+    handleImportReconciliationBatchSet,
+    handleImportReconciliationSetFilter,
+    handleImportReconciliationDownloadDuplicates,
     handleImportReconciliationImportAll,
     handleImportReconciliationImportSafeOnly,
     handleImportReconciliationSkipDuplicates,

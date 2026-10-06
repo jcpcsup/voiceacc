@@ -1212,43 +1212,44 @@
 
     <div class="modal hidden" id="import-reconciliation-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal="import-reconciliation-modal"></div>
-      <div class="modal-card modal-card-wide">
+      <div class="modal-card modal-card-wide reconciliation-modal-card">
         <div class="modal-header">
           <div>
-            <p class="eyebrow">Import Review</p>
+            <p class="eyebrow">CSV Import Reconciliation</p>
             <h2>Reconciliation Required</h2>
           </div>
           <button class="icon-button" type="button" data-close-modal="import-reconciliation-modal" aria-label="Close">
-            X
+            ✕
           </button>
         </div>
         <p class="supporting-text" id="import-reconciliation-message">
-          Review likely duplicate transactions before saving anything to the ledger.
+          Duplicate transactions were detected. Compare existing ledger records with incoming CSV rows side-by-side and choose your decision for each pair.
         </p>
         <div class="reconciliation-summary-grid" id="import-reconciliation-summary"></div>
-        <div class="reconciliation-section">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Exact Duplicates</p>
-              <h4 id="import-reconciliation-exact-title">0 exact matches</h4>
-            </div>
+
+        <div class="reconciliation-toolbar">
+          <div class="reconciliation-filter-pills" id="reconciliation-filter-pills"></div>
+          <div class="reconciliation-batch-actions">
+            <span class="reconciliation-batch-label">Set all to:</span>
+            <button class="reconciliation-batch-btn" type="button" data-action="batch-decision" data-decision="keep-left" title="Keep existing ledger records (discard incoming duplicate CSV rows)">Keep Left</button>
+            <button class="reconciliation-batch-btn" type="button" data-action="batch-decision" data-decision="keep-right" title="Overwrite existing records with incoming CSV rows">Keep Right</button>
+            <button class="reconciliation-batch-btn" type="button" data-action="batch-decision" data-decision="keep-both" title="Import incoming rows as new transactions alongside existing">Keep Both</button>
+            <button class="reconciliation-batch-btn danger-batch" type="button" data-action="batch-decision" data-decision="reject-both" title="Delete existing ledger records and discard incoming CSV rows">Reject Both</button>
           </div>
-          <div class="reconciliation-list" id="import-reconciliation-exact-list"></div>
         </div>
-        <div class="reconciliation-section">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Probable Duplicates</p>
-              <h4 id="import-reconciliation-probable-title">0 probable matches</h4>
-            </div>
+
+        <div class="reconciliation-status-bar" id="reconciliation-status-bar"></div>
+
+        <div class="reconciliation-pairs-container" id="import-reconciliation-pairs-list"></div>
+
+        <div class="modal-actions reconciliation-actions">
+          <div class="modal-actions-left">
+            <button class="secondary-button" type="button" data-close-modal="import-reconciliation-modal">Cancel</button>
+            <button class="ghost-button" type="button" id="reconciliation-download-duplicates-button">Download Flagged CSV</button>
           </div>
-          <div class="reconciliation-list" id="import-reconciliation-probable-list"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="secondary-button" type="button" data-close-modal="import-reconciliation-modal">Cancel</button>
-          <button class="ghost-button" type="button" id="reconciliation-import-all-button">Import All</button>
-          <button class="ghost-button" type="button" id="reconciliation-import-safe-button">Import Safe Only</button>
-          <button class="primary-button" type="button" id="reconciliation-skip-duplicates-button">Skip Duplicates + Download CSV</button>
+          <div class="modal-actions-right">
+            <button class="primary-button" type="button" id="reconciliation-apply-button">Apply Decisions & Import</button>
+          </div>
         </div>
       </div>
     </div>

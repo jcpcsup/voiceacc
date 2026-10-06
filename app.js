@@ -350,6 +350,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     handleCounterpartySubmit,
     handleCategorySubmit,
     handleImportSubmit,
+    handleImportReconciliationApply,
+    handleImportReconciliationSetDecision,
+    handleImportReconciliationBatchSet,
+    handleImportReconciliationSetFilter,
+    handleImportReconciliationDownloadDuplicates,
     handleImportReconciliationImportAll,
     handleImportReconciliationImportSafeOnly,
     handleImportReconciliationSkipDuplicates,
@@ -390,7 +395,11 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     normalizeDateInput,
     titleCase,
     escapeHtml,
+    escapeAttribute,
     escapeRegExp,
+    formatMoney,
+    getTransactionCurrencySymbol,
+    getPrimaryCurrencySymbol,
     calculateTransactionAmountFromDetails,
     syncTransactionCounterpartyAmountUi,
     todayIso,
@@ -608,9 +617,28 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     document.getElementById("managed-value-merge-form")?.addEventListener("submit", handleManagedValueMergeSubmit);
     document.getElementById("managed-value-merge-button")?.addEventListener("click", handleManagedValueMergeButton);
     document.getElementById("import-form").addEventListener("submit", handleImportSubmit);
+    document.getElementById("reconciliation-apply-button")?.addEventListener("click", handleImportReconciliationApply);
+    document.getElementById("reconciliation-download-duplicates-button")?.addEventListener("click", handleImportReconciliationDownloadDuplicates);
     document.getElementById("reconciliation-import-all-button")?.addEventListener("click", handleImportReconciliationImportAll);
     document.getElementById("reconciliation-import-safe-button")?.addEventListener("click", handleImportReconciliationImportSafeOnly);
     document.getElementById("reconciliation-skip-duplicates-button")?.addEventListener("click", handleImportReconciliationSkipDuplicates);
+    document.getElementById("import-reconciliation-modal")?.addEventListener("click", (event) => {
+      const decisionBtn = event.target.closest("[data-action='set-decision']");
+      if (decisionBtn) {
+        handleImportReconciliationSetDecision(decisionBtn.dataset.pairId, decisionBtn.dataset.decision);
+        return;
+      }
+      const batchBtn = event.target.closest("[data-action='batch-decision']");
+      if (batchBtn) {
+        handleImportReconciliationBatchSet(batchBtn.dataset.decision);
+        return;
+      }
+      const filterBtn = event.target.closest("[data-action='set-filter']");
+      if (filterBtn) {
+        handleImportReconciliationSetFilter(filterBtn.dataset.filter);
+        return;
+      }
+    });
     document.getElementById("transaction-delete-button").addEventListener("click", handleTransactionModalDelete);
     document.getElementById("transaction-duplicate-button").addEventListener("click", handleTransactionModalDuplicate);
     document.getElementById("apply-transaction-template-button").addEventListener("click", applySelectedTransactionTemplate);
