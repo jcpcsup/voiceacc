@@ -2612,7 +2612,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       bulkExpenseRows = Array.isArray(parsed?.rows)
         ? parsed.rows.map(normalizeBulkExpenseRow).filter((row) => row.id)
         : [];
-      dateInput.value = normalizeDateInput(parsed?.date || "") || todayIso();
+      // Always default the header date to today on open, regardless of any
+      // date stored with an earlier draft.
+      dateInput.value = todayIso();
     } catch (error) {
       console.error(error);
       bulkExpenseRows = [];
