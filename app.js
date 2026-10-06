@@ -1,4 +1,4 @@
-﻿import { createDefaultState } from "./modules/default-state.js";
+import { createDefaultState } from "./modules/default-state.js";
 import { iconRegistry } from "./modules/icons.js";
 import { createCalendarTools } from "./modules/calendar-tools.js";
 import { createAccountsCategoriesTools } from "./modules/accounts-categories-tools.js";
@@ -3498,8 +3498,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     uiState.transactionPage = Math.min(Math.max(1, uiState.transactionPage || 1), totalPages);
     const startIndex = (uiState.transactionPage - 1) * pageSize;
     const visibleMatches = matches.slice(startIndex, startIndex + pageSize);
-    const isDesktopView = window.matchMedia("(min-width: 721px)").matches;
-    const effectiveView = isDesktopView ? uiState.transactionView : "cards";
+    const effectiveView = uiState.transactionView || "cards";
     document.getElementById("transaction-result-count").textContent = `${matches.length} matching transaction${
       matches.length === 1 ? "" : "s"
     }`;

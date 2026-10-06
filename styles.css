@@ -3004,6 +3004,10 @@ textarea:focus {
   margin-left: auto;
 }
 
+.results-bar-row {
+  display: contents;
+}
+
 .results-sort-wrap {
   min-width: 150px;
 }
@@ -5714,6 +5718,168 @@ input[data-bulk-smart-field][readonly] {
   }
 }
 
+@media (max-width: 720px) and (orientation: portrait) {
+  /* Expand Bulk Add Expenses and Add Transaction to full container width */
+  .screen[data-screen="transactions"] .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .screen[data-screen="transactions"] .section-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+  }
+
+  .screen[data-screen="transactions"] #bulk-add-expenses-button,
+  .screen[data-screen="transactions"] #add-transaction-button {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.88rem;
+    font-weight: 600;
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+
+  /* Center align "# matching transactions" */
+  #transaction-result-count {
+    text-align: center;
+    width: 100%;
+    margin: 0 0 10px 0;
+  }
+
+  /* Results bar actions in mobile portrait: 2 justified rows */
+  .results-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .results-bar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .results-bar-row.results-bar-row-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .results-bar-row.results-bar-row-filters {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+  }
+
+  /* Show Cards / Table view selector on mobile portrait */
+  .results-bar-row-controls .transaction-view-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 36px;
+    box-sizing: border-box;
+  }
+
+  .results-bar-row-controls .transaction-view-option {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 9px;
+    cursor: pointer;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background 160ms ease, color 160ms ease;
+  }
+
+  .results-bar-row-controls .transaction-view-option.active {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+    color: #ffffff;
+    box-shadow: 0 6px 14px rgba(18, 200, 164, 0.24);
+  }
+
+  /* Existing "< Page # of # > # / page" pagination justified to the right */
+  .results-bar-row-controls .transaction-pagination-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    height: 36px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+
+  .results-bar-row-controls .transaction-pagination-inline.hidden {
+    display: none;
+  }
+
+  .results-bar-row-controls #transaction-page-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .results-bar-row-controls .pagination-step-button {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+  }
+
+  .results-bar-row-controls .transaction-pagination-inline select {
+    height: 26px;
+    padding: 0 6px;
+    font-size: 0.76rem;
+  }
+
+  /* Row 2: Sort order dropdown & Clear Filters */
+  .results-bar-row-filters .results-sort-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .results-bar-row-filters .results-sort-wrap select {
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+  }
+
+  .results-bar-row-filters .results-bar-clear {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 36px;
+    text-align: center;
+    padding: 0 10px;
+  }
+}
+
 @media (max-height: 520px) and (orientation: landscape) {
   #bulk-expense-modal {
     padding: 0;
@@ -5724,7 +5890,7 @@ input[data-bulk-smart-field][readonly] {
     min-height: 100dvh;
     max-height: 100dvh;
     display: grid;
-    grid-template-columns: minmax(150px, max-content) 170px 34px minmax(220px, 1fr) 34px;
+    grid-template-columns: minmax(130px, max-content) minmax(130px, 160px) minmax(0, 1fr) 34px 34px;
     grid-template-rows: 42px minmax(0, 1fr);
     column-gap: 8px;
     border-radius: 0;
@@ -5735,7 +5901,7 @@ input[data-bulk-smart-field][readonly] {
     grid-column: 1 / -1;
     grid-row: 1;
     display: grid;
-    grid-template-columns: minmax(150px, max-content) 170px 34px minmax(220px, 1fr) 34px;
+    grid-template-columns: minmax(130px, max-content) minmax(130px, 160px) minmax(0, 1fr) 34px 34px;
     column-gap: 8px;
     align-items: center;
     min-height: 42px;
@@ -5784,8 +5950,8 @@ input[data-bulk-smart-field][readonly] {
     border-radius: 12px;
   }
 
-  .bulk-expense-header-controls .bulk-expense-fullscreen-button {
-    grid-column: 3;
+  .bulk-expense-header-controls .icon-button.bulk-expense-fullscreen-button {
+    grid-column: 4;
     grid-row: 1;
     justify-self: center;
   }
@@ -5836,7 +6002,7 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .bulk-expense-actions {
-    grid-column: 4;
+    grid-column: 3;
     grid-row: 1;
     z-index: 4;
     align-self: center;
@@ -5844,7 +6010,7 @@ input[data-bulk-smart-field][readonly] {
     flex-wrap: nowrap;
     gap: 6px;
     width: auto;
-    margin: 0 10px 0 0;
+    margin: 0;
     padding: 0;
     border-top: 0;
     background: transparent;
