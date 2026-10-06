@@ -250,8 +250,18 @@
               <div class="results-bar-actions">
                 <div class="transaction-view-switcher" id="transaction-view-switcher" role="group" aria-label="Transaction view">
                   <button class="transaction-view-option active" type="button" data-transaction-view="cards" aria-pressed="true" title="Card view">Cards</button>
-                  <button class="transaction-view-option" type="button" data-transaction-view="compact" aria-pressed="false" title="Compact view">Compact</button>
                   <button class="transaction-view-option" type="button" data-transaction-view="table" aria-pressed="false" title="Table view">Table</button>
+                </div>
+                <div class="transaction-pagination-inline hidden" id="transaction-pagination">
+                  <button class="pagination-step-button" type="button" id="transaction-page-prev-button" aria-label="Previous page">‹</button>
+                  <span id="transaction-page-label">Page 1 of 1</span>
+                  <button class="pagination-step-button" type="button" id="transaction-page-next-button" aria-label="Next page">›</button>
+                  <label class="field-label sr-only" for="transaction-page-size">Rows per page</label>
+                  <select id="transaction-page-size" aria-label="Rows per page">
+                    <option value="20">20 / page</option>
+                    <option value="50">50 / page</option>
+                    <option value="100">100 / page</option>
+                  </select>
                 </div>
                 <div class="results-sort-wrap">
                   <label class="field-label sr-only" for="filter-sort">Sort Order</label>
@@ -264,24 +274,11 @@
                     <option value="editedDesc">Edited Dsc</option>
                   </select>
                 </div>
-                <button class="ghost-button" type="button" id="clear-filters-button">Clear Filters</button>
+                <button class="ghost-button results-bar-clear" type="button" id="clear-filters-button">Clear Filters</button>
               </div>
             </div>
 
             <div class="transaction-list full-list" id="transaction-list"></div>
-            <div class="results-bar transaction-pagination hidden" id="transaction-pagination">
-              <button class="ghost-button" type="button" id="transaction-page-prev-button">Previous</button>
-              <p id="transaction-page-label">Page 1 of 1</p>
-              <button class="ghost-button" type="button" id="transaction-page-next-button">Next</button>
-              <div class="transaction-page-size-wrap">
-                <label class="field-label sr-only" for="transaction-page-size">Rows per page</label>
-                <select id="transaction-page-size" aria-label="Rows per page">
-                  <option value="20">20 / page</option>
-                  <option value="50">50 / page</option>
-                  <option value="100">100 / page</option>
-                </select>
-              </div>
-            </div>
           </section>
         </section>
 

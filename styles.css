@@ -1655,6 +1655,7 @@ textarea:focus {
 @media (min-width: 721px) {
   .transaction-view-switcher {
     display: inline-flex;
+    align-items: center;
     gap: 2px;
     padding: 3px;
     border-radius: 12px;
@@ -1686,84 +1687,128 @@ textarea:focus {
   box-shadow: 0 6px 14px rgba(18, 200, 164, 0.24);
 }
 
-/* ---- Compact list view ---- */
-.transaction-list.view-compact {
-  gap: 4px;
+/* ---- Results bar: compact uniform controls ---- */
+.results-bar-actions .transaction-view-switcher,
+.transaction-pagination-inline,
+.results-sort-wrap select,
+.results-bar-actions .results-bar-clear {
+  height: 36px;
+  box-sizing: border-box;
 }
 
-.transaction-compact-row {
-  display: grid;
-  grid-template-columns: 92px minmax(140px, 1fr) minmax(0, 1.4fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel-strong);
-  cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.transaction-compact-row:hover {
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
-  box-shadow: 0 8px 18px rgba(18, 59, 70, 0.07);
-}
-
-.transaction-compact-date {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.transaction-compact-category {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.results-sort-wrap {
   min-width: 0;
 }
 
-.transaction-compact-sub {
-  color: var(--muted);
+.results-sort-wrap select {
+  width: auto;
+  min-width: 128px;
+  padding: 0 30px 0 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+
+.results-bar-actions .results-bar-clear {
+  padding: 0 16px;
+  border-radius: 10px;
   font-size: 0.82rem;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.transaction-compact-meta {
-  color: var(--muted);
-  font-size: 0.84rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.transaction-compact-amount {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.transaction-compact-actions {
+.transaction-pagination-inline {
   display: inline-flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
 }
 
-.transaction-compact-actions .icon-button,
-.transaction-table-actions .icon-button {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  font-size: 0.9rem;
+.transaction-pagination-inline.hidden {
+  display: none;
 }
 
-/* ---- Table (spreadsheet) view ---- */
-.transaction-list.view-table {
-  display: block;
-  overflow-x: auto;
-  border-radius: 14px;
+#transaction-page-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination-step-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--panel-strong);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, opacity 140ms ease;
+}
+
+.pagination-step-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, white);
+}
+
+.pagination-step-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.transaction-pagination-inline select {
+  width: auto;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+/* ---- Table (spreadsheet) view: month groups ---- */
+.transaction-list.view-table {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: transparent;
+  border: 0;
+}
+
+.transaction-month-group {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  overflow: hidden;
+}
+
+.transaction-month-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, white);
+}
+
+.transaction-month-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.transaction-month-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.transaction-month-scroll {
+  overflow-x: auto;
 }
 
 .transaction-table {
@@ -1773,9 +1818,6 @@ textarea:focus {
 }
 
 .transaction-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   text-align: left;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
@@ -1785,6 +1827,32 @@ textarea:focus {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+}
+
+.transaction-table-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.transaction-table-sortable:hover {
+  color: var(--text);
+}
+
+.transaction-table-caret {
+  margin-left: 6px;
+  font-size: 0.7rem;
+  opacity: 0.45;
+}
+
+.transaction-table-sortable.sorted-asc .transaction-table-caret,
+.transaction-table-sortable.sorted-desc .transaction-table-caret {
+  opacity: 1;
+  color: var(--accent-strong);
+}
+
+.transaction-table th.transaction-table-amount,
+.transaction-table td.transaction-table-amount {
+  text-align: right;
 }
 
 .transaction-table tbody td {
@@ -1798,12 +1866,32 @@ textarea:focus {
   transition: background 140ms ease;
 }
 
-.transaction-table tbody tr:hover {
-  background: color-mix(in srgb, var(--accent) 6%, white);
-}
-
 .transaction-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.transaction-row-expense {
+  background: rgba(211, 83, 80, 0.07);
+}
+
+.transaction-row-income {
+  background: rgba(18, 159, 112, 0.07);
+}
+
+.transaction-row-transfer {
+  background: rgba(15, 142, 171, 0.07);
+}
+
+.transaction-row-expense:hover {
+  background: rgba(211, 83, 80, 0.15);
+}
+
+.transaction-row-income:hover {
+  background: rgba(18, 159, 112, 0.15);
+}
+
+.transaction-row-transfer:hover {
+  background: rgba(15, 142, 171, 0.15);
 }
 
 .transaction-table-date {
@@ -1813,7 +1901,6 @@ textarea:focus {
 }
 
 .transaction-table-amount {
-  text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1823,35 +1910,11 @@ textarea:focus {
   white-space: nowrap;
 }
 
-.transaction-type-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 7px;
-  vertical-align: middle;
-}
-
-.transaction-type-dot-expense {
-  background: #d35350;
-}
-
-.transaction-type-dot-income {
-  background: #129f70;
-}
-
-.transaction-type-dot-transfer {
-  background: #0f8eab;
-}
-
-.transaction-page-size-wrap {
-  margin-left: auto;
-}
-
-.transaction-page-size-wrap select {
-  padding: 7px 10px;
-  border-radius: 10px;
-  font-size: 0.82rem;
+.transaction-table-actions .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 0.9rem;
 }
 
 /* ---- Balance sheet summary (Assets & Liabilities) ---- */
@@ -2957,15 +3020,6 @@ textarea:focus {
   border: 0;
 }
 
-.transaction-pagination {
-  margin-top: 14px;
-}
-
-.transaction-pagination p {
-  margin: 0;
-  color: var(--muted);
-  font-weight: 700;
-}
 
 .metric-card {
   padding: 18px 20px;

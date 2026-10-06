@@ -32,7 +32,7 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
   const BULK_EXPENSE_BATCH_SIZE = 25;
   const TRANSACTIONS_PAGE_SIZE = 20;
   const TRANSACTION_PAGE_SIZE_OPTIONS = [20, 50, 100];
-  const TRANSACTION_VIEW_OPTIONS = ["cards", "compact", "table"];
+  const TRANSACTION_VIEW_OPTIONS = ["cards", "table"];
   const VIEW_PREFS_STORAGE_KEY = `${STORAGE_KEY}-view-prefs`;
   const SUPABASE_CONFIGURED = SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "";
   const SUPABASE_AVAILABLE =
@@ -3316,6 +3316,9 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
         openTransactionModal(id);
       }
     }
+    if (action === "sort-transaction-table") {
+      sortTransactionTableColumn(actionTarget.dataset.month, actionTarget.dataset.column);
+    }
     if (action === "delete-transaction") {
       deleteTransaction(id);
     }
@@ -5301,55 +5304,79 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
     return getAccount(transaction.accountId)?.name || "Unknown";
   }
 
-  function renderTransactionCompactRow(transaction) {
-    const category = getCategory(transaction.categoryId);
-    const symbol = getTransactionCurrencySymbol(transaction);
-    const counterpartyLabel = transaction.type === "income" ? "Payer" : "Payee";
-    const metaBits = [
-      getTransactionAccountLabel(transaction),
-      transaction.counterparty ? `${counterpartyLabel}: ${transaction.counterparty}` : "",
-      transaction.project || "",
-    ].filter(Boolean);
-    return `
-      <div class="transaction-compact-row ${escapeHtml(transaction.type)}" data-action="edit-transaction-card" data-id="${escapeHtml(
-        transaction.id
-      )}">
-        <span class="transaction-compact-date">${escapeHtml(transaction.date)}</span>
-        <span class="transaction-compact-category">
-          <span class="tag-pill transaction-theme-pill">${escapeHtml(category?.name || titleCase(transaction.type))}</span>
-          ${
-            transaction.subcategory
-              ? `<span class="transaction-compact-sub">› ${escapeHtml(transaction.subcategory)}</span>`
-              : ""
-          }
-        </span>
-        <span class="transaction-compact-meta">${metaBits.map((bit) => escapeHtml(bit)).join(" · ")}</span>
-        <strong class="money transaction-compact-amount transaction-amount-${escapeHtml(transaction.type)}">${formatMoney(
-          transaction.amount,
-          symbol
-        )}</strong>
-        <span class="transaction-compact-actions">
-          <button class="icon-button transaction-icon-action" type="button" data-action="edit-transaction" data-id="${escapeHtml(
-            transaction.id
-          )}" aria-label="Edit transaction">${iconRegistry.pen}</button>
-          <button class="icon-button transaction-icon-action delete" type="button" data-action="delete-transaction" data-id="${escapeHtml(
-            transaction.id
-          )}" aria-label="Delete transaction">${iconRegistry.bin}</button>
-        </span>
-      </div>`;
+  function getTransactionMonthLabel(monthKey) {
+    const reference = parseIsoDate(`${monthKey}-01`, 12);
+    if (Number.isNaN(reference.getTime())) {
+      return monthKey;
+    }
+    return reference.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  const TRANSACTION_TABLE_COLUMNS = [
+    { key: "date", label: "Date", sortable: true, className: "transaction-table-date" },
+    { key: "type", label: "Type", sortable: true },
+    { key: "account", label: "Account", sortable: true },
+    { key: "category", label: "Category", sortable: true },
+    { key: "payee", label: "Payee / Payer", sortable: true },
+    { key: "project", label: "Project", sortable: true },
+    { key: "amount", label: "Amount", sortable: true, className: "transaction-table-amount" },
+    { key: "actions", label: "Actions", sortable: false, className: "transaction-table-actions" },
+  ];
+
+  function transactionSortValue(transaction, column) {
+    switch (column) {
+      case "date":
+        return transaction.date || "";
+      case "type":
+        return transaction.type || "";
+      case "account":
+        return getTransactionAccountLabel(transaction).toLowerCase();
+      case "category":
+        return (getCategory(transaction.categoryId)?.name || transaction.type || "").toLowerCase();
+      case "payee":
+        return (transaction.counterparty || "").toLowerCase();
+      case "project":
+        return (transaction.project || "").toLowerCase();
+      case "amount":
+        return Number(transaction.amount || 0);
+      default:
+        return "";
+    }
+  }
+
+  function sortTransactionsForTable(rows, sortState) {
+    if (!sortState || !sortState.column) {
+      return rows;
+    }
+    const dir = sortState.direction === "asc" ? 1 : -1;
+    return rows
+      .map((row, index) => ({ row, index }))
+      .sort((a, b) => {
+        const av = transactionSortValue(a.row, sortState.column);
+        const bv = transactionSortValue(b.row, sortState.column);
+        let delta;
+        if (typeof av === "number" && typeof bv === "number") {
+          delta = av - bv;
+        } else {
+          delta = String(av).localeCompare(String(bv));
+        }
+        if (delta !== 0) {
+          return delta * dir;
+        }
+        return a.index - b.index;
+      })
+      .map((entry) => entry.row);
   }
 
   function renderTransactionTableRow(transaction) {
     const category = getCategory(transaction.categoryId);
     const symbol = getTransactionCurrencySymbol(transaction);
     return `
-      <tr class="transaction-table-row ${escapeHtml(transaction.type)}" data-action="edit-transaction-card" data-id="${escapeHtml(
+      <tr class="transaction-table-row transaction-row-${escapeHtml(transaction.type)}" data-action="edit-transaction-card" data-id="${escapeHtml(
         transaction.id
       )}">
         <td class="transaction-table-date">${escapeHtml(transaction.date)}</td>
-        <td><span class="transaction-type-dot transaction-type-dot-${escapeHtml(
-          transaction.type
-        )}"></span>${escapeHtml(titleCase(transaction.type))}</td>
+        <td>${escapeHtml(titleCase(transaction.type))}</td>
         <td>${escapeHtml(getTransactionAccountLabel(transaction))}</td>
         <td>${escapeHtml(category?.name || titleCase(transaction.type))}${
           transaction.subcategory ? ` › ${escapeHtml(transaction.subcategory)}` : ""
@@ -5371,29 +5398,73 @@ import { escapeAttribute, escapeHtml, escapeRegExp, normalizeDateInput, slugify,
       </tr>`;
   }
 
+  function renderTransactionMonthTable(monthKey, rows) {
+    const sortState = (uiState.transactionTableSort || {})[monthKey] || null;
+    const sortedRows = sortTransactionsForTable(rows, sortState);
+    const headerCells = TRANSACTION_TABLE_COLUMNS.map((column) => {
+      if (!column.sortable) {
+        return `<th scope="col" class="${column.className || ""}">${escapeHtml(column.label)}</th>`;
+      }
+      const isActive = sortState && sortState.column === column.key;
+      const direction = isActive ? sortState.direction : "";
+      const caret = isActive ? (direction === "asc" ? "▲" : "▼") : "⇅";
+      return `<th scope="col" class="transaction-table-sortable ${column.className || ""} ${
+        isActive ? `sorted-${direction}` : ""
+      }" data-action="sort-transaction-table" data-month="${escapeAttribute(monthKey)}" data-column="${escapeAttribute(
+        column.key
+      )}" aria-sort="${isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}">
+        <span class="transaction-table-th-label">${escapeHtml(column.label)}</span>
+        <span class="transaction-table-caret" aria-hidden="true">${caret}</span>
+      </th>`;
+    }).join("");
+    return `
+      <section class="transaction-month-group">
+        <div class="transaction-month-heading">
+          <span class="transaction-month-name">${escapeHtml(getTransactionMonthLabel(monthKey))}</span>
+          <span class="transaction-month-count">${rows.length} transaction${rows.length === 1 ? "" : "s"}</span>
+        </div>
+        <div class="transaction-month-scroll">
+          <table class="transaction-table">
+            <thead>
+              <tr>${headerCells}</tr>
+            </thead>
+            <tbody>${sortedRows.map(renderTransactionTableRow).join("")}</tbody>
+          </table>
+        </div>
+      </section>`;
+  }
+
   function renderTransactionListMarkup(visibleMatches, view) {
     if (view === "table") {
-      return `
-        <table class="transaction-table">
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Type</th>
-              <th scope="col">Account</th>
-              <th scope="col">Category</th>
-              <th scope="col">Payee / Payer</th>
-              <th scope="col">Project</th>
-              <th scope="col" class="transaction-table-amount">Amount</th>
-              <th scope="col" class="transaction-table-actions">Actions</th>
-            </tr>
-          </thead>
-          <tbody>${visibleMatches.map(renderTransactionTableRow).join("")}</tbody>
-        </table>`;
-    }
-    if (view === "compact") {
-      return visibleMatches.map(renderTransactionCompactRow).join("");
+      const groups = new Map();
+      visibleMatches.forEach((transaction) => {
+        const monthKey = String(transaction.date || "").slice(0, 7) || "unknown";
+        if (!groups.has(monthKey)) {
+          groups.set(monthKey, []);
+        }
+        groups.get(monthKey).push(transaction);
+      });
+      return Array.from(groups.entries())
+        .map(([monthKey, rows]) => renderTransactionMonthTable(monthKey, rows))
+        .join("");
     }
     return visibleMatches.map(renderTransactionItem).join("");
+  }
+
+  function sortTransactionTableColumn(monthKey, column) {
+    if (!monthKey || !column) {
+      return;
+    }
+    if (!uiState.transactionTableSort) {
+      uiState.transactionTableSort = {};
+    }
+    const current = uiState.transactionTableSort[monthKey];
+    let direction = "asc";
+    if (current && current.column === column) {
+      direction = current.direction === "asc" ? "desc" : "asc";
+    }
+    uiState.transactionTableSort[monthKey] = { column, direction };
+    renderTransactions();
   }
 
   function moveAccount(id, direction) {
