@@ -5881,15 +5881,15 @@ input[data-bulk-smart-field][readonly] {
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
-  /* Compact floating bottom bar in mobile landscape view only (50% or smaller of height and width) */
+  /* Compact floating bottom bar in mobile landscape view only (enlarged by 30% for standard aspect ratio) */
   .bottom-nav {
-    width: min(320px, calc(100vw - 20px));
+    width: min(416px, calc(100vw - 24px));
     height: auto;
-    bottom: 8px;
-    padding: 3px 5px;
-    gap: 3px;
-    border-radius: 16px;
-    box-shadow: 0 10px 24px rgba(9, 78, 91, 0.24);
+    bottom: 10px;
+    padding: 5px 7px;
+    gap: 4px;
+    border-radius: 20px;
+    box-shadow: 0 12px 28px rgba(9, 78, 91, 0.24);
   }
 
   .bottom-nav::after {
@@ -5897,19 +5897,19 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .nav-item {
-    gap: 2px;
-    padding: 3px 2px;
-    border-radius: 11px;
+    gap: 3px;
+    padding: 4px 4px;
+    border-radius: 14px;
     min-height: 0;
   }
 
   .bottom-nav .nav-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
   }
 
   .bottom-nav .nav-item span:last-child {
-    font-size: 0.58rem;
+    font-size: 0.72rem;
     font-weight: 600;
     line-height: 1;
     letter-spacing: -0.01em;
@@ -5917,11 +5917,11 @@ input[data-bulk-smart-field][readonly] {
   }
 
   .nav-item-active {
-    border-radius: 11px;
+    border-radius: 14px;
   }
 
   .app-shell {
-    padding-bottom: calc(52px + env(safe-area-inset-bottom));
+    padding-bottom: calc(66px + env(safe-area-inset-bottom));
   }
 
   #bulk-expense-modal {
